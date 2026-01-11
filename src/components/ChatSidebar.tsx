@@ -1,0 +1,355 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Plus, Bot, MessageCircle, User, Key, Trash2, Calendar, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import type { BotActivation, ChatItem } from "@/types/bot";
+
+interface ChatSidebarProps {
+  bots: BotActivation[];
+  chats: ChatItem[];
+  selectedBotId: string | null;
+  selectedChatId: number | null;
+  onSelectBot: (botId: string) => void;
+  onSelectChat: (chatId: number) => void;
+  onAddBot: () => void;
+  onDeleteBot: (botId: string) => void;
+  onBotUpdated: (bot: BotActivation) => void;
+  unreadChats: Set<number>;
+}
+
+export const ChatSidebar = ({
+  bots,
+  chats,
+  selectedBotId,
+  selectedChatId,
+  onSelectBot,
+  onSelectChat,
+  onAddBot,
+  onDeleteBot,
+  onBotUpdated,
+  unreadChats,
+}: ChatSidebarProps) => {
+  const { toast } = useToast();
+  const [bindingBotId, setBindingBotId] = useState<string | null>(null);
+  const [activationCode, setActivationCode] = useState("");
+  const [isBinding, setIsBinding] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetBinding = async () => {
+    if (!selectedBotId) {
+      toast({
+        title: "错误",
+        description: "请先选择一个机器人",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedBot = bots.find(b => b.id === selectedBotId);
+    if (!selectedBot) return;
+
+    setIsResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-bot', {
+        body: { 
+          action: 'reset-webhook',
+          botToken: selectedBot.bot_token,
+        }
+      });
+      
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      toast({
+        title: "重置成功",
+        description: "机器人Webhook已重新绑定到本系统",
+      });
+    } catch (error: any) {
+      toast({
+        title: "重置失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const filteredChats = selectedBotId 
+    ? chats.filter(chat => chat.botId === selectedBotId)
+    : chats;
+
+
+  const handleBindCode = async (botId: string) => {
+    if (!activationCode.trim()) {
+      toast({
+        title: "错误",
+        description: "请输入激活码",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBinding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-bot', {
+        body: { 
+          action: 'bind-code',
+          botId: botId,
+          code: activationCode.trim(),
+        }
+      });
+      
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      toast({
+        title: "绑定成功",
+        description: "激活码已成功绑定，机器人已激活",
+      });
+      setActivationCode("");
+      setBindingBotId(null);
+      
+      if (data.bot) {
+        onBotUpdated(data.bot);
+      }
+    } catch (error: any) {
+      toast({
+        title: "绑定失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsBinding(false);
+    }
+  };
+
+  const formatExpireDate = (expireAt: string | null) => {
+    if (!expireAt) return '永久';
+    const date = new Date(expireAt);
+    const now = new Date();
+    if (date < now) return '已过期';
+    return date.toLocaleDateString('zh-CN');
+  };
+
+
+  return (
+    <div className="w-full md:w-80 border-r md:border-b-0 border-b bg-muted/30 flex flex-col h-[450px]">
+      {/* 添加机器人和重置绑定按钮 */}
+      <div className="p-3 border-b">
+        <div className="flex gap-2">
+          <Button onClick={onAddBot} className="flex-1" size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            添加机器人
+          </Button>
+          <Button 
+            onClick={handleResetBinding} 
+            variant="outline"
+            className="flex-1" 
+            size="sm"
+            disabled={isResetting || !selectedBotId}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-1", isResetting && "animate-spin")} />
+            重置绑定
+          </Button>
+        </div>
+      </div>
+
+      {/* 机器人列表 */}
+      <div className="p-3 border-b">
+        <h3 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+          <Bot className="h-3 w-3" />
+          我的机器人
+        </h3>
+        <ScrollArea className="h-[180px]">
+          <div className="space-y-2">
+            {bots.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                暂无机器人，点击上方按钮添加
+              </p>
+            ) : (
+              bots.map((bot) => {
+                const hasUnreadInBot = chats.some(
+                  chat => chat.botId === bot.id && unreadChats.has(chat.chatId)
+                );
+                const isExpired = bot.expire_at && new Date(bot.expire_at) < new Date();
+                const trialExceeded = !bot.is_authorized && bot.trial_messages_used >= bot.trial_limit;
+                const needsActivation = !bot.is_authorized || isExpired;
+                const webDisabled = !bot.web_enabled;
+                
+                return (
+                  <div key={bot.id} className="space-y-1">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant={selectedBotId === bot.id ? "secondary" : "ghost"}
+                        size="sm"
+                        className={cn(
+                          "flex-1 justify-start text-xs h-8",
+                          hasUnreadInBot && bot.web_enabled && "animate-pulse ring-2 ring-primary"
+                        )}
+                        onClick={() => onSelectBot(bot.id)}
+                      >
+                        <Bot className="h-3 w-3 mr-1 shrink-0" />
+                        <span className="truncate text-[10px]">
+                          {bot.bot_token.split(':')[0]}...
+                        </span>
+                        {!bot.is_authorized && (
+                          <Badge variant="outline" className="ml-1 text-[8px] px-1 py-0">
+                            试用
+                          </Badge>
+                        )}
+                        {isExpired && (
+                          <Badge variant="destructive" className="ml-1 text-[8px] px-1 py-0">
+                            过期
+                          </Badge>
+                        )}
+                        {bot.is_active && !isExpired && !trialExceeded && bot.web_enabled && (
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full ml-1 shrink-0" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 shrink-0"
+                        onClick={() => onDeleteBot(bot.id)}
+                      >
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                    
+                    {/* 状态信息和续期按钮 */}
+                    <div className="text-[10px] text-muted-foreground px-2 flex items-center gap-2">
+                      <Calendar className="h-3 w-3" />
+                      <span className={isExpired ? 'text-destructive' : trialExceeded ? 'text-yellow-600' : ''}>
+                        {bot.is_authorized 
+                          ? `有效期: ${formatExpireDate(bot.expire_at)}` 
+                          : `试用: ${bot.trial_messages_used}/${bot.trial_limit}`}
+                      </span>
+                      {/* 有效期内的机器人显示续期按钮 */}
+                      {bot.is_authorized && !isExpired && bindingBotId !== bot.id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-5 text-[10px] px-2 py-0 ml-auto"
+                          onClick={() => setBindingBotId(bot.id)}
+                        >
+                          <Key className="h-2.5 w-2.5 mr-0.5" />
+                          续期
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {/* 绑定激活码输入框 - 适用于需要激活的机器人和续期 */}
+                    {(needsActivation || bindingBotId === bot.id) && (
+                      <div className="px-1">
+                        {bindingBotId === bot.id ? (
+                          <div className="flex gap-1">
+                            <Input
+                              placeholder="输入激活码"
+                              value={activationCode}
+                              onChange={(e) => setActivationCode(e.target.value)}
+                              className="h-6 text-xs flex-1"
+                            />
+                            <Button 
+                              size="sm" 
+                              className="h-6 text-xs px-2"
+                              onClick={() => handleBindCode(bot.id)}
+                              disabled={isBinding}
+                            >
+                              {isBinding ? '...' : '绑定'}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              className="h-6 text-xs px-2"
+                              onClick={() => {
+                                setBindingBotId(null);
+                                setActivationCode("");
+                              }}
+                            >
+                              取消
+                            </Button>
+                          </div>
+                        ) : needsActivation && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-6 text-xs"
+                            onClick={() => setBindingBotId(bot.id)}
+                          >
+                            <Key className="h-3 w-3 mr-1" />
+                            {isExpired ? '续期激活' : '绑定激活码'}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+            
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* 聊天列表 */}
+      <div className="flex flex-col min-h-0 flex-1">
+        <h3 className="text-xs font-semibold text-muted-foreground p-3 pb-2 flex items-center gap-1">
+          <MessageCircle className="h-3 w-3" />
+          聊天对话
+        </h3>
+        <ScrollArea className="flex-1">
+          <div className="p-2 pt-0 space-y-1">
+            {filteredChats.length === 0 ? (
+              <div className="text-center py-4">
+                <User className="h-6 w-6 mx-auto text-muted-foreground/50 mb-2" />
+                <p className="text-xs text-muted-foreground">
+                  {selectedBotId ? "等待用户发送消息..." : "请先选择一个机器人"}
+                </p>
+              </div>
+            ) : (
+              filteredChats.map((chat) => (
+                <Button
+                  key={`${chat.botId}-${chat.chatId}`}
+                  variant={selectedChatId === chat.chatId ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-start h-auto py-2 px-3",
+                    unreadChats.has(chat.chatId) && "animate-pulse ring-2 ring-primary"
+                  )}
+                  onClick={() => onSelectChat(chat.chatId)}
+                >
+                  <div className="flex flex-col items-start w-full min-w-0">
+                    <div className="flex items-center justify-between w-full">
+                      <span className="font-medium text-sm truncate">
+                        {chat.userName}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
+                        {chat.lastTime}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between w-full mt-0.5">
+                      <span className="text-xs text-muted-foreground truncate">
+                        {chat.lastMessage}
+                      </span>
+                      {unreadChats.has(chat.chatId) && (
+                        <span className="w-2 h-2 bg-red-500 rounded-full shrink-0 ml-2" />
+                      )}
+                    </div>
+                  </div>
+                </Button>
+              ))
+            )}
+            
+          </div>
+        </ScrollArea>
+      </div>
+    </div>
+  );
+};
+
+export default ChatSidebar;

@@ -1,0 +1,3560 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Send,
+  Settings,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Plus,
+  X,
+  Bot,
+  Zap,
+  Eye,
+  MessageSquare,
+  MoreVertical,
+  ArrowLeft,
+  Menu,
+  Check,
+  Trash2,
+  Layout,
+  LogOut,
+  Loader2,
+  List,
+  Save,
+  AlertCircle,
+  User,
+  RefreshCw,
+  Layers,
+  Globe,
+  MessageCircle,
+  Play,
+  Edit3,
+  AlertTriangle,
+  Hash,
+  Terminal,
+  Info,
+  ExternalLink,
+  Command,
+  Tag,
+  Download,
+  Upload,
+  FileJson,
+  Bug,
+  Activity,
+  Wifi,
+  WifiOff,
+  BarChart2,
+  Users,
+  Calendar,
+  ChevronLeft,
+  Folder,
+  Target,
+  SendHorizontal,
+  Radio,
+  Server,
+  MessageCircleQuestion,
+  Search,
+  RadioReceiver,
+  RotateCcw,
+  Copy,
+  EyeOff,
+  PlugZap,
+  Cloud,
+  CloudOff,
+  Smile,
+  Video, // 新增图标
+} from "lucide-react";
+import { Navbar } from "@/components/Navbar";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+// --- 版本控制 ---
+const APP_VERSION = "v3.32.0"; // 版本号更新
+
+// --- 类型定义 ---
+interface BotProfile {
+  id: number;
+  first_name: string;
+  username: string;
+  token: string;
+}
+
+interface InlineButton {
+  text: string;
+  type: "url" | "callback_data" | "web_app";
+  value: string;
+}
+
+interface ReplyButton {
+  text: string;
+  textEn?: string; // 英文文本
+  actionType: "text" | "navigate";
+  actionValue?: string;
+}
+
+interface MenuPage {
+  id: string;
+  name: string;
+  rows: ReplyButton[][];
+}
+
+interface BotCommand {
+  command: string;
+  description: string;
+}
+
+interface MessageData {
+  id: string;
+  label?: string;
+  // 修改：添加 video 类型
+  type: "text" | "photo" | "video";
+  content: string;
+  mediaUrl?: string;
+  inlineKeyboard?: InlineButton[][];
+  disableWebPagePreview?: boolean;
+}
+
+interface ChatMessage {
+  id: string;
+  sender: "user" | "bot";
+  content: string;
+  // 修改：添加 video 类型
+  type: "text" | "photo" | "video";
+  mediaUrl?: string;
+  timestamp: string;
+  inlineKeyboard?: InlineButton[][];
+}
+
+interface AutoReplyRule {
+  id: string;
+  triggerType: "keyword" | "command";
+  triggerValue: string;
+  replyMessages: MessageData[];
+}
+
+interface UserStat {
+  id: number;
+  first_name: string;
+  username?: string;
+  last_seen: number;
+  joined_at: number;
+}
+
+interface AppConfig {
+  version: string;
+  timestamp: number;
+  tokenInput: string;
+  targetChatId: string;
+  commands: BotCommand[];
+  menuPages: MenuPage[];
+  autoReplyRules: AutoReplyRule[];
+  flowMessages: MessageData[];
+  knownUsers: UserStat[];
+}
+
+// --- 工具函数 ---
+const getCurrentTime = () => {
+  const now = new Date();
+  return `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+};
+
+const uuid = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 15);
+};
+
+const escapeHtml = (unsafe: string) => {
+  if (!unsafe) return "";
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+// --- 根组件 ---
+export default function KeyboardMenu() {
+  useEffect(() => {
+    // 禁用键盘快捷键 (F12, Ctrl+Shift+I/J/C, Ctrl+U)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 禁用 F12
+      if (e.key === "F12" || e.keyCode === 123) {
+        e.preventDefault();
+        return false;
+      }
+
+      // 禁用 Ctrl+Shift+I (开发者工具), Ctrl+Shift+J (控制台), Ctrl+Shift+C (元素选择)
+      if (e.ctrlKey && e.shiftKey) {
+        const key = e.key.toLowerCase();
+        if (
+          key === 'i' || key === 'I' || e.keyCode === 73 ||
+          key === 'j' || key === 'J' || e.keyCode === 74 ||
+          key === 'c' || key === 'C' || e.keyCode === 67
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }
+
+      // 禁用 Ctrl+U (查看源代码)
+      if (e.ctrlKey && e.key.toLowerCase() === "u") {
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    // 禁用右键菜单 (但在输入框中允许，以便复制粘贴)
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // 检查点击目标是否为输入框、文本域或可编辑元素
+      const isEditable = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+
+      // 如果不是可编辑区域，则阻止右键菜单
+      if (!isEditable) {
+        e.preventDefault();
+        return false;
+      }
+      // 如果是可编辑区域，允许右键菜单（Copy/Paste）
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("contextmenu", handleContextMenu);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, []);
+  const [isConnected, setIsConnected] = useState(false);
+  const [botProfile, setBotProfile] = useState<BotProfile | null>(null);
+
+  const [tokenInput, setTokenInput] = useState("");
+  const [userIdInput, setUserIdInput] = useState("");
+  const [targetChatId, setTargetChatId] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [useProxy, setUseProxy] = useState(false);
+  const [autoReplyRules, setAutoReplyRules] = useState<AutoReplyRule[]>([]);
+
+  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [webhookInfo, setWebhookInfo] = useState<any>(null);
+  const [knownUsers, setKnownUsers] = useState<UserStat[]>([]);
+
+  const [menuPages, setMenuPages] = useState<MenuPage[]>([
+    {
+      id: "main",
+      name: "主菜单 (Main)",
+      rows: [
+        [
+          { text: "产品列表", actionType: "navigate", actionValue: "products" },
+          { text: "联系客服", actionType: "text" },
+        ],
+      ],
+    },
+    {
+      id: "products",
+      name: "产品列表 (Sub)",
+      rows: [
+        [
+          { text: "软件产品", actionType: "text" },
+          { text: "硬件产品", actionType: "text" },
+        ],
+        [{ text: "🔙 返回上级", actionType: "navigate", actionValue: "main" }],
+      ],
+    },
+  ]);
+
+  const [commands, setCommands] = useState<BotCommand[]>([
+    { command: "start", description: "开始使用" },
+    { command: "help", description: "获取帮助" },
+  ]);
+
+  const showToast = (type: "success" | "error" | "info", message: string) => {
+    if (type === "success") toast.success(message);
+    else if (type === "error") toast.error(message);
+    else toast.info(message);
+  };
+
+  const callTelegramApi = async (
+    token: string,
+    method: string,
+    body: any,
+    signal?: AbortSignal,
+    proxy: boolean = true,
+  ) => {
+    const baseUrl = `https://api.telegram.org/bot${token}/${method}?t=${Date.now()}`;
+    const url = proxy ? `https://corsproxy.io/?${encodeURIComponent(baseUrl)}` : baseUrl;
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: signal,
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.description || "API Request Failed");
+      return data.result;
+    } catch (error: any) {
+      if (error.message && error.message.includes("Failed to fetch")) {
+        throw new Error("网络请求失败 (CORS)。请确保已开启'代理模式'或检查网络。");
+      }
+      throw error;
+    }
+  };
+
+  // --- 持久化 & 自动重连逻辑 ---
+  const getStorageKey = (key: string, token?: string) => {
+    const t = token || tokenInput;
+    if (!t) return `keyboard_menu_${key}`;
+    const tokenSuffix = t.slice(-8);
+    return `keyboard_menu_${key}_${tokenSuffix}`;
+  };
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem("keyboard_menu_token");
+    const savedUser = savedToken ? localStorage.getItem(getStorageKey("userid", savedToken)) : null;
+
+    if (savedToken) {
+      setTokenInput(savedToken);
+      handleConnect(savedToken, savedUser || "");
+    }
+    if (savedUser) {
+      setUserIdInput(savedUser);
+      setTargetChatId(savedUser);
+    }
+    if (savedToken) {
+      const savedUsers = localStorage.getItem(getStorageKey("users", savedToken));
+      if (savedUsers) {
+        try {
+          setKnownUsers(JSON.parse(savedUsers));
+        } catch (e) {}
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tokenInput) {
+      localStorage.setItem("keyboard_menu_token", tokenInput);
+      if (userIdInput) localStorage.setItem(getStorageKey("userid", tokenInput), userIdInput);
+    }
+  }, [tokenInput, userIdInput]);
+
+  useEffect(() => {
+    if (knownUsers.length > 0 && tokenInput) {
+      localStorage.setItem(getStorageKey("users", tokenInput), JSON.stringify(knownUsers));
+    }
+  }, [knownUsers, tokenInput]);
+
+  const checkWebhookStatus = async (token: string) => {
+    try {
+      const info = await callTelegramApi(token, "getWebhookInfo", {}, undefined, useProxy);
+      setWebhookInfo(info);
+      if (info && info.url) {
+        localStorage.setItem("keyboard_menu_saved_webhook", info.url);
+      }
+      return info;
+    } catch (e) {
+      console.error("Check webhook failed", e);
+      return null;
+    }
+  };
+
+  const handleConnect = async (tokenOverride?: string, userOverride?: string) => {
+    const token = tokenOverride || tokenInput;
+    if (!token.trim()) return;
+    setLoading(true);
+    try {
+      const profile = await callTelegramApi(token, "getMe", {}, undefined, useProxy);
+      setBotProfile({ ...profile, token: token });
+      const userId = userOverride || userIdInput;
+      if (userId.trim()) setTargetChatId(userId.trim());
+
+      setIsConnected(true);
+      checkWebhookStatus(token);
+
+      if (!tokenOverride) showToast("success", `已连接: ${profile.first_name}`);
+    } catch (err: any) {
+      if (!tokenOverride) showToast("error", "连接失败: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsConnected(false);
+    setIsMonitoring(false);
+    setBotProfile(null);
+    setTokenInput("");
+    setUserIdInput("");
+    setTargetChatId("");
+    setWebhookInfo(null);
+    localStorage.removeItem("keyboard_menu_token");
+    localStorage.removeItem("keyboard_menu_userid");
+    showToast("info", "已断开连接并清除本地缓存");
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <Workspace
+        isConnected={isConnected}
+        botProfile={botProfile}
+        tokenInput={tokenInput}
+        setTokenInput={setTokenInput}
+        userIdInput={userIdInput}
+        setUserIdInput={setUserIdInput}
+        targetChatId={targetChatId}
+        setTargetChatId={setTargetChatId}
+        loading={loading}
+        onConnect={() => handleConnect()}
+        onLogout={handleLogout}
+        useProxy={useProxy}
+        setUseProxy={setUseProxy}
+        autoReplyRules={autoReplyRules}
+        setAutoReplyRules={setAutoReplyRules}
+        showToast={showToast}
+        callApi={(method: string, body: any) =>
+          callTelegramApi(botProfile?.token || tokenInput, method, body, undefined, useProxy)
+        }
+        isMonitoring={isMonitoring}
+        setIsMonitoring={setIsMonitoring}
+        knownUsers={knownUsers}
+        setKnownUsers={setKnownUsers}
+        webhookInfo={webhookInfo}
+        refreshWebhook={() => checkWebhookStatus(botProfile?.token || tokenInput)}
+        menuPages={menuPages}
+        setMenuPages={setMenuPages}
+        commands={commands}
+        setCommands={setCommands}
+      />
+    </div>
+  );
+}
+
+// --- Sidebar Item ---
+function SidebarItem({ icon, label, active, onClick, notification }: any) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+    >
+      {icon}
+      <span>{label}</span>
+      {notification && <span className="absolute right-3 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>}
+    </button>
+  );
+}
+
+// --- 主工作区 ---
+function Workspace({
+  isConnected,
+  botProfile,
+  tokenInput,
+  setTokenInput,
+  userIdInput,
+  setUserIdInput,
+  targetChatId,
+  setTargetChatId,
+  loading,
+  onConnect,
+  onLogout,
+  useProxy,
+  setUseProxy,
+  autoReplyRules,
+  setAutoReplyRules,
+  showToast,
+  callApi,
+  isMonitoring,
+  setIsMonitoring,
+  knownUsers,
+  setKnownUsers,
+  webhookInfo,
+  refreshWebhook,
+  menuPages,
+  setMenuPages,
+  commands,
+  setCommands,
+}: any) {
+  const [activeTab, setActiveTab] = useState<"message" | "keyboard" | "commands" | "settings" | "users">("settings");
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+
+  const [flowMessages, setFlowMessages] = useState<MessageData[]>([
+    { id: uuid(), label: "/start", type: "text", content: "", inlineKeyboard: [], disableWebPagePreview: false },
+  ]);
+  const [activeFlowMsgId, setActiveFlowMsgId] = useState<string>(flowMessages[0].id);
+  const [restorableWebhook, setRestorableWebhook] = useState<string | null>(null);
+  const [isSyncingToCloud, setIsSyncingToCloud] = useState(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<"idle" | "synced" | "error">("idle");
+  const [forceMenuOnStart, setForceMenuOnStart] = useState(false);
+  const [activityLogEnabled, setActivityLogEnabled] = useState(true);
+  const [bilingualButtonEnabled, setBilingualButtonEnabled] = useState(false);
+  const [autoCleanupEnabled, setAutoCleanupEnabled] = useState(false);
+  const [autoCleanupDays, setAutoCleanupDays] = useState(0);
+
+  // 键盘菜单试用状态
+  const [keyboardTrialExpired, setKeyboardTrialExpired] = useState(false);
+  const [keyboardTrialChecked, setKeyboardTrialChecked] = useState(false);
+  
+  // 保存过期前的开关状态，用于激活后恢复
+  const savedSettingsRef = useRef<{ activityLogEnabled: boolean; bilingualButtonEnabled: boolean } | null>(null);
+
+  // 检查键盘菜单试用状态 - 从 keyboard_configs 表独立获取
+  const checkKeyboardTrialStatus = async (token: string) => {
+    try {
+      // 从 keyboard_configs 表获取独立的试用/激活状态
+      const { data: keyboardConfig } = await supabase
+        .from("keyboard_configs")
+        .select("keyboard_trial_started_at, keyboard_expire_at, activity_log_enabled, bilingual_button_enabled")
+        .eq("bot_token", token)
+        .maybeSingle();
+
+      const now = new Date();
+      let isExpired = false;
+
+      // 检查是否有激活有效期
+      if (keyboardConfig?.keyboard_expire_at) {
+        const keyboardExpireAt = new Date(keyboardConfig.keyboard_expire_at);
+        if (keyboardExpireAt > now) {
+          // 有效期内 - 检查是否需要恢复设置
+          if (savedSettingsRef.current) {
+            setActivityLogEnabled(savedSettingsRef.current.activityLogEnabled);
+            setBilingualButtonEnabled(savedSettingsRef.current.bilingualButtonEnabled);
+            savedSettingsRef.current = null;
+          }
+          setKeyboardTrialExpired(false);
+          setKeyboardTrialChecked(true);
+          return;
+        } else {
+          isExpired = true;
+        }
+      }
+
+      // 检查试用状态
+      if (!isExpired && keyboardConfig?.keyboard_trial_started_at) {
+        const firstUsedAt = new Date(keyboardConfig.keyboard_trial_started_at);
+        const trialExpireAt = new Date(firstUsedAt.getTime() + 24 * 60 * 60 * 1000); // 24小时
+        if (now > trialExpireAt) {
+          isExpired = true;
+        } else {
+          setKeyboardTrialExpired(false);
+          setKeyboardTrialChecked(true);
+          return;
+        }
+      }
+
+      // 已过期 - 保存当前设置并自动关闭开关
+      if (isExpired) {
+        // 只保存一次，避免覆盖
+        if (!savedSettingsRef.current) {
+          savedSettingsRef.current = {
+            activityLogEnabled: keyboardConfig?.activity_log_enabled ?? activityLogEnabled,
+            bilingualButtonEnabled: keyboardConfig?.bilingual_button_enabled ?? bilingualButtonEnabled,
+          };
+        }
+        // 自动关闭活动记录和双语按钮
+        setActivityLogEnabled(false);
+        setBilingualButtonEnabled(false);
+        setKeyboardTrialExpired(true);
+        setKeyboardTrialChecked(true);
+        return;
+      }
+
+      // 没有任何记录时，创建试用记录
+      const nowIso = new Date().toISOString();
+      await supabase.from("keyboard_configs").upsert(
+        {
+          bot_token: token,
+          keyboard_trial_started_at: nowIso,
+          updated_at: nowIso,
+        } as any,
+        { onConflict: "bot_token" },
+      );
+      setKeyboardTrialExpired(false);
+      setKeyboardTrialChecked(true);
+    } catch (error) {
+      console.error("Check keyboard trial status failed:", error);
+      setKeyboardTrialChecked(true);
+    }
+  };
+
+  const handleActivationStatusChange = () => {
+    if (botProfile?.token) {
+      checkKeyboardTrialStatus(botProfile.token);
+    }
+  };
+
+  useEffect(() => {
+    if (isConnected && botProfile?.token) {
+      checkKeyboardTrialStatus(botProfile.token);
+    } else {
+      setKeyboardTrialChecked(false);
+      setKeyboardTrialExpired(false);
+    }
+  }, [isConnected, botProfile?.token]);
+
+  const showTrialExpiredToast = () => {
+    showToast("error", "菜单键盘试用已过期，请激活续费后继续使用");
+  };
+
+  const lastPersistedActivityLogRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!botProfile?.token) return;
+    if (lastPersistedActivityLogRef.current === activityLogEnabled) return;
+
+    lastPersistedActivityLogRef.current = activityLogEnabled;
+
+    (async () => {
+      try {
+        const { error } = await supabase.from("keyboard_configs").upsert(
+          {
+            bot_token: botProfile.token,
+            bot_username: botProfile.username,
+            bot_first_name: botProfile.first_name,
+            activity_log_enabled: activityLogEnabled,
+            updated_at: new Date().toISOString(),
+          } as any,
+          { onConflict: "bot_token" },
+        );
+
+        if (error) throw error;
+        setCloudSyncStatus("synced");
+      } catch (e) {
+        console.error("Auto-save activity_log_enabled failed:", e);
+        setCloudSyncStatus("error");
+      }
+    })();
+  }, [activityLogEnabled, botProfile?.token]);
+
+  const isInitialLoadRef = useRef(true);
+  const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const syncConfigToCloudSilent = async () => {
+    if (!botProfile?.token) return;
+
+    try {
+      const menuAdminId = targetChatId ? parseInt(targetChatId) || null : null;
+
+      const { data: existing } = await supabase
+        .from("keyboard_configs")
+        .select("id")
+        .eq("bot_token", botProfile.token)
+        .maybeSingle();
+
+      const configPayload = {
+        bot_token: botProfile.token,
+        bot_username: botProfile.username,
+        bot_first_name: botProfile.first_name,
+        reply_keyboard: menuPages as any,
+        auto_reply_rules: autoReplyRules as any,
+        flow_messages: flowMessages as any,
+        commands: commands as any,
+        force_menu_on_start: forceMenuOnStart,
+        activity_log_enabled: activityLogEnabled,
+        bilingual_button_enabled: bilingualButtonEnabled,
+        auto_cleanup_enabled: autoCleanupEnabled,
+        auto_cleanup_days: autoCleanupDays,
+        menu_admin_chat_id: menuAdminId,
+        updated_at: new Date().toISOString(),
+      };
+
+      let error;
+      if (existing) {
+        const result = await supabase
+          .from("keyboard_configs")
+          .update(configPayload as any)
+          .eq("bot_token", botProfile.token);
+        error = result.error;
+      } else {
+        const result = await supabase.from("keyboard_configs").insert(configPayload as any);
+        error = result.error;
+      }
+
+      if (error) throw error;
+      setCloudSyncStatus("synced");
+      console.log("[AutoSync] Configuration synced to cloud successfully");
+    } catch (error: any) {
+      console.error("[AutoSync] Sync failed:", error);
+      setCloudSyncStatus("error");
+    }
+  };
+
+  useEffect(() => {
+    if (isInitialLoadRef.current) return;
+    if (!botProfile?.token) return;
+
+    if (autoSyncTimeoutRef.current) {
+      clearTimeout(autoSyncTimeoutRef.current);
+    }
+
+    autoSyncTimeoutRef.current = setTimeout(() => {
+      syncConfigToCloudSilent();
+    }, 500);
+
+    return () => {
+      if (autoSyncTimeoutRef.current) {
+        clearTimeout(autoSyncTimeoutRef.current);
+      }
+    };
+  }, [
+    menuPages,
+    autoReplyRules,
+    flowMessages,
+    commands,
+    forceMenuOnStart,
+    activityLogEnabled,
+    bilingualButtonEnabled,
+    autoCleanupEnabled,
+    autoCleanupDays,
+    targetChatId,
+    botProfile?.token,
+  ]);
+
+  const syncConfigToCloud = async () => {
+    if (!botProfile?.token) {
+      showToast("error", "请先连接机器人");
+      return;
+    }
+
+    setIsSyncingToCloud(true);
+    try {
+      const menuAdminId = targetChatId ? parseInt(targetChatId) || null : null;
+
+      const { data: existing } = await supabase
+        .from("keyboard_configs")
+        .select("id")
+        .eq("bot_token", botProfile.token)
+        .maybeSingle();
+
+      const configPayload = {
+        bot_token: botProfile.token,
+        bot_username: botProfile.username,
+        bot_first_name: botProfile.first_name,
+        reply_keyboard: menuPages as any,
+        auto_reply_rules: autoReplyRules as any,
+        flow_messages: flowMessages as any,
+        commands: commands as any,
+        force_menu_on_start: forceMenuOnStart,
+        activity_log_enabled: activityLogEnabled,
+        bilingual_button_enabled: bilingualButtonEnabled,
+        auto_cleanup_enabled: autoCleanupEnabled,
+        auto_cleanup_days: autoCleanupDays,
+        menu_admin_chat_id: menuAdminId,
+        updated_at: new Date().toISOString(),
+      };
+
+      let error;
+      if (existing) {
+        const result = await supabase
+          .from("keyboard_configs")
+          .update(configPayload as any)
+          .eq("bot_token", botProfile.token);
+        error = result.error;
+      } else {
+        const result = await supabase.from("keyboard_configs").insert(configPayload as any);
+        error = result.error;
+      }
+
+      if (error) throw error;
+
+      setCloudSyncStatus("synced");
+      showToast("success", "配置已同步到云端，关闭网页后菜单键盘仍可运行");
+    } catch (error: any) {
+      console.error("Sync to cloud failed:", error);
+      setCloudSyncStatus("error");
+      showToast("error", "同步失败: " + error.message);
+    } finally {
+      setIsSyncingToCloud(false);
+    }
+  };
+
+  const loadConfigFromCloud = async (token: string) => {
+    isInitialLoadRef.current = true;
+
+    try {
+      const { data, error } = await supabase.from("keyboard_configs").select("*").eq("bot_token", token).maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        if (data.reply_keyboard) setMenuPages(data.reply_keyboard as any);
+        if (data.auto_reply_rules) setAutoReplyRules(data.auto_reply_rules as any);
+        if (data.flow_messages) {
+          setFlowMessages(data.flow_messages as any);
+          setActiveFlowMsgId((data.flow_messages as any)[0]?.id);
+        }
+        if (data.commands) setCommands(data.commands as any);
+        if (data.force_menu_on_start !== null) setForceMenuOnStart(data.force_menu_on_start);
+        if (data.activity_log_enabled !== null && data.activity_log_enabled !== undefined)
+          setActivityLogEnabled(data.activity_log_enabled);
+        if (data.bilingual_button_enabled !== null && data.bilingual_button_enabled !== undefined)
+          setBilingualButtonEnabled(data.bilingual_button_enabled);
+        if ((data as any).auto_cleanup_enabled !== null && (data as any).auto_cleanup_enabled !== undefined)
+          setAutoCleanupEnabled((data as any).auto_cleanup_enabled);
+        if ((data as any).auto_cleanup_days !== null && (data as any).auto_cleanup_days !== undefined)
+          setAutoCleanupDays((data as any).auto_cleanup_days);
+        setCloudSyncStatus("synced");
+        showToast("success", "已从云端加载配置");
+      }
+
+      setTimeout(() => {
+        isInitialLoadRef.current = false;
+      }, 1000);
+    } catch (error: any) {
+      console.error("Load from cloud failed:", error);
+      setTimeout(() => {
+        isInitialLoadRef.current = false;
+      }, 1000);
+    }
+  };
+
+  useEffect(() => {
+    if (isConnected && botProfile?.token) {
+      loadConfigFromCloud(botProfile.token);
+    }
+  }, [isConnected, botProfile?.token]);
+
+  const handleToggleMonitoring = async () => {
+    if (isMonitoring) {
+      setIsMonitoring(false);
+      const urlToRestore = restorableWebhook || localStorage.getItem("keyboard_menu_saved_webhook");
+      if (urlToRestore) {
+        try {
+          await callApi("setWebhook", { url: urlToRestore });
+          showToast("success", `已自动恢复 Webhook 连接`);
+          refreshWebhook();
+        } catch (e: any) {
+          showToast("error", `恢复 Webhook 失败: ${e.message}`);
+        }
+        setRestorableWebhook(null);
+      } else {
+        showToast("info", "监听已关闭。");
+        refreshWebhook();
+      }
+    } else {
+      try {
+        const info = await callApi("getWebhookInfo", {});
+        if (info && info.url) {
+          setRestorableWebhook(info.url);
+          localStorage.setItem("keyboard_menu_saved_webhook", info.url);
+          await callApi("deleteWebhook", { drop_pending_updates: true });
+          showToast("success", "已备份原 Webhook 并开启监听");
+        } else {
+          const cached = localStorage.getItem("keyboard_menu_saved_webhook");
+          if (cached) {
+            setRestorableWebhook(cached);
+            showToast("success", "安全监听已开启 (已加载历史备份)");
+          } else {
+            showToast("success", "安全监听已开启");
+          }
+          await callApi("deleteWebhook", { drop_pending_updates: true });
+        }
+        setIsMonitoring(true);
+        refreshWebhook();
+      } catch (e: any) {
+        showToast("error", `开启失败: ${e.message}`);
+        setIsMonitoring(false);
+      }
+    }
+  };
+
+  const rulesRef = useRef(autoReplyRules);
+  useEffect(() => {
+    rulesRef.current = autoReplyRules;
+  }, [autoReplyRules]);
+
+  const menuPagesRef = useRef(menuPages);
+  useEffect(() => {
+    menuPagesRef.current = menuPages;
+  }, [menuPages]);
+
+  const offsetRef = useRef(0);
+  const monitorIntervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (isConnected && isMonitoring) {
+      const poll = async () => {
+        try {
+          const updates = await callApi("getUpdates", {
+            offset: offsetRef.current,
+            timeout: 2,
+            limit: 10,
+            allowed_updates: ["message", "callback_query"],
+          });
+
+          if (updates && Array.isArray(updates)) {
+            updates.forEach(async (u: any) => {
+              offsetRef.current = u.update_id + 1;
+
+              const msg = u.message || u.callback_query?.message;
+              const from = u.message?.from || u.callback_query?.from;
+              const text = u.message?.text || u.callback_query?.data;
+              const chatId = u.message?.chat?.id || u.callback_query?.message?.chat?.id;
+
+              if (from) {
+                setKnownUsers((prev: UserStat[]) => {
+                  const exists = prev.find((user) => user.id === from.id);
+                  const now = Date.now();
+                  if (exists) {
+                    return prev.map((user) =>
+                      user.id === from.id
+                        ? { ...user, last_seen: now, first_name: from.first_name, username: from.username }
+                        : user,
+                    );
+                  } else {
+                    return [
+                      ...prev,
+                      {
+                        id: from.id,
+                        first_name: from.first_name,
+                        username: from.username,
+                        last_seen: now,
+                        joined_at: now,
+                      },
+                    ];
+                  }
+                });
+              }
+
+              if (text && chatId) {
+                setChatHistory((prev) => [
+                  ...prev,
+                  {
+                    id: uuid(),
+                    sender: "user",
+                    type: "text",
+                    content: `[${from?.first_name}] ${text}`,
+                    timestamp: getCurrentTime(),
+                  },
+                ]);
+
+                const textNorm = text.trim().toLowerCase();
+                let responseHandled = false;
+
+                // Menu Navigation
+                if (!responseHandled) {
+                  for (const page of menuPagesRef.current) {
+                    for (const row of page.rows) {
+                      for (const btn of row) {
+                        if (btn.text.toLowerCase() === textNorm && btn.actionType === "navigate" && btn.actionValue) {
+                          const targetPage = menuPagesRef.current.find((p: MenuPage) => p.id === btn.actionValue);
+                          if (targetPage) {
+                            try {
+                              await callApi("sendMessage", {
+                                chat_id: chatId,
+                                text: `📂 切换菜单: ${targetPage.name}`,
+                                reply_markup: {
+                                  keyboard: targetPage.rows.map((r: ReplyButton[]) =>
+                                    r.map((b: ReplyButton) => ({ text: b.text })),
+                                  ),
+                                  resize_keyboard: true,
+                                  one_time_keyboard: false,
+                                },
+                              });
+                              responseHandled = true;
+                              showToast("success", `已为用户切换至: ${targetPage.name}`);
+                            } catch (e) {
+                              console.error("Navigation failed", e);
+                            }
+                          }
+                        }
+                        if (responseHandled) break;
+                      }
+                      if (responseHandled) break;
+                    }
+                    if (responseHandled) break;
+                  }
+                }
+
+                // Auto Reply
+                if (!responseHandled) {
+                  const matchedRule = rulesRef.current.find((r: AutoReplyRule) => {
+                    const ruleVal = r.triggerValue.toLowerCase();
+                    const cleanText = textNorm.replace(/^\//, "");
+                    const cleanRule = ruleVal.replace(/^\//, "");
+                    return cleanText === cleanRule;
+                  });
+
+                  if (matchedRule) {
+                    for (const reply of matchedRule.replyMessages) {
+                      const body: any = { chat_id: chatId, parse_mode: "HTML" };
+                      if (reply.disableWebPagePreview) body.disable_web_page_preview = true;
+                      if (reply.inlineKeyboard && reply.inlineKeyboard.length > 0) {
+                        body.reply_markup = {
+                          inline_keyboard: reply.inlineKeyboard.map((row: InlineButton[]) =>
+                            row.map((btn: InlineButton) => ({ text: btn.text, [btn.type]: btn.value })),
+                          ),
+                        };
+                      }
+                      try {
+                        if (reply.type === "photo") {
+                          body.photo = reply.mediaUrl;
+                          body.caption = reply.content;
+                          await callApi("sendPhoto", body);
+                        } else if (reply.type === "video") {
+                          // 修改：添加视频发送支持
+                          body.video = reply.mediaUrl;
+                          body.caption = reply.content;
+                          await callApi("sendVideo", body);
+                        } else {
+                          body.text = reply.content;
+                          await callApi("sendMessage", body);
+                        }
+                        responseHandled = true;
+                      } catch (e) {
+                        console.error("Auto-reply failed", e);
+                      }
+                    }
+                  }
+                }
+
+                // Forward to admin
+                if (targetChatId) {
+                  const safeText = escapeHtml(text);
+                  const safeName = escapeHtml(from?.first_name || "Unknown");
+                  callApi("sendMessage", {
+                    chat_id: targetChatId,
+                    text: `🔔 <b>用户活动捕获</b>\n\n👤 用户: ${safeName} (ID: ${from?.id})\n💬 内容: ${safeText}\n${responseHandled ? "✅ 已自动处理" : "⚠️ 未匹配规则"}`,
+                    parse_mode: "HTML",
+                    reply_markup: { inline_keyboard: [[{ text: `💬 发起私聊`, url: `tg://user?id=${from?.id}` }]] },
+                  }).catch(() => {});
+                }
+              }
+            });
+          }
+        } catch (err: any) {
+          if (err.message && (err.message.includes("409") || err.message.includes("Conflict"))) {
+            try {
+              callApi("deleteWebhook", { drop_pending_updates: true });
+            } catch (ignore) {}
+          }
+        }
+      };
+      monitorIntervalRef.current = setInterval(poll, 3000);
+    } else {
+      if (monitorIntervalRef.current) clearInterval(monitorIntervalRef.current);
+    }
+    return () => {
+      if (monitorIntervalRef.current) clearInterval(monitorIntervalRef.current);
+    };
+  }, [isConnected, isMonitoring, targetChatId]);
+
+  const handleExportConfig = () => {
+    const config: AppConfig = {
+      version: APP_VERSION,
+      timestamp: Date.now(),
+      tokenInput,
+      targetChatId,
+      commands,
+      menuPages,
+      autoReplyRules,
+      flowMessages,
+      knownUsers,
+    };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `keyboard_config_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("success", "配置已导出");
+  };
+
+  const handleImportConfig = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const config = JSON.parse(event.target?.result as string) as AppConfig;
+        if (config.tokenInput) setTokenInput(config.tokenInput);
+        if (config.targetChatId) {
+          setTargetChatId(config.targetChatId);
+          setUserIdInput(config.targetChatId);
+        }
+        if (config.commands) setCommands(config.commands);
+        if (config.menuPages) setMenuPages(config.menuPages);
+        if (config.autoReplyRules) setAutoReplyRules(config.autoReplyRules);
+        if (config.flowMessages) {
+          setFlowMessages(config.flowMessages);
+          setActiveFlowMsgId(config.flowMessages[0].id);
+        }
+        if (config.knownUsers && Array.isArray(config.knownUsers)) {
+          setKnownUsers(config.knownUsers);
+          localStorage.setItem("keyboard_menu_users", JSON.stringify(config.knownUsers));
+        }
+        showToast("success", `配置导入成功`);
+      } catch (err) {
+        showToast("error", "配置文件格式错误");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  useEffect(() => {
+    setChatHistory([{ id: uuid(), sender: "bot", type: "text", content: "系统就绪。", timestamp: getCurrentTime() }]);
+  }, []);
+
+  const handleSimulatorInteraction = (text: string) => {
+    const userMsg: ChatMessage = {
+      id: uuid(),
+      sender: "user",
+      type: "text",
+      content: text,
+      timestamp: getCurrentTime(),
+    };
+    setChatHistory((prev) => [...prev, userMsg]);
+
+    const textNorm = text.trim().toLowerCase();
+    let handled = false;
+
+    for (const page of menuPages) {
+      for (const row of page.rows) {
+        for (const btn of row) {
+          if (btn.text.toLowerCase() === textNorm && btn.actionType === "navigate" && btn.actionValue) {
+            const targetPage = menuPages.find((p: MenuPage) => p.id === btn.actionValue);
+            if (targetPage) {
+              setChatHistory((prev) => [
+                ...prev,
+                {
+                  id: uuid(),
+                  sender: "bot",
+                  type: "text",
+                  content: `(模拟跳转) 切换到菜单: ${targetPage.name}`,
+                  timestamp: getCurrentTime(),
+                },
+              ]);
+              handled = true;
+            }
+          }
+          if (handled) break;
+        }
+        if (handled) break;
+      }
+      if (handled) break;
+    }
+
+    if (!handled) {
+      const rule = autoReplyRules.find((r: AutoReplyRule) => {
+        if (r.triggerType === "keyword") return r.triggerValue.toLowerCase() === textNorm;
+        if (r.triggerType === "command")
+          return (
+            r.triggerValue.toLowerCase() === textNorm.replace("/", "") ||
+            "/" + r.triggerValue.toLowerCase() === textNorm
+          );
+        return false;
+      });
+      if (rule) {
+        setTimeout(() => {
+          const botResponses: ChatMessage[] = rule.replyMessages.map((m: MessageData) => ({
+            id: uuid(),
+            sender: "bot",
+            type: m.type,
+            content: m.content,
+            mediaUrl: m.mediaUrl,
+            inlineKeyboard: m.inlineKeyboard,
+            timestamp: getCurrentTime(),
+          }));
+          setChatHistory((prev) => [...prev, ...botResponses]);
+        }, 600);
+      }
+    }
+  };
+
+  const handleRealSend = async (msg: MessageData, chatId: string) => {
+    if (!botProfile || !chatId) {
+      showToast("error", "未连接或 User ID 为空");
+      return;
+    }
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        id: uuid(),
+        sender: "bot",
+        type: msg.type,
+        content: msg.content,
+        mediaUrl: msg.mediaUrl,
+        timestamp: getCurrentTime(),
+        inlineKeyboard: msg.inlineKeyboard,
+      },
+    ]);
+    try {
+      const body: any = { chat_id: chatId, parse_mode: "HTML" };
+      if (msg.disableWebPagePreview) body.disable_web_page_preview = true;
+      if (msg.inlineKeyboard && msg.inlineKeyboard.length > 0) {
+        body.reply_markup = {
+          inline_keyboard: msg.inlineKeyboard.map((row: InlineButton[]) =>
+            row.map((btn: InlineButton) => ({ text: btn.text, [btn.type]: btn.value })),
+          ),
+        };
+      }
+      if (msg.type === "photo") {
+        body.photo = msg.mediaUrl;
+        body.caption = msg.content;
+        await callApi("sendPhoto", body);
+      } else if (msg.type === "video") {
+        // 修改：支持视频发送
+        body.video = msg.mediaUrl;
+        body.caption = msg.content;
+        await callApi("sendVideo", body);
+      } else {
+        body.text = msg.content;
+        await callApi("sendMessage", body);
+      }
+    } catch (e: any) {
+      showToast("error", "发送失败: " + e.message);
+    }
+  };
+
+  const handleSendFlow = async (messages: MessageData[]) => {
+    if (!targetChatId) {
+      showToast("error", "请先配置 User ID");
+      return;
+    }
+    for (const msg of messages) {
+      await handleRealSend(msg, targetChatId);
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    showToast("success", `已发送 ${messages.length} 条消息`);
+  };
+
+  const handlePushMenu = async (userId: number, userName: string) => {
+    const mainPage = menuPages.find((p: MenuPage) => p.id === "main");
+    if (!mainPage) return;
+    try {
+      await callApi("sendMessage", {
+        chat_id: userId,
+        text: `📂 欢迎使用菜单`,
+        reply_markup: {
+          keyboard: mainPage.rows.map((row: ReplyButton[]) => row.map((btn: ReplyButton) => ({ text: btn.text }))),
+          resize_keyboard: true,
+        },
+      });
+      showToast("success", `已向 ${userName} 推送主菜单`);
+    } catch (e: any) {
+      showToast("error", `推送失败: ${e.message}`);
+    }
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] bg-muted overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-[220px] bg-card border-r flex flex-col shrink-0">
+        <div className="p-5 border-b flex items-center gap-3">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg">
+            <Bot className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <span className="font-bold text-lg">菜单键盘</span>
+        </div>
+
+        <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
+          <SidebarItem
+            icon={<Settings size={18} />}
+            label="ID连接&重置"
+            active={activeTab === "settings"}
+            onClick={() => {
+              setActiveTab("settings");
+              refreshWebhook();
+            }}
+            notification={!isConnected}
+          />
+          <SidebarItem
+            icon={<List size={18} />}
+            label="菜单命令管理"
+            active={activeTab === "commands"}
+            onClick={() => setActiveTab("commands")}
+          />
+          <SidebarItem
+            icon={<Layout size={18} />}
+            label="底部键盘配置"
+            active={activeTab === "keyboard"}
+            onClick={() => setActiveTab("keyboard")}
+          />
+          <SidebarItem
+            icon={<Layers size={18} />}
+            label="消息推送编辑器"
+            active={activeTab === "message"}
+            onClick={() => setActiveTab("message")}
+          />
+          <SidebarItem
+            icon={<Users size={18} />}
+            label="用户数据"
+            active={activeTab === "users"}
+            onClick={() => setActiveTab("users")}
+          />
+        </nav>
+
+        <div className="p-4 border-t space-y-3">
+          <div className="flex justify-between items-center text-[10px] text-muted-foreground font-mono">
+            <span>VER: {APP_VERSION}</span>
+          </div>
+        </div>
+
+        {isConnected && (
+          <div className="p-4 border-t">
+            <div className="flex items-center gap-3">
+              <div className="relative shrink-0">
+                <div className="w-9 h-9 rounded-full bg-muted border flex items-center justify-center text-xs font-bold">
+                  {botProfile?.first_name.substring(0, 1)}
+                </div>
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card bg-green-500"></div>
+              </div>
+              <div className="overflow-hidden flex-1">
+                <h4 className="font-bold text-sm truncate">{botProfile?.first_name}</h4>
+                <span className="text-xs text-muted-foreground truncate block">@{botProfile?.username}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Content */}
+      <main className="flex-1 flex overflow-hidden">
+        <div className="flex-1 p-6 overflow-y-auto">
+          {activeTab === "settings" && (
+            <SettingsPanel
+              isConnected={isConnected}
+              botProfile={botProfile}
+              tokenInput={tokenInput}
+              setTokenInput={setTokenInput}
+              userIdInput={userIdInput}
+              setUserIdInput={setUserIdInput}
+              targetChatId={targetChatId}
+              setTargetChatId={setTargetChatId}
+              loading={loading}
+              onConnect={onConnect}
+              onLogout={onLogout}
+              showToast={showToast}
+              useProxy={useProxy}
+              setUseProxy={setUseProxy}
+              callApi={callApi}
+              isMonitoring={isMonitoring}
+              setIsMonitoring={setIsMonitoring}
+              webhookInfo={webhookInfo}
+              refreshWebhook={refreshWebhook}
+              handleToggleMonitoring={handleToggleMonitoring}
+              knownUsers={knownUsers}
+              setKnownUsers={setKnownUsers}
+              setMenuPages={setMenuPages}
+              setCommands={setCommands}
+              setAutoReplyRules={setAutoReplyRules}
+              flowMessages={flowMessages}
+              setFlowMessages={setFlowMessages}
+              syncConfigToCloud={syncConfigToCloud}
+              isSyncingToCloud={isSyncingToCloud}
+              cloudSyncStatus={cloudSyncStatus}
+              forceMenuOnStart={forceMenuOnStart}
+              setForceMenuOnStart={setForceMenuOnStart}
+              activityLogEnabled={activityLogEnabled}
+              setActivityLogEnabled={setActivityLogEnabled}
+              bilingualButtonEnabled={bilingualButtonEnabled}
+              setBilingualButtonEnabled={setBilingualButtonEnabled}
+              autoCleanupEnabled={autoCleanupEnabled}
+              setAutoCleanupEnabled={setAutoCleanupEnabled}
+              autoCleanupDays={autoCleanupDays}
+              setAutoCleanupDays={setAutoCleanupDays}
+              handleExportConfig={handleExportConfig}
+              handleImportConfig={handleImportConfig}
+              botToken={botProfile?.token}
+              keyboardTrialExpired={keyboardTrialExpired}
+              showTrialExpiredToast={showTrialExpiredToast}
+              onActivationStatusChange={handleActivationStatusChange}
+            />
+          )}
+          {activeTab === "keyboard" && (
+            <KeyboardEditor
+              menuPages={menuPages}
+              setMenuPages={setMenuPages}
+              isConnected={isConnected}
+              targetChatId={targetChatId}
+              showToast={showToast}
+              callApi={callApi}
+              knownUsers={knownUsers}
+              botToken={botProfile?.token}
+              syncConfigToCloud={syncConfigToCloud}
+              keyboardTrialExpired={keyboardTrialExpired}
+              showTrialExpiredToast={showTrialExpiredToast}
+            />
+          )}
+          {activeTab === "commands" && (
+            <CommandsEditor
+              commands={commands}
+              setCommands={setCommands}
+              isConnected={isConnected}
+              showToast={showToast}
+              callApi={callApi}
+              targetChatId={targetChatId}
+              syncConfigToCloud={syncConfigToCloud}
+              keyboardTrialExpired={keyboardTrialExpired}
+              showTrialExpiredToast={showTrialExpiredToast}
+              botToken={botProfile?.token}
+            />
+          )}
+          {activeTab === "message" && (
+            <MessageFlowEditor
+              onSendFlow={handleSendFlow}
+              isConnected={isConnected}
+              targetChatId={targetChatId}
+              setAutoReplyRules={setAutoReplyRules}
+              showToast={showToast}
+              messages={flowMessages}
+              setMessages={setFlowMessages}
+              activeMsgId={activeFlowMsgId}
+              setActiveMsgId={setActiveFlowMsgId}
+              syncConfigToCloud={syncConfigToCloud}
+              keyboardTrialExpired={keyboardTrialExpired}
+              showTrialExpiredToast={showTrialExpiredToast}
+            />
+          )}
+          {activeTab === "users" && (
+            <UsersPanel
+              knownUsers={knownUsers}
+              setKnownUsers={setKnownUsers}
+              showToast={showToast}
+              callApi={callApi}
+              menuPages={menuPages}
+              setTargetChatId={setTargetChatId}
+              handlePushMenu={handlePushMenu}
+              botToken={botProfile?.token}
+            />
+          )}
+        </div>
+
+        {/* Phone Simulator */}
+        <div className="w-[320px] p-6 flex items-center justify-center bg-muted/50 border-l shrink-0">
+          <PhoneSimulator
+            chatHistory={chatHistory}
+            botProfile={botProfile}
+            menuPages={menuPages}
+            commands={commands}
+            isConnected={isConnected}
+            onSimulateInteraction={handleSimulatorInteraction}
+          />
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// --- Activation Code Binder ---
+interface KeyboardActivationInfo {
+  chatExpireAt: string | null;
+  keyboardExpireAt: string | null;
+  isAuthorized: boolean;
+  keyboardTrialStartedAt: string | null;
+}
+
+function ActivationCodeBinder({
+  botToken,
+  showToast,
+  onStatusChange,
+}: {
+  botToken?: string;
+  showToast: any;
+  onStatusChange?: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [activationInfo, setActivationInfo] = useState<KeyboardActivationInfo | null>(null);
+
+  const fetchActivationInfo = async () => {
+    if (!botToken) return;
+
+    // 优先从 keyboard_configs 表获取键盘菜单的独立激活状态
+    const { data: keyboardConfig } = await supabase
+      .from("keyboard_configs")
+      .select("keyboard_trial_started_at, keyboard_expire_at")
+      .eq("bot_token", botToken)
+      .maybeSingle();
+
+    // 同时获取双向聊天的激活状态（如果有）
+    const { data: botActivation } = await supabase
+      .from("bot_activations")
+      .select("expire_at, is_authorized")
+      .eq("bot_token", botToken)
+      .maybeSingle();
+
+    // 合并两个表的数据，keyboard_configs 的键盘数据优先
+    setActivationInfo({
+      chatExpireAt: botActivation?.expire_at || null,
+      keyboardExpireAt: keyboardConfig?.keyboard_expire_at || null,
+      isAuthorized: botActivation?.is_authorized || false,
+      keyboardTrialStartedAt: keyboardConfig?.keyboard_trial_started_at || null,
+    });
+  };
+
+  // 初始化试用：如果没有试用记录，创建一个
+  const initializeTrialIfNeeded = async () => {
+    if (!botToken) return;
+
+    const { data: existing } = await supabase
+      .from("keyboard_configs")
+      .select("keyboard_trial_started_at, keyboard_expire_at")
+      .eq("bot_token", botToken)
+      .maybeSingle();
+
+    // 如果已有激活或试用记录，不需要初始化
+    if (existing?.keyboard_expire_at || existing?.keyboard_trial_started_at) {
+      return;
+    }
+
+    // 创建或更新 keyboard_configs 记录，开始试用
+    const now = new Date().toISOString();
+    await supabase.from("keyboard_configs").upsert(
+      {
+        bot_token: botToken,
+        keyboard_trial_started_at: now,
+        updated_at: now,
+      } as any,
+      { onConflict: "bot_token" },
+    );
+
+    // 刷新状态
+    await fetchActivationInfo();
+  };
+
+  useEffect(() => {
+    if (botToken) {
+      fetchActivationInfo().then(() => {
+        // 获取完状态后检查是否需要初始化试用
+        initializeTrialIfNeeded();
+      });
+    }
+  }, [botToken]);
+
+  const handleBind = async () => {
+    if (!code.trim() || !botToken) {
+      showToast("error", "请输入激活码");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-bot", {
+        body: { action: "bind-keyboard-code", activationCode: code.trim(), botToken },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const featureType = data.featureType || "keyboard";
+      const messages: string[] = [];
+      if (featureType === "chat" || featureType === "both") {
+        messages.push(`双向聊天: ${data.newExpireAt ? new Date(data.newExpireAt).toLocaleDateString() : "已激活"}`);
+      }
+      if (featureType === "keyboard" || featureType === "both") {
+        messages.push(
+          `菜单键盘: ${data.newKeyboardExpireAt ? new Date(data.newKeyboardExpireAt).toLocaleDateString() : "已激活"}`,
+        );
+      }
+      showToast("success", `激活成功 - ${messages.join(", ")}`);
+      setCode("");
+
+      await fetchActivationInfo();
+      onStatusChange?.();
+    } catch (e: any) {
+      showToast("error", e.message || "绑定失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getKeyboardStatus = () => {
+    if (!activationInfo) return { status: "unknown", text: "", color: "" };
+
+    const now = new Date();
+
+    // 检查键盘菜单激活有效期
+    if (activationInfo.keyboardExpireAt) {
+      const keyboardExpire = new Date(activationInfo.keyboardExpireAt);
+      if (keyboardExpire > now) {
+        const daysLeft = Math.ceil((keyboardExpire.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          status: "active",
+          text: `✅ 菜单键盘有效期至: ${keyboardExpire.toLocaleDateString()} (${daysLeft}天)`,
+          color: "text-green-600",
+        };
+      }
+    }
+
+    // 检查试用状态
+    if (activationInfo.keyboardTrialStartedAt) {
+      const trialStart = new Date(activationInfo.keyboardTrialStartedAt);
+      const trialExpire = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
+      if (trialExpire > now) {
+        const totalMinutesLeft = Math.ceil((trialExpire.getTime() - now.getTime()) / (1000 * 60));
+        const hoursLeft = Math.floor(totalMinutesLeft / 60);
+        const minutesLeft = totalMinutesLeft % 60;
+        return {
+          status: "trial",
+          text: `⏳ 菜单键盘试用剩余: ${hoursLeft}小时${minutesLeft > 0 ? minutesLeft + "分钟" : ""}`,
+          color: "text-amber-600",
+        };
+      } else {
+        return {
+          status: "expired",
+          text: "❌ 菜单键盘试用已过期，请激活",
+          color: "text-destructive",
+        };
+      }
+    }
+
+    // 检查是否有过期的激活
+    if (activationInfo.keyboardExpireAt) {
+      return {
+        status: "expired",
+        text: "❌ 菜单键盘已过期，请激活",
+        color: "text-destructive",
+      };
+    }
+
+    return { status: "none", text: "💡 首次使用可试用24小时", color: "text-muted-foreground" };
+  };
+
+  const keyboardStatus = getKeyboardStatus();
+
+  return (
+    <div className="flex-1 flex flex-col gap-2">
+      <div className="flex gap-1">
+        <input
+          type="text"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="激活码"
+          className="flex-1 bg-muted border rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-primary outline-none"
+        />
+        <button
+          onClick={handleBind}
+          disabled={loading || !code.trim()}
+          className="px-2 py-1.5 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 disabled:bg-muted transition flex items-center gap-1"
+        >
+          {loading ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+          绑定
+        </button>
+      </div>
+      {/* 始终显示状态，不依赖 activationInfo */}
+      <div className="flex flex-col gap-0.5 text-[10px]">
+        <div className={keyboardStatus.color}>{keyboardStatus.text}</div>
+      </div>
+    </div>
+  );
+}
+
+// --- Settings Panel ---
+function SettingsPanel({
+  isConnected,
+  botProfile,
+  tokenInput,
+  setTokenInput,
+  userIdInput,
+  setUserIdInput,
+  targetChatId,
+  setTargetChatId,
+  loading,
+  onConnect,
+  onLogout,
+  showToast,
+  useProxy,
+  setUseProxy,
+  callApi,
+  isMonitoring,
+  setIsMonitoring,
+  webhookInfo,
+  refreshWebhook,
+  handleToggleMonitoring,
+  knownUsers,
+  setKnownUsers,
+  setMenuPages,
+  setCommands,
+  setAutoReplyRules,
+  flowMessages,
+  setFlowMessages,
+  syncConfigToCloud,
+  isSyncingToCloud,
+  cloudSyncStatus,
+  forceMenuOnStart,
+  setForceMenuOnStart,
+  activityLogEnabled,
+  setActivityLogEnabled,
+  bilingualButtonEnabled,
+  setBilingualButtonEnabled,
+  autoCleanupEnabled,
+  setAutoCleanupEnabled,
+  autoCleanupDays,
+  setAutoCleanupDays,
+  handleExportConfig,
+  handleImportConfig,
+  botToken,
+  keyboardTrialExpired,
+  showTrialExpiredToast,
+  onActivationStatusChange,
+}: any) {
+  const [isResetting, setIsResetting] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [customCleanupDays, setCustomCleanupDays] = useState("");
+
+  const handleSyncToCloud = () => {
+    if (keyboardTrialExpired) {
+      showTrialExpiredToast();
+      return;
+    }
+    syncConfigToCloud?.();
+  };
+
+  const handleRestoreWebhook = async () => {
+    const savedUrl = localStorage.getItem("keyboard_menu_saved_webhook");
+    if (!savedUrl) return;
+    try {
+      await callApi("setWebhook", { url: savedUrl });
+      showToast("success", `已从备份恢复 Webhook`);
+      refreshWebhook();
+    } catch (e: any) {
+      showToast("error", `恢复失败: ${e.message}`);
+    }
+  };
+
+  const handleForceReset = async () => {
+    setIsResetting(true);
+    showToast("info", "正在执行深度重置...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-bot", {
+        body: {
+          action: "deep-reset",
+          botToken: botToken,
+          adminChatId: targetChatId ? parseInt(targetChatId) : null,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.ok) {
+        showToast("success", data.message || `UI 清理完成！已通知 ${data.successCount} 位用户移除键盘。`);
+        await syncConfigToCloud?.();
+      } else {
+        throw new Error(data?.error || "深度重置失败");
+      }
+    } catch (e: any) {
+      console.error("Deep reset failed:", e);
+      showToast("error", `深度重置失败: ${e.message}`);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleTestSend = async () => {
+    if (!targetChatId) {
+      showToast("error", "请先输入目标 ID");
+      return;
+    }
+    setTestLoading(true);
+    try {
+      await callApi("sendMessage", { chat_id: targetChatId, text: "🔔 这是一条测试消息，验证连接成功！" });
+      showToast("success", "发送成功！");
+    } catch (e: any) {
+      showToast("error", `发送失败: ${e.message}`);
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  const hasBackup = !!localStorage.getItem("keyboard_menu_saved_webhook");
+  const isDisconnected = webhookInfo && !webhookInfo.url;
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="border-b pb-4">
+        <h2 className="text-2xl font-bold mb-1">ID连接&重置</h2>
+        <p className="text-muted-foreground text-sm">Token 已自动保存。配置安全监听与 Webhook 状态。</p>
+      </div>
+      <div className="grid grid-cols-1 gap-6">
+        <div className="bg-card p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Zap className="text-primary" size={18} /> 连接设置
+          </h3>
+
+          {!isConnected ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">BOT机器人ID</label>
+                <input
+                  type="password"
+                  value={tokenInput}
+                  onChange={(e) => setTokenInput(e.target.value)}
+                  placeholder="123456:ABC-DEF..."
+                  className="w-full bg-muted border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">用户ID</label>
+                <input
+                  type="text"
+                  value={userIdInput}
+                  onChange={(e) => setUserIdInput(e.target.value)}
+                  placeholder="例如: 12345678"
+                  className="w-full bg-muted border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none font-mono"
+                />
+              </div>
+              <div className="flex items-center gap-2 mb-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="useProxy"
+                  checked={useProxy}
+                  onChange={(e) => setUseProxy(e.target.checked)}
+                  className="rounded text-primary focus:ring-primary"
+                />
+                <label htmlFor="useProxy" className="text-xs text-muted-foreground cursor-pointer">
+                  Web 代理模式 (CORS Proxy)
+                </label>
+              </div>
+              <button
+                onClick={onConnect}
+                disabled={loading || !tokenInput}
+                className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground py-2.5 rounded-lg font-bold transition flex items-center justify-center gap-2"
+              >
+                {loading ? <Loader2 size={18} className="animate-spin" /> : "验证并连接"}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-center gap-4 bg-muted p-4 rounded-lg border">
+                <div className="w-12 h-12 bg-card rounded-full flex items-center justify-center text-xl font-bold">
+                  {botProfile.first_name.charAt(0)}
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-lg">{botProfile.first_name}</h4>
+                  <span className="text-sm text-primary font-mono">@{botProfile.username}</span>
+                </div>
+              </div>
+              <div className="bg-primary/10 p-4 rounded-lg border border-primary/20">
+                <label className="block text-sm font-bold text-primary mb-2 flex items-center gap-2">
+                  <User size={16} /> 用户 ID【接收用户活动记录如发送指令&关键词】
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={targetChatId}
+                    onChange={(e) => setTargetChatId(e.target.value)}
+                    className="flex-1 bg-card border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none font-mono"
+                  />
+                  <button
+                    onClick={handleTestSend}
+                    disabled={testLoading || !targetChatId}
+                    className="px-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:bg-muted transition flex items-center justify-center"
+                  >
+                    {testLoading ? <Loader2 size={14} className="animate-spin" /> : <MessageCircleQuestion size={16} />}
+                  </button>
+                </div>
+              </div>
+              {/* 断开连接 + 激活码绑定 */}
+              <div className="flex gap-2">
+                <button
+                  onClick={onLogout}
+                  className="flex-1 border border-destructive/20 text-destructive hover:bg-destructive/10 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm"
+                >
+                  <LogOut size={14} /> 断开连接
+                </button>
+                <ActivationCodeBinder
+                  botToken={botProfile?.token}
+                  showToast={showToast}
+                  onStatusChange={onActivationStatusChange}
+                />
+              </div>
+
+              {/* 云端同步与配置功能 */}
+              <div className="border-t pt-4 mt-2 space-y-3">
+                {/* 云端同步按钮 */}
+                <button
+                  onClick={handleSyncToCloud}
+                  disabled={isSyncingToCloud}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-bold text-sm transition ${
+                    cloudSyncStatus === "synced"
+                      ? "bg-green-500/10 text-green-600 border border-green-200 hover:bg-green-500/20"
+                      : cloudSyncStatus === "error"
+                        ? "bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  }`}
+                >
+                  {isSyncingToCloud ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" /> 同步中...
+                    </>
+                  ) : cloudSyncStatus === "synced" ? (
+                    <>
+                      <Cloud size={14} /> 已同步到云端
+                    </>
+                  ) : cloudSyncStatus === "error" ? (
+                    <>
+                      <CloudOff size={14} /> 同步失败，点击重试
+                    </>
+                  ) : (
+                    <>
+                      <Cloud size={14} /> 同步到云端
+                    </>
+                  )}
+                </button>
+
+                {/* 用户活动记录开关 */}
+                <div className="flex items-center justify-between bg-muted p-3 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Activity size={14} className="text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">
+                      活动记录【关闭机器人不会收到用户已自动处理的消息】
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setActivityLogEnabled(!activityLogEnabled)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${activityLogEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${activityLogEnabled ? "translate-x-4" : "translate-x-1"}`}
+                    />
+                  </button>
+                </div>
+
+                {/* 中英双语切换开关 */}
+                <div className="flex items-center justify-between bg-muted p-3 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Globe size={14} className="text-muted-foreground" />
+                    <div className="flex flex-col text-left">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        中英双语【开启后APP底部键盘显示语言切换按钮】
+                      </span>
+                      <span className="text-[10px] text-red-500 leading-tight mt-0.5">
+                        【底部键盘添加按钮文字下面标注英文按钮界面才会显示】
+                      </span>
+                      <span className="text-[10px] text-red-500 leading-tight mt-0.5">
+                        【消息编辑器新增消息添加中文版/英文版两种对应指令关键词图文】
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setBilingualButtonEnabled(!bilingualButtonEnabled);
+                      setTimeout(() => syncConfigToCloud?.(), 100);
+                    }}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${bilingualButtonEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${bilingualButtonEnabled ? "translate-x-4" : "translate-x-1"}`}
+                    />
+                  </button>
+                </div>
+
+
+                {/* 导出导入 */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleExportConfig}
+                    className="flex items-center justify-center gap-2 bg-muted hover:bg-accent text-foreground text-xs py-2.5 rounded-lg transition font-medium"
+                  >
+                    <Download size={14} /> 导出配置
+                  </button>
+                  <label className="flex items-center justify-center gap-2 bg-muted hover:bg-accent text-foreground text-xs py-2.5 rounded-lg transition cursor-pointer font-medium">
+                    <Upload size={14} /> 导入配置
+                    <input type="file" accept=".json" onChange={handleImportConfig} className="hidden" />
+                  </label>
+                </div>
+
+                {/* 深度重置 */}
+                <button
+                  onClick={handleForceReset}
+                  disabled={isResetting}
+                  className="w-full bg-destructive/10 border border-destructive/20 text-destructive hover:bg-destructive/20 py-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+                >
+                  {isResetting ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  深度重置：清理所有用户界面
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Keyboard Editor ---
+function KeyboardEditor({
+  menuPages,
+  setMenuPages,
+  isConnected,
+  targetChatId,
+  showToast,
+  callApi,
+  knownUsers,
+  botToken,
+  syncConfigToCloud,
+  keyboardTrialExpired,
+  showTrialExpiredToast,
+}: any) {
+  const [activePageId, setActivePageId] = useState("main");
+  const [isPushing, setIsPushing] = useState(false);
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const activePage = menuPages.find((p: MenuPage) => p.id === activePageId) || menuPages[0];
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      if (!botToken) return;
+      const { data } = await supabase
+        .from("bot_users")
+        .select("telegram_user_id, first_name")
+        .eq("bot_token", botToken);
+      if (data) setDbUsers(data);
+    };
+    loadUsers();
+  }, [botToken]);
+
+  const addPage = () => {
+    const newId = `page_${uuid().substring(0, 6)}`;
+    setMenuPages([...menuPages, { id: newId, name: `新页面`, rows: [[{ text: "按钮1", actionType: "text" }]] }]);
+    setActivePageId(newId);
+  };
+  const deletePage = (id: string) => {
+    if (id === "main") return;
+    const newPages = menuPages.filter((p: MenuPage) => p.id !== id);
+    setMenuPages(newPages);
+    setActivePageId("main");
+  };
+  const addRow = () => {
+    setMenuPages(
+      menuPages.map((p: MenuPage) =>
+        p.id === activePageId ? { ...p, rows: [...p.rows, [{ text: "新按钮", actionType: "text" }]] } : p,
+      ),
+    );
+  };
+  const updateBtn = (rIdx: number, cIdx: number, field: string, val: string) => {
+    setMenuPages(
+      menuPages.map((p: MenuPage) => {
+        if (p.id !== activePageId) return p;
+        const newRows = [...p.rows];
+        newRows[rIdx] = [...newRows[rIdx]];
+        newRows[rIdx][cIdx] = { ...newRows[rIdx][cIdx], [field]: val };
+        return { ...p, rows: newRows };
+      }),
+    );
+  };
+  const removeRow = (rIdx: number) => {
+    setMenuPages(
+      menuPages.map((p: MenuPage) =>
+        p.id === activePageId ? { ...p, rows: p.rows.filter((_: any, i: number) => i !== rIdx) } : p,
+      ),
+    );
+  };
+  const addBtnToRow = (rIdx: number) => {
+    setMenuPages(
+      menuPages.map((p: MenuPage) => {
+        if (p.id !== activePageId) return p;
+        const newRows = [...p.rows];
+        if (newRows[rIdx].length < 3) newRows[rIdx].push({ text: "新按钮", actionType: "text" });
+        return { ...p, rows: newRows };
+      }),
+    );
+  };
+  const removeBtn = (rIdx: number, cIdx: number) => {
+    setMenuPages(
+      menuPages.map((p: MenuPage) => {
+        if (p.id !== activePageId) return p;
+        const newRows = [...p.rows];
+        newRows[rIdx] = newRows[rIdx].filter((_: any, i: number) => i !== cIdx);
+        if (newRows[rIdx].length === 0) return { ...p, rows: p.rows.filter((_: any, i: number) => i !== rIdx) };
+        return { ...p, rows: newRows };
+      }),
+    );
+  };
+
+  const pushKeyboardToTelegram = async () => {
+    if (keyboardTrialExpired) {
+      showTrialExpiredToast();
+      return;
+    }
+    if (!isConnected || !targetChatId) {
+      showToast("error", "请先连接机器人并配置 User ID");
+      return;
+    }
+    setIsPushing(true);
+    try {
+      await callApi("sendMessage", {
+        chat_id: targetChatId,
+        text: `🔄 菜单更新: ${activePage.name}`,
+        reply_markup: {
+          keyboard: activePage.rows.map((row: ReplyButton[]) => row.map((btn: ReplyButton) => ({ text: btn.text }))),
+          resize_keyboard: true,
+          one_time_keyboard: false,
+          is_persistent: true,
+        },
+      });
+      showToast("success", `已推送页面 "${activePage.name}"`);
+      syncConfigToCloud?.();
+    } catch (e: any) {
+      showToast("error", "推送失败: " + e.message);
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
+  const pushToAllUsers = async () => {
+    if (keyboardTrialExpired) {
+      showTrialExpiredToast();
+      return;
+    }
+    if (!isConnected) {
+      showToast("error", "请先连接机器人");
+      return;
+    }
+    if (dbUsers.length === 0) {
+      showToast("error", "暂无用户数据，请先让用户发送消息给机器人");
+      return;
+    }
+    setIsPushing(true);
+    showToast("info", `开始向 ${dbUsers.length} 位用户推送底部键盘...`);
+    let success = 0;
+    for (const user of dbUsers) {
+      try {
+        await callApi("sendMessage", {
+          chat_id: user.telegram_user_id,
+          text: `🔄 菜单更新: ${activePage.name}`,
+          reply_markup: {
+            keyboard: activePage.rows.map((row: ReplyButton[]) => row.map((btn: ReplyButton) => ({ text: btn.text }))),
+            resize_keyboard: true,
+            one_time_keyboard: false,
+          },
+        });
+        success++;
+      } catch (e) {}
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    setIsPushing(false);
+    showToast("success", `群发完成：${success}/${dbUsers.length} 成功`);
+    syncConfigToCloud?.();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="border-b pb-4 flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold mb-1">多级菜单配置</h2>
+          <p className="text-xs text-muted-foreground">创建多个菜单页，通过"跳转"按钮链接它们。</p>
+        </div>
+        <button
+          onClick={addPage}
+          className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 font-bold flex items-center gap-1"
+        >
+          <Plus size={14} /> 新建菜单页
+        </button>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {menuPages.map((p: MenuPage) => (
+          <div
+            key={p.id}
+            onClick={() => setActivePageId(p.id)}
+            className={`px-3 py-1.5 rounded-t-lg border-b-2 cursor-pointer text-sm font-bold flex items-center gap-2 whitespace-nowrap transition-colors ${activePageId === p.id ? "border-primary text-primary bg-primary/10" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+          >
+            {p.id === "main" ? <Layout size={14} /> : <Folder size={14} />}
+            {p.name}
+            {p.id !== "main" && (
+              <X
+                size={12}
+                className="hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deletePage(p.id);
+                }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-card p-6 rounded-b-xl rounded-tr-xl border shadow-sm space-y-4">
+        <div className="flex items-center gap-2 mb-4 border-b pb-2">
+          <Edit3 size={14} className="text-muted-foreground" />
+          <input
+            value={activePage.name}
+            onChange={(e) =>
+              setMenuPages(menuPages.map((p: MenuPage) => (p.id === activePageId ? { ...p, name: e.target.value } : p)))
+            }
+            className="font-bold outline-none w-full bg-transparent"
+            placeholder="菜单页名称"
+          />
+        </div>
+
+        {activePage.rows.map((row: ReplyButton[], rIdx: number) => (
+          <div key={rIdx} className="flex gap-2 bg-muted p-2 rounded-lg border items-start">
+            <div className="flex-1 flex gap-2 overflow-x-auto">
+              {row.map((btn: ReplyButton, cIdx: number) => (
+                <div
+                  key={cIdx}
+                  className="min-w-[150px] bg-card p-2 rounded border shadow-sm flex flex-col gap-2 relative group"
+                >
+                  <div className="flex justify-between items-center">
+                    <button
+                      onClick={() => removeBtn(rIdx, cIdx)}
+                      className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 p-0.5 rounded transition"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={btn.text}
+                    onChange={(e) => updateBtn(rIdx, cIdx, "text", e.target.value)}
+                    className="w-full text-center text-xs font-bold border-b pb-1 outline-none bg-transparent"
+                    placeholder="中文按钮文字"
+                  />
+                  <input
+                    type="text"
+                    value={btn.textEn || ""}
+                    onChange={(e) => updateBtn(rIdx, cIdx, "textEn", e.target.value)}
+                    className="w-full text-center text-[10px] text-muted-foreground border-b pb-1 outline-none bg-transparent"
+                    placeholder="English (可选)"
+                  />
+                  <select
+                    value={btn.actionType}
+                    onChange={(e) => updateBtn(rIdx, cIdx, "actionType", e.target.value)}
+                    className="w-full text-[10px] bg-muted border rounded px-1 py-0.5 outline-none font-medium"
+                  >
+                    <option value="text">💬 发送文本</option>
+                    <option value="navigate">📂 跳转菜单</option>
+                  </select>
+                  {btn.actionType === "navigate" && (
+                    <select
+                      value={btn.actionValue || ""}
+                      onChange={(e) => updateBtn(rIdx, cIdx, "actionValue", e.target.value)}
+                      className="w-full text-[10px] bg-primary/10 text-primary border border-primary/20 px-1 py-0.5 rounded outline-none"
+                    >
+                      <option value="">选择目标页...</option>
+                      {menuPages.map((p: MenuPage) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ))}
+              {row.length < 3 && (
+                <button
+                  onClick={() => addBtnToRow(rIdx)}
+                  className="w-8 flex items-center justify-center border border-dashed rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition self-stretch"
+                >
+                  <Plus size={16} />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => removeRow(rIdx)}
+              className="p-2 text-muted-foreground hover:text-destructive self-center"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={addRow}
+          className="w-full py-2 border-2 border-dashed rounded-lg text-muted-foreground font-bold hover:border-primary hover:text-primary transition flex items-center justify-center gap-2 text-sm"
+        >
+          <Plus size={16} /> 添加新行
+        </button>
+        <div className="border-t pt-4 mt-2 grid grid-cols-2 gap-3">
+          <button
+            onClick={pushKeyboardToTelegram}
+            disabled={isPushing}
+            className="w-full bg-foreground text-background py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-foreground/90 transition disabled:opacity-50"
+          >
+            {isPushing ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />} 推送给当前 ID
+          </button>
+          <button
+            onClick={pushToAllUsers}
+            disabled={isPushing}
+            className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition disabled:opacity-50"
+          >
+            {isPushing ? <Loader2 size={18} className="animate-spin" /> : <RadioReceiver size={18} />} 群发更新
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Commands Editor ---
+function CommandsEditor({
+  commands,
+  setCommands,
+  isConnected,
+  showToast,
+  callApi,
+  targetChatId,
+  syncConfigToCloud,
+  keyboardTrialExpired,
+  showTrialExpiredToast,
+  botToken,
+}: any) {
+  const [newCmd, setNewCmd] = useState({ command: "", description: "" });
+  const [isSaving, setIsSaving] = useState(false);
+  const [menuBtnType, setMenuBtnType] = useState<"commands" | "web_app">("commands");
+  const [webAppUrl, setWebAppUrl] = useState("");
+  const [webAppText, setWebAppText] = useState("Open App");
+
+  const addCommand = () => {
+    setCommands([...commands, newCmd]);
+    setNewCmd({ command: "", description: "" });
+  };
+  const updateCommand = (idx: number, field: keyof BotCommand, val: string) => {
+    const newC = [...commands];
+    newC[idx][field] = val;
+    setCommands(newC);
+  };
+  const removeCommand = (index: number) => {
+    setCommands(commands.filter((_: any, i: number) => i !== index));
+  };
+
+  const save = async () => {
+    if (keyboardTrialExpired) {
+      showTrialExpiredToast();
+      return;
+    }
+    if (!isConnected) {
+      showToast("error", "请先连接机器人");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      // 过滤掉空命令
+      const validCommands = commands.filter((c: BotCommand) => c.command && c.command.trim());
+      
+      // 1. 同步指令 (Commands)
+      if (validCommands.length === 0) {
+        // 如果没有命令，使用 deleteMyCommands 完全清除
+        // A. 全局删除
+        await callApi("deleteMyCommands", {});
+        // B. 针对管理员删除
+        if (targetChatId) {
+          await callApi("deleteMyCommands", {
+            scope: { type: "chat", chat_id: targetChatId },
+          });
+        }
+        // C. 针对所有已知用户删除（解决用户缓存不刷新）
+        const { data: botUsers } = await supabase
+          .from("bot_users")
+          .select("telegram_user_id")
+          .eq("bot_token", botToken || "");
+        if (botUsers && botUsers.length > 0) {
+          for (const user of botUsers) {
+            if (targetChatId && user.telegram_user_id.toString() === targetChatId.toString()) continue;
+            try {
+              await callApi("deleteMyCommands", {
+                scope: { type: "chat", chat_id: user.telegram_user_id },
+              });
+            } catch (e) {
+              console.log(`Skip user ${user.telegram_user_id}:`, e);
+            }
+          }
+        }
+      } else {
+        // A. 全局更新
+        await callApi("setMyCommands", { commands: validCommands });
+        // B. 针对管理员强制更新 (解决缓存不刷新)
+        if (targetChatId) {
+          await callApi("setMyCommands", {
+            commands: validCommands,
+            scope: { type: "chat", chat_id: targetChatId },
+          });
+        }
+        // C. 针对所有已知用户强制更新（解决用户缓存不刷新）
+        const { data: botUsers } = await supabase
+          .from("bot_users")
+          .select("telegram_user_id")
+          .eq("bot_token", botToken || "");
+        if (botUsers && botUsers.length > 0) {
+          for (const user of botUsers) {
+            if (targetChatId && user.telegram_user_id.toString() === targetChatId.toString()) continue;
+            try {
+              await callApi("setMyCommands", {
+                commands: validCommands,
+                scope: { type: "chat", chat_id: user.telegram_user_id },
+              });
+            } catch (e) {
+              console.log(`Skip user ${user.telegram_user_id}:`, e);
+            }
+          }
+        }
+      }
+
+      // 2. 同步左下角菜单按钮 (Menu Button)
+      const baseMenuConfig: any = {};
+      if (menuBtnType === "web_app") {
+        baseMenuConfig.menu_button = { type: "web_app", text: webAppText, web_app: { url: webAppUrl } };
+      } else {
+        baseMenuConfig.menu_button = { type: "commands" };
+      }
+
+      // A. 全局更新 (新用户默认看到这个)
+      await callApi("setChatMenuButton", baseMenuConfig);
+
+      // B. 针对管理员强制更新 (让你立即看到效果)
+      if (targetChatId) {
+        await callApi("setChatMenuButton", {
+          ...baseMenuConfig,
+          chat_id: targetChatId,
+        });
+      }
+
+      // C. 针对所有已知用户强制更新菜单按钮
+      const { data: botUsersForMenu } = await supabase
+        .from("bot_users")
+        .select("telegram_user_id")
+        .eq("bot_token", botToken || "");
+      if (botUsersForMenu && botUsersForMenu.length > 0) {
+        for (const user of botUsersForMenu) {
+          if (targetChatId && user.telegram_user_id.toString() === targetChatId.toString()) continue;
+          try {
+            await callApi("setChatMenuButton", {
+              ...baseMenuConfig,
+              chat_id: user.telegram_user_id,
+            });
+          } catch (e) {
+            console.log(`Skip menu button for user ${user.telegram_user_id}:`, e);
+          }
+        }
+      }
+
+      showToast("success", `菜单命令已同步${validCommands.length === 0 ? ' (已清除所有命令)' : ''}`);
+      syncConfigToCloud?.();
+    } catch (e: any) {
+      showToast("error", e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="border-b pb-4">
+        <h2 className="text-2xl font-bold mb-1">菜单命令管理</h2>
+      </div>
+
+      <div className="bg-card p-5 rounded-xl border shadow-sm">
+        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+          <Layout size={16} className="text-primary" /> 左下角菜单按钮配置
+        </h3>
+        <div className="flex gap-4 mb-3">
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="radio"
+              checked={menuBtnType === "commands"}
+              onChange={() => setMenuBtnType("commands")}
+              className="text-primary"
+            />
+            显示指令列表 (默认)
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="radio"
+              checked={menuBtnType === "web_app"}
+              onChange={() => setMenuBtnType("web_app")}
+              className="text-primary"
+            />
+            打开 Web App
+          </label>
+        </div>
+        {menuBtnType === "web_app" && (
+          <div className="grid grid-cols-2 gap-3 animate-in fade-in">
+            <input
+              value={webAppText}
+              onChange={(e) => setWebAppText(e.target.value)}
+              placeholder="按钮文字"
+              className="border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+            <input
+              value={webAppUrl}
+              onChange={(e) => setWebAppUrl(e.target.value)}
+              placeholder="Web App URL"
+              className="border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+          </div>
+        )}
+      </div>
+
+      {menuBtnType !== "web_app" && (
+        <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            <List size={16} /> 指令列表
+          </h3>
+          <div className="space-y-2">
+            {commands.map((c: BotCommand, i: number) => (
+              <div key={i} className="flex gap-2 text-sm items-center group">
+                <span className="text-primary font-bold text-xs">/</span>
+                <input
+                  value={c.command}
+                  onChange={(e) => updateCommand(i, "command", e.target.value)}
+                  className="w-24 border rounded px-2 py-1 text-sm font-bold outline-none"
+                />
+                <input
+                  value={c.description}
+                  onChange={(e) => updateCommand(i, "description", e.target.value)}
+                  className="flex-1 border rounded px-2 py-1 text-sm outline-none min-w-0"
+                />
+                <button
+                  onClick={() => removeCommand(i)}
+                  className="p-1 text-destructive bg-destructive/10 rounded transition shrink-0"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-3 border-t">
+            <div className="relative w-1/3">
+              <span className="absolute left-2 top-1.5 text-muted-foreground text-sm">/</span>
+              <input
+                value={newCmd.command}
+                onChange={(e) => setNewCmd({ ...newCmd, command: e.target.value })}
+                placeholder="new_cmd"
+                className="w-full pl-5 pr-2 py-1 border rounded text-sm outline-none"
+              />
+            </div>
+            <input
+              value={newCmd.description}
+              onChange={(e) => setNewCmd({ ...newCmd, description: e.target.value })}
+              placeholder="description"
+              className="flex-1 border rounded px-2 py-1 text-sm outline-none"
+            />
+            <button onClick={addCommand} className="bg-muted hover:bg-accent px-3 rounded">
+              <Plus size={16} />
+            </button>
+          </div>
+          <button
+            onClick={save}
+            disabled={isSaving}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-2 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2"
+          >
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 同步至 Telegram
+          </button>
+        </div>
+      )}
+
+      {menuBtnType === "web_app" && (
+        <div className="flex justify-end">
+          <button
+            onClick={save}
+            disabled={isSaving}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-2 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 shadow-sm"
+          >
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 保存 Web App 配置
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Message Flow Editor ---
+function MessageFlowEditor({
+  onSendFlow,
+  isConnected,
+  targetChatId,
+  setAutoReplyRules,
+  showToast,
+  messages,
+  setMessages,
+  activeMsgId,
+  setActiveMsgId,
+  syncConfigToCloud,
+  keyboardTrialExpired,
+  showTrialExpiredToast,
+}: any) {
+  const [showLinkInserter, setShowLinkInserter] = useState(false);
+  const [linkForm, setLinkForm] = useState({ text: "", url: "" });
+  const [showCopyInserter, setShowCopyInserter] = useState(false);
+  const [copyText, setCopyText] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // Telegram 常用表情列表
+  const telegramEmojis = [
+    "😀",
+    "😃",
+    "😄",
+    "😁",
+    "😆",
+    "😅",
+    "🤣",
+    "😂",
+    "🙂",
+    "😊",
+    "😇",
+    "🥰",
+    "😍",
+    "🤩",
+    "😘",
+    "😗",
+    "😚",
+    "😋",
+    "😛",
+    "😜",
+    "🤪",
+    "😝",
+    "🤑",
+    "🤗",
+    "🤭",
+    "🤫",
+    "🤔",
+    "🤐",
+    "🤨",
+    "😐",
+    "😑",
+    "😶",
+    "😏",
+    "😒",
+    "🙄",
+    "😬",
+    "🤥",
+    "😌",
+    "😔",
+    "😪",
+    "🤤",
+    "😴",
+    "😷",
+    "🤒",
+    "🤕",
+    "🤢",
+    "🤮",
+    "🤧",
+    "🥵",
+    "🥶",
+    "🥴",
+    "😵",
+    "🤯",
+    "🤠",
+    "🥳",
+    "😎",
+    "🤓",
+    "🧐",
+    "😕",
+    "😟",
+    "🙁",
+    "☹️",
+    "😮",
+    "😯",
+    "😲",
+    "😳",
+    "🥺",
+    "😦",
+    "😧",
+    "😨",
+    "😰",
+    "😥",
+    "😢",
+    "😭",
+    "😱",
+    "😖",
+    "😣",
+    "😞",
+    "😓",
+    "😩",
+    "👍",
+    "👎",
+    "👌",
+    "✌️",
+    "🤞",
+    "🤟",
+    "🤘",
+    "🤙",
+    "👈",
+    "👉",
+    "👆",
+    "👇",
+    "☝️",
+    "👋",
+    "🤚",
+    "🖐️",
+    "✋",
+    "🖖",
+    "👏",
+    "🙌",
+    "🔥",
+    "⭐",
+    "✨",
+    "💫",
+    "💥",
+    "💢",
+    "💦",
+    "💨",
+    "🎉",
+    "🎊",
+    "❤️",
+    "🧡",
+    "💛",
+    "💚",
+    "💙",
+    "💜",
+    "🖤",
+    "🤍",
+    "🤎",
+    "💔",
+  ];
+
+  const activeMsg = messages.find((m: MessageData) => m.id === activeMsgId) || messages[0];
+
+  const updateActiveMsg = (field: keyof MessageData, value: any) => {
+    setMessages((msgs: MessageData[]) =>
+      msgs.map((m: MessageData) => (m.id === activeMsgId ? { ...m, [field]: value } : m)),
+    );
+  };
+
+  const addMessage = () => {
+    const newId = uuid();
+    const randomCmd = `cmd_${Math.floor(Math.random() * 1000)
+      .toString()
+      .padStart(3, "0")}`;
+    setMessages([
+      ...messages,
+      {
+        id: newId,
+        label: `/${randomCmd}`,
+        type: "text",
+        content: "",
+        inlineKeyboard: [],
+        disableWebPagePreview: false,
+      },
+    ]);
+    setActiveMsgId(newId);
+  };
+
+  const removeActiveMessage = () => {
+    if (messages.length <= 1) return;
+
+    // 获取要删除的消息的 label（触发词）
+    const msgToRemove = messages.find((m: MessageData) => m.id === activeMsgId);
+
+    // 从 messages 中移除
+    const newMsgs = messages.filter((m: MessageData) => m.id !== activeMsgId);
+    setMessages(newMsgs);
+    setActiveMsgId(newMsgs[0].id);
+
+    // 同时从 autoReplyRules 中删除对应的规则（根据 label 匹配）
+    if (msgToRemove?.label) {
+      const cleanTrigger = msgToRemove.label.trim().replace(/^\//, "");
+      setAutoReplyRules((prev: AutoReplyRule[]) => {
+        const filtered = prev.filter((r: AutoReplyRule) => {
+          const ruleClean = r.triggerValue.trim().replace(/^\//, "").toLowerCase();
+          return ruleClean !== cleanTrigger.toLowerCase();
+        });
+        // 如果有删除规则，记录日志
+        if (filtered.length !== prev.length) {
+          console.log(`[AutoSync] Removed auto-reply rule for: ${msgToRemove.label}`);
+        }
+        return filtered;
+      });
+    }
+  };
+
+  const openCopyInserter = () => {
+    setCopyText("");
+    setShowCopyInserter(true);
+    setShowLinkInserter(false);
+    setShowEmojiPicker(false);
+  };
+  const confirmInsertCopy = () => {
+    if (!copyText) return;
+    const codeString = `<code>${copyText}</code>`;
+    updateActiveMsg("content", activeMsg.content + codeString);
+    setShowCopyInserter(false);
+  };
+
+  const openLinkInserter = () => {
+    setLinkForm({ text: "", url: "" });
+    setShowLinkInserter(true);
+    setShowCopyInserter(false);
+    setShowEmojiPicker(false);
+  };
+  const confirmInsertLink = () => {
+    if (!linkForm.url) return;
+    const linkString = `<a href="${linkForm.url}">${linkForm.text || "链接"}</a>`;
+    updateActiveMsg("content", activeMsg.content + linkString);
+    setShowLinkInserter(false);
+  };
+
+  const openEmojiPicker = () => {
+    setShowEmojiPicker(true);
+    setShowLinkInserter(false);
+    setShowCopyInserter(false);
+  };
+  const insertEmoji = (emoji: string) => {
+    updateActiveMsg("content", activeMsg.content + emoji);
+  };
+
+  const addInlineRow = () => {
+    const currentKb = activeMsg.inlineKeyboard || [];
+    updateActiveMsg("inlineKeyboard", [...currentKb, [{ text: "新按钮", type: "url", value: "" }]]);
+  };
+
+  const addInlineCol = (rIdx: number) => {
+    const currentKb = [...(activeMsg.inlineKeyboard || [])];
+    if (currentKb[rIdx].length < 3) {
+      currentKb[rIdx].push({ text: "新按钮", type: "url", value: "" });
+      updateActiveMsg("inlineKeyboard", currentKb);
+    }
+  };
+
+  const removeInlineBtn = (rIdx: number, cIdx: number) => {
+    const currentKb = [...(activeMsg.inlineKeyboard || [])];
+    currentKb[rIdx] = currentKb[rIdx].filter((_: any, i: number) => i !== cIdx);
+    if (currentKb[rIdx].length === 0) {
+      updateActiveMsg(
+        "inlineKeyboard",
+        currentKb.filter((_: any, i: number) => i !== rIdx),
+      );
+    } else {
+      updateActiveMsg("inlineKeyboard", currentKb);
+    }
+  };
+
+  const updateBtn = (rIdx: number, cIdx: number, field: string, val: string) => {
+    const currentKb = [...(activeMsg.inlineKeyboard || [])];
+    const row = [...currentKb[rIdx]];
+    row[cIdx] = { ...row[cIdx], [field]: val };
+    currentKb[rIdx] = row;
+    updateActiveMsg("inlineKeyboard", currentKb);
+  };
+
+  // 验证内联按钮是否填写了必要的值
+  const validateInlineButtons = (): string | null => {
+    const inlineKeyboard = activeMsg.inlineKeyboard || [];
+    for (let rIdx = 0; rIdx < inlineKeyboard.length; rIdx++) {
+      const row = inlineKeyboard[rIdx];
+      for (let cIdx = 0; cIdx < row.length; cIdx++) {
+        const btn = row[cIdx];
+        if (!btn.text || !btn.text.trim()) {
+          return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮缺少按钮文字`;
+        }
+        if (!btn.value || !btn.value.trim()) {
+          if (btn.type === "url") {
+            return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮 "${btn.text}" 缺少链接地址`;
+          } else if (btn.type === "callback_data") {
+            return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮 "${btn.text}" 缺少回调指令/关键词`;
+          } else if (btn.type === "web_app") {
+            return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮 "${btn.text}" 缺少 Web App 网址`;
+          }
+        }
+        // 额外验证 URL 格式
+        if (btn.type === "url" || btn.type === "web_app") {
+          if (btn.value && !btn.value.startsWith("http://") && !btn.value.startsWith("https://")) {
+            return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮 "${btn.text}" 的网址必须以 http:// 或 https:// 开头`;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const saveAsAutoCommand = () => {
+    // 检查试用是否过期
+    if (keyboardTrialExpired) {
+      showTrialExpiredToast();
+      return;
+    }
+
+    // 先验证内联按钮
+    const validationError = validateInlineButtons();
+    if (validationError) {
+      showToast("error", validationError);
+      return;
+    }
+
+    const rawLabel = activeMsg.label || `cmd_${uuid().substring(0, 5)}`;
+    const trigger = rawLabel.trim();
+    const isCommand = trigger.startsWith("/");
+    const type = isCommand ? "command" : "keyword";
+    const cleanTrigger = isCommand ? trigger.replace(/^\//, "") : trigger;
+
+    setAutoReplyRules((prev: AutoReplyRule[]) => {
+      const existingIdx = prev.findIndex(
+        (r: AutoReplyRule) => r.triggerValue === cleanTrigger && r.triggerType === type,
+      );
+      const newRule: AutoReplyRule = {
+        id: uuid(),
+        triggerType: type,
+        triggerValue: cleanTrigger,
+        replyMessages: [{ ...activeMsg }],
+      };
+      if (existingIdx !== -1) {
+        const updated = [...prev];
+        updated[existingIdx] = newRule;
+        return updated;
+      }
+      return [...prev, newRule];
+    });
+    showToast("success", `已保存为自动回复: ${trigger}`);
+    // 自动同步到云端
+    setTimeout(() => {
+      syncConfigToCloud?.();
+    }, 100);
+  };
+
+  // 发送至目标 - 检查试用状态
+  const handleSendFlow = () => {
+    if (keyboardTrialExpired) {
+      showTrialExpiredToast();
+      return;
+    }
+    onSendFlow(activeMsg);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="border-b pb-4 flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold mb-1">消息推送编辑器</h2>
+          <p className="text-xs text-muted-foreground">编辑消息并保存为自动回复规则</p>
+        </div>
+        <button
+          onClick={addMessage}
+          className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 font-bold flex items-center gap-1"
+        >
+          <Plus size={14} /> 新增消息
+        </button>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-2 border-b">
+        {messages.map((m: MessageData) => (
+          <div
+            key={m.id}
+            onClick={() => setActiveMsgId(m.id)}
+            className={`px-3 py-1.5 rounded-lg cursor-pointer text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-colors ${activeMsgId === m.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+          >
+            <Hash size={12} />
+            {m.label || "消息"}
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+        <div className="flex items-center gap-2 border-b pb-3">
+          <Tag size={14} className="text-muted-foreground" />
+          <input
+            value={activeMsg.label || ""}
+            onChange={(e) => updateActiveMsg("label", e.target.value)}
+            className="font-bold outline-none flex-1 bg-transparent"
+            placeholder="/start 或 关键词"
+          />
+          {messages.length > 1 && (
+            <button onClick={removeActiveMessage} className="text-destructive hover:bg-destructive/10 p-1 rounded">
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <select
+              value={activeMsg.type}
+              onChange={(e) => updateActiveMsg("type", e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm outline-none"
+            >
+              <option value="text">📝 文本消息</option>
+              <option value="photo">🖼️ 图片消息</option>
+              <option value="video">🎥 视频消息</option> {/* 新增选项 */}
+            </select>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={activeMsg.disableWebPagePreview || false}
+                onChange={(e) => updateActiveMsg("disableWebPagePreview", e.target.checked)}
+                className="rounded"
+              />
+              禁用链接预览
+            </div>
+          </div>
+
+          {activeMsg.type === "photo" && (
+            <input
+              value={activeMsg.mediaUrl || ""}
+              onChange={(e) => updateActiveMsg("mediaUrl", e.target.value)}
+              placeholder="图片 URL"
+              className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
+            />
+          )}
+
+          {/* 新增视频 URL 输入框 */}
+          {activeMsg.type === "video" && (
+            <input
+              value={activeMsg.mediaUrl || ""}
+              onChange={(e) => updateActiveMsg("mediaUrl", e.target.value)}
+              placeholder="视频 URL (mp4)"
+              className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
+            />
+          )}
+
+          <div className="relative">
+            <textarea
+              value={activeMsg.content}
+              onChange={(e) => updateActiveMsg("content", e.target.value)}
+              placeholder="消息内容 (支持 HTML)"
+              className="w-full h-32 border rounded-lg px-3 py-2 text-sm outline-none resize-none font-mono"
+            />
+            <div className="absolute bottom-2 right-2 flex gap-1">
+              <button
+                onClick={openLinkInserter}
+                className="px-2 py-1 bg-muted hover:bg-accent rounded text-muted-foreground flex items-center gap-1 text-[10px]"
+                title="插入链接"
+              >
+                <LinkIcon size={12} />
+                <span>链接</span>
+              </button>
+              <button
+                onClick={openCopyInserter}
+                className="px-2 py-1 bg-muted hover:bg-accent rounded text-muted-foreground flex items-center gap-1 text-[10px]"
+                title="插入可复制文本"
+              >
+                <Copy size={12} />
+                <span>复制</span>
+              </button>
+              <button
+                onClick={openEmojiPicker}
+                className="px-2 py-1 bg-muted hover:bg-accent rounded text-muted-foreground flex items-center gap-1 text-[10px]"
+                title="插入表情"
+              >
+                <Smile size={12} />
+                <span>表情</span>
+              </button>
+            </div>
+          </div>
+
+          {showLinkInserter && (
+            <div className="bg-muted p-3 rounded-lg space-y-2 animate-in fade-in">
+              <input
+                value={linkForm.text}
+                onChange={(e) => setLinkForm({ ...linkForm, text: e.target.value })}
+                placeholder="链接文字"
+                className="w-full border rounded px-2 py-1 text-sm outline-none"
+              />
+              <input
+                value={linkForm.url}
+                onChange={(e) => setLinkForm({ ...linkForm, url: e.target.value })}
+                placeholder="链接地址 (https://...)"
+                className="w-full border rounded px-2 py-1 text-sm outline-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={confirmInsertLink}
+                  className="bg-primary text-primary-foreground px-3 py-1 rounded text-xs font-bold"
+                >
+                  插入
+                </button>
+                <button
+                  onClick={() => setShowLinkInserter(false)}
+                  className="bg-muted-foreground/20 px-3 py-1 rounded text-xs"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showCopyInserter && (
+            <div className="bg-muted p-3 rounded-lg space-y-2 animate-in fade-in">
+              <input
+                value={copyText}
+                onChange={(e) => setCopyText(e.target.value)}
+                placeholder="可复制文本"
+                className="w-full border rounded px-2 py-1 text-sm outline-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={confirmInsertCopy}
+                  className="bg-primary text-primary-foreground px-3 py-1 rounded text-xs font-bold"
+                >
+                  插入
+                </button>
+                <button
+                  onClick={() => setShowCopyInserter(false)}
+                  className="bg-muted-foreground/20 px-3 py-1 rounded text-xs"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showEmojiPicker && (
+            <div className="bg-muted p-3 rounded-lg animate-in fade-in">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-xs font-bold text-muted-foreground">选择表情</span>
+                <button
+                  onClick={() => setShowEmojiPicker(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="grid grid-cols-10 gap-1 max-h-40 overflow-y-auto">
+                {telegramEmojis.map((emoji, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => insertEmoji(emoji)}
+                    className="w-8 h-8 flex items-center justify-center text-lg hover:bg-accent rounded transition"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t pt-4">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="text-sm font-bold">内联按钮</h4>
+            <button
+              onClick={addInlineRow}
+              className="text-xs bg-muted hover:bg-accent px-2 py-1 rounded flex items-center gap-1"
+            >
+              <Plus size={12} /> 添加行
+            </button>
+          </div>
+          <div className="space-y-2">
+            {(activeMsg.inlineKeyboard || []).map((row: InlineButton[], rIdx: number) => (
+              <div key={rIdx} className="flex gap-2 bg-muted p-2 rounded-lg">
+                {row.map((btn: InlineButton, cIdx: number) => (
+                  <div key={cIdx} className="flex-1 bg-card p-2 rounded border space-y-1">
+                    <div className="flex justify-between">
+                      <input
+                        value={btn.text}
+                        onChange={(e) => updateBtn(rIdx, cIdx, "text", e.target.value)}
+                        className="w-full text-xs font-bold outline-none bg-transparent"
+                        placeholder="按钮文字"
+                      />
+                      <button onClick={() => removeInlineBtn(rIdx, cIdx)} className="text-destructive">
+                        <X size={12} />
+                      </button>
+                    </div>
+                    <select
+                      value={btn.type}
+                      onChange={(e) => updateBtn(rIdx, cIdx, "type", e.target.value)}
+                      className="w-full text-[10px] bg-muted border rounded px-1 py-0.5 outline-none"
+                    >
+                      <option value="url">🔗 链接</option>
+                      <option value="callback_data">⚡ 回调</option>
+                      <option value="web_app">🌐 Web App</option>
+                    </select>
+                    <input
+                      value={btn.value}
+                      onChange={(e) => updateBtn(rIdx, cIdx, "value", e.target.value)}
+                      placeholder="值"
+                      className="w-full text-[10px] border rounded px-1 py-0.5 outline-none"
+                    />
+                  </div>
+                ))}
+                {row.length < 3 && (
+                  <button
+                    onClick={() => addInlineCol(rIdx)}
+                    className="w-8 flex items-center justify-center border border-dashed rounded text-muted-foreground hover:text-primary"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t pt-4 grid grid-cols-2 gap-3">
+          <button
+            onClick={saveAsAutoCommand}
+            className="w-full bg-muted hover:bg-accent py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2"
+          >
+            <Save size={16} /> 保存为自动回复
+          </button>
+          <button
+            onClick={() => handleSendFlow()}
+            disabled={!isConnected || !targetChatId}
+            className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2"
+          >
+            <Send size={16} /> 发送至目标
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Users Panel ---
+function UsersPanel({
+  knownUsers,
+  setKnownUsers,
+  showToast,
+  callApi,
+  menuPages,
+  setTargetChatId,
+  handlePushMenu,
+  botToken,
+}: any) {
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  // 从数据库加载用户
+  const loadUsersFromDb = async () => {
+    if (!botToken) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("bot_users")
+        .select("*")
+        .eq("bot_token", botToken)
+        .order("last_seen_at", { ascending: false });
+
+      if (error) throw error;
+      setDbUsers(data || []);
+    } catch (e: any) {
+      console.error("Failed to load users:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初始加载和实时订阅
+  useEffect(() => {
+    loadUsersFromDb();
+
+    if (!botToken) return;
+
+    // 实时订阅用户变化
+    const channel = supabase
+      .channel("bot-users-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bot_users",
+          filter: `bot_token=eq.${botToken}`,
+        },
+        (payload) => {
+          console.log("Bot users change:", payload);
+          loadUsersFromDb();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [botToken]);
+
+  // 删除单个用户
+  const deleteUser = async (userId: string, telegramUserId: number) => {
+    setDeleting(userId);
+    try {
+      const { error } = await supabase.from("bot_users").delete().eq("id", userId);
+
+      if (error) throw error;
+      setDbUsers((prev) => prev.filter((u) => u.id !== userId));
+      showToast("success", `已删除用户 ID: ${telegramUserId}`);
+    } catch (e: any) {
+      showToast("error", "删除失败: " + e.message);
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  // 合并数据库用户和本地用户
+  const allUsers = [...dbUsers];
+
+  return (
+    <div className="space-y-6">
+      <div className="border-b pb-4 flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold mb-1">用户数据</h2>
+          <p className="text-xs text-muted-foreground">
+            共 {allUsers.length} 位用户 {botToken ? "(实时同步)" : "(未连接机器人)"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={loadUsersFromDb}
+            disabled={loading}
+            className="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded flex items-center gap-1"
+          >
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> 刷新
+          </button>
+          <button
+            onClick={async () => {
+              if (!botToken) {
+                showToast("error", "请先连接机器人");
+                return;
+              }
+              if (!confirm("确定要清空所有用户数据吗？")) return;
+              try {
+                const { error } = await supabase.from("bot_users").delete().eq("bot_token", botToken);
+                if (error) throw error;
+                setDbUsers([]);
+                showToast("info", "已清空用户数据");
+              } catch (e: any) {
+                showToast("error", "清空失败: " + e.message);
+              }
+            }}
+            className="text-xs text-destructive hover:bg-destructive/10 px-2 py-1 rounded"
+          >
+            清空数据
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-card p-6 rounded-xl border shadow-sm">
+        <h4 className="font-bold mb-4 flex items-center gap-2">
+          <List size={18} /> 用户列表
+        </h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
+              <tr>
+                <th className="px-4 py-3">User ID</th>
+                <th className="px-4 py-3">昵称 / 用户名</th>
+                <th className="px-4 py-3">首次发现</th>
+                <th className="px-4 py-3">最后活跃</th>
+                <th className="px-4 py-3 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                    <Loader2 size={20} className="animate-spin mx-auto mb-2" />
+                    加载中...
+                  </td>
+                </tr>
+              ) : allUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                    暂无数据。当用户发送消息给机器人时会自动抓取。
+                  </td>
+                </tr>
+              ) : (
+                allUsers.map((u: any) => (
+                  <tr key={u.id} className="hover:bg-muted/50">
+                    <td className="px-4 py-3 font-mono text-muted-foreground">{u.telegram_user_id}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">
+                        {u.first_name}
+                        {u.last_name ? ` ${u.last_name}` : ""}
+                      </div>
+                      {u.username && <div className="text-xs text-primary">@{u.username}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {new Date(u.first_seen_at).toLocaleString("zh-CN")}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {new Date(u.last_seen_at).toLocaleString("zh-CN")}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setTargetChatId(u.telegram_user_id.toString());
+                            showToast("success", `已锁定目标用户: ${u.first_name}`);
+                          }}
+                          className="flex items-center gap-1 bg-muted hover:bg-accent px-2 py-1.5 rounded text-xs transition"
+                          title="设为目标 ID"
+                        >
+                          <Target size={14} /> 锁定
+                        </button>
+                        <button
+                          onClick={() => handlePushMenu(u.telegram_user_id, u.first_name)}
+                          className="flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary px-2 py-1.5 rounded text-xs transition font-medium"
+                          title="推送主菜单"
+                        >
+                          <SendHorizontal size={14} /> 推送
+                        </button>
+                        <button
+                          onClick={() => deleteUser(u.id, u.telegram_user_id)}
+                          disabled={deleting === u.id}
+                          className="flex items-center gap-1 bg-destructive/10 hover:bg-destructive/20 text-destructive px-2 py-1.5 rounded text-xs transition"
+                          title="删除用户"
+                        >
+                          {deleting === u.id ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Phone Simulator ---
+function PhoneSimulator({ chatHistory, botProfile, menuPages, commands, isConnected, onSimulateInteraction }: any) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [activePageId, setActivePageId] = useState("main");
+
+  const currentPage = menuPages.find((p: MenuPage) => p.id === activePageId) || menuPages[0];
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [chatHistory]);
+
+  const handleBtnClick = (btn: ReplyButton) => {
+    if (btn.actionType === "navigate" && btn.actionValue) {
+      setActivePageId(btn.actionValue);
+      return;
+    }
+    if (!onSimulateInteraction) return;
+    onSimulateInteraction(btn.text);
+  };
+
+  const handleCommandClick = (cmd: string) => {
+    setShowMenu(false);
+    if (onSimulateInteraction) onSimulateInteraction("/" + cmd);
+  };
+
+  return (
+    <div className="w-[280px] h-[640px] bg-card rounded-[32px] shadow-2xl overflow-hidden border-[8px] border-foreground relative flex flex-col shrink-0">
+      <div className="bg-card/95 backdrop-blur-md border-b pt-8 pb-2 px-3 flex items-center justify-between z-20 shadow-sm">
+        <div className="flex items-center gap-2">
+          <ArrowLeft className="text-primary w-5 h-5 -ml-1" />
+          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold border">
+            {botProfile ? botProfile.first_name.charAt(0) : <Bot size={16} />}
+          </div>
+          <div className="overflow-hidden w-24">
+            <h3 className="font-bold text-sm truncate">{botProfile?.first_name || "App Preview"}</h3>
+            <p className="text-[10px] text-primary font-medium">bot</p>
+          </div>
+        </div>
+        <MoreVertical className="text-muted-foreground w-4 h-4" />
+      </div>
+      <div
+        className="flex-1 bg-[#86a8bd] overflow-y-auto p-2 space-y-2"
+        ref={scrollRef}
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%237092a7' fill-opacity='0.2' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+        }}
+      >
+        <div className="text-center my-2">
+          <span className="bg-black/20 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">Today</span>
+        </div>
+        {chatHistory.map((msg: ChatMessage) => (
+          <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"} mb-2`}>
+            {msg.sender === "bot" && (
+              <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500 mr-1.5 self-end mb-1 border border-white">
+                {botProfile ? botProfile.first_name.charAt(0) : "B"}
+              </div>
+            )}
+            <div className="max-w-[80%] flex flex-col items-start">
+              {msg.type === "photo" && msg.mediaUrl && (
+                <img src={msg.mediaUrl} alt="media" className="w-full rounded-t-xl object-cover max-h-32" />
+              )}
+              {/* 视频渲染支持 */}
+              {msg.type === "video" && msg.mediaUrl && (
+                <video src={msg.mediaUrl} controls className="w-full rounded-t-xl object-cover max-h-48" />
+              )}
+              <div
+                className={`rounded-xl px-3 py-1.5 shadow-sm ${msg.sender === "user" ? "bg-[#a3d7a5] rounded-br-none text-slate-800" : "bg-white rounded-bl-none text-slate-700"}`}
+              >
+                <p
+                  className="text-[11px] leading-relaxed whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{
+                    __html: msg.content
+                      .replace(/<a href="(.*?)">(.*?)<\/a>/g, '<a href="$1" class="text-blue-600 underline">$2</a>')
+                      .replace(
+                        /<code>(.*?)<\/code>/g,
+                        '<code class="bg-slate-100 px-1 rounded text-xs font-mono">$1</code>',
+                      ),
+                  }}
+                />
+                <span className="text-[8px] text-slate-400 block text-right mt-0.5">{msg.timestamp}</span>
+              </div>
+              {msg.inlineKeyboard && msg.inlineKeyboard.length > 0 && (
+                <div className="w-full mt-1 space-y-1">
+                  {msg.inlineKeyboard.map((row: InlineButton[], rIdx: number) => (
+                    <div key={rIdx} className="flex gap-1">
+                      {row.map((btn: InlineButton, cIdx: number) => (
+                        <button
+                          key={cIdx}
+                          className="flex-1 bg-white/80 hover:bg-white text-blue-600 text-[10px] font-medium py-1.5 rounded-lg border border-slate-200 transition flex items-center justify-center gap-1 shadow-sm"
+                        >
+                          {btn.type === "url" && <ExternalLink size={10} />}
+                          {btn.text}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Menu Popup */}
+      {showMenu && (
+        <div className="absolute bottom-16 left-2 right-2 bg-white rounded-xl shadow-2xl p-2 z-30 animate-in fade-in slide-in-from-bottom-2 max-h-40 overflow-y-auto">
+          {commands.map((c: BotCommand, i: number) => (
+            <button
+              key={i}
+              onClick={() => handleCommandClick(c.command)}
+              className="w-full text-left px-3 py-2 hover:bg-slate-100 rounded-lg transition text-xs"
+            >
+              <span className="text-blue-600 font-bold">/{c.command}</span>
+              <span className="text-slate-500 ml-2">{c.description}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Keyboard & Input */}
+      <div className="bg-white border-t p-2 space-y-2">
+        {currentPage && currentPage.rows.length > 0 && (
+          <div className="space-y-1.5">
+            {currentPage.rows.map((row: ReplyButton[], rIdx: number) => (
+              <div key={rIdx} className="flex gap-1.5">
+                {row.map((btn: ReplyButton, cIdx: number) => (
+                  <button
+                    key={cIdx}
+                    onClick={() => handleBtnClick(btn)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[10px] font-medium py-2 px-1 rounded-lg transition shadow-sm border border-slate-200 truncate"
+                  >
+                    {btn.text}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition"
+          >
+            <Menu size={16} className="text-blue-500" />
+          </button>
+          <input
+            placeholder="Message"
+            className="flex-1 bg-slate-100 rounded-full px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-blue-300"
+          />
+          <button className="p-2 bg-blue-500 rounded-full hover:bg-blue-600 transition">
+            <Send size={14} className="text-white" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
