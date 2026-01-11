@@ -59,15 +59,32 @@ async function getTrxUsdtRate(): Promise<number> {
 async function getExpectedCryptoAmount(order: ShopOrder, paymentCurrency: 'USDT' | 'TRX'): Promise<number> {
   let usdtAmount = order.amount;
   
-  // 如果是CNY定价，先转换为USDT
+  // 根据商品原始货币，先转换为USDT等值
   if (order.currency === 'CNY') {
     const cnyRate = await getCnyUsdtRate();
     usdtAmount = Math.round((order.amount / cnyRate) * 1000) / 1000;
     console.log(`[Check Tron] CNY ${order.amount} -> USDT ${usdtAmount}`);
+  } else if (order.currency === 'TRX') {
+    // TRX定价，转换为USDT等值
+    const trxRate = await getTrxUsdtRate();
+    if (trxRate > 0) {
+      usdtAmount = Math.round((order.amount * trxRate) * 1000) / 1000;
+      console.log(`[Check Tron] TRX ${order.amount} -> USDT ${usdtAmount}`);
+    } else {
+      console.log(`[Check Tron] Cannot get TRX rate for TRX-priced order`);
+      return 0;
+    }
   }
+  // 如果是USDT定价，usdtAmount = order.amount，无需转换
   
-  // 如果支付的是TRX，再转换为TRX
+  // 如果链上支付的是TRX，将USDT等值转换为TRX数量
   if (paymentCurrency === 'TRX') {
+    // 如果商品本身就是TRX定价，直接返回原始金额
+    if (order.currency === 'TRX') {
+      console.log(`[Check Tron] TRX-priced order, expected TRX: ${order.amount}`);
+      return order.amount;
+    }
+    // 否则需要将USDT等值转换为TRX
     const trxRate = await getTrxUsdtRate();
     if (trxRate > 0) {
       const trxAmount = Math.round((usdtAmount / trxRate) * 1000) / 1000;
