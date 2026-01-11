@@ -125,14 +125,14 @@ function generateOrderNo(): string {
   return `TG${timestamp}${random}`;
 }
 
-// 处理 /buy 命令
+// 处理 /buy 命令 - 创建订单并让用户选择支付方式
 async function handleBuyCommand(
   supabase: any,
   botToken: string,
   chatId: number,
   username: string | null,
   text: string
-): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string; orderId?: string }> {
+): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any; orderId?: string }> {
   // 解析命令: /buy <商品名或关键词>
   const match = text.match(/^\/buy\s+(.+)$/i);
   if (!match) {
@@ -188,12 +188,12 @@ async function handleBuyCommand(
 
   // 生成订单
   const orderNo = generateOrderNo();
-  const finalPrice = generateRandomDecimal(product.price, shopConfig.random_decimals);
+  const basePrice = product.price;
   
   // 计算过期时间 (30分钟后)
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-  // 创建订单 (先不存消息ID，发送后再更新)
+  // 创建订单 (payment_method 为 pending，等用户选择)
   const { data: newOrder, error: orderError } = await supabase
     .from('shop_orders')
     .insert({
@@ -201,7 +201,7 @@ async function handleBuyCommand(
       order_no: orderNo,
       product_id: product.id,
       product_name: product.name,
-      amount: finalPrice,
+      amount: basePrice,  // 保存原始价格，选择支付方式后会更新
       currency: product.currency,
       payment_method: 'pending',
       telegram_user_id: chatId,
@@ -218,110 +218,61 @@ async function handleBuyCommand(
     return { handled: true, message: '❌ 订单创建失败，请稍后再试' };
   }
 
-  // 构建支付信息
-  let paymentMethods = [];
-  let cryptoQrUrl = '';
-  let trxAmount = 0;
-  let trxRate = 0;
+  // 计算各货币等值金额用于显示
   let usdtAmount = 0;
+  let trxAmount = 0;
   let cnyAmount = 0;
-  let cnyToUsdtRate = 0;
   
-  // 根据商品原始货币，转换为三种货币的等值金额
   if (product.currency === 'CNY') {
-    cnyAmount = finalPrice;
-    const cnyConversion = await convertCnyToUsdt(finalPrice);
+    cnyAmount = basePrice;
+    const cnyConversion = await convertCnyToUsdt(basePrice);
     usdtAmount = cnyConversion.usdtAmount;
-    cnyToUsdtRate = cnyConversion.rate;
-    console.log(`[TG Shop] CNY ${finalPrice} -> USDT ${usdtAmount}`);
+    const trxConversion = await convertUsdtToTrx(usdtAmount);
+    trxAmount = trxConversion.trxAmount;
   } else if (product.currency === 'TRX') {
-    trxAmount = finalPrice;
-    const trxConversion = await convertTrxToUsdt(finalPrice);
+    trxAmount = basePrice;
+    const trxConversion = await convertTrxToUsdt(basePrice);
     usdtAmount = trxConversion.usdtAmount;
-    trxRate = trxConversion.rate;
-    if (usdtAmount > 0) {
-      const cnyConversion = await convertUsdtToCny(usdtAmount);
-      cnyAmount = cnyConversion.cnyAmount;
-      cnyToUsdtRate = cnyConversion.rate;
-    }
-    console.log(`[TG Shop] TRX ${finalPrice} -> USDT ${usdtAmount} -> CNY ${cnyAmount}`);
-  } else {
-    // USDT定价
-    usdtAmount = finalPrice;
-    const cnyConversion = await convertUsdtToCny(finalPrice);
+    const cnyConversion = await convertUsdtToCny(usdtAmount);
     cnyAmount = cnyConversion.cnyAmount;
-    cnyToUsdtRate = cnyConversion.rate;
-    console.log(`[TG Shop] USDT ${finalPrice} -> CNY ${cnyAmount}`);
+  } else {
+    // USDT
+    usdtAmount = basePrice;
+    const cnyConversion = await convertUsdtToCny(basePrice);
+    cnyAmount = cnyConversion.cnyAmount;
+    const trxConversion = await convertUsdtToTrx(usdtAmount);
+    trxAmount = trxConversion.trxAmount;
   }
+
+  // 构建支付方式选择按钮
+  const paymentButtons: any[][] = [];
   
-  if (shopConfig.accept_usdt || shopConfig.accept_trx) {
-    const cryptoLines = [];
-    
-    // USDT显示
-    if (shopConfig.accept_usdt) {
-      if (product.currency === 'CNY') {
-        cryptoLines.push(`• USDT(TRC20): ${usdtAmount} USDT (¥${finalPrice} ≈ 1:${cnyToUsdtRate.toFixed(2)})`);
-      } else if (product.currency === 'TRX') {
-        cryptoLines.push(`• USDT(TRC20): ${usdtAmount} USDT (${finalPrice} TRX ≈$${trxRate.toFixed(4)}/TRX)`);
-      } else {
-        cryptoLines.push(`• USDT(TRC20): ${finalPrice} USDT`);
-      }
-    }
-    
-    // TRX显示
-    if (shopConfig.accept_trx) {
-      if (product.currency === 'TRX') {
-        // 商品本身就是TRX定价
-        if (usdtAmount > 0) {
-          cryptoLines.push(`• TRX: ${finalPrice} TRX (≈${usdtAmount} USDT ≈¥${cnyAmount})`);
-        } else {
-          cryptoLines.push(`• TRX: ${finalPrice} TRX`);
-        }
-      } else {
-        // 需要转换为TRX
-        const conversion = await convertUsdtToTrx(usdtAmount);
-        if (conversion.trxAmount > 0) {
-          trxAmount = conversion.trxAmount;
-          trxRate = conversion.rate;
-          if (product.currency === 'CNY') {
-            cryptoLines.push(`• TRX: ${trxAmount} TRX (¥${finalPrice} ≈$${conversion.rate.toFixed(4)}/TRX)`);
-          } else {
-            cryptoLines.push(`• TRX: ${trxAmount} TRX (≈$${conversion.rate.toFixed(4)}/TRX)`);
-          }
-        } else {
-          cryptoLines.push(`• TRX: 暂时无法获取汇率`);
-        }
-      }
-    }
-    
-    // 使用 code 格式让钱包地址可点击复制，添加复制提示
-    paymentMethods.push(`💎 虚拟货币:\n${cryptoLines.join('\n')}\n\n📍 收款地址 (点击复制):\n\`${shopConfig.wallet_address}\``);
-    
-    // 生成钱包地址二维码URL (使用 QR API)
-    if (shopConfig.wallet_address) {
-      cryptoQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shopConfig.wallet_address)}`;
-    }
+  // 虚拟货币支付选项
+  if (shopConfig.accept_usdt) {
+    paymentButtons.push([{ text: `💎 USDT(TRC20) ≈${usdtAmount} USDT`, callback_data: `pay_usdt_${orderNo}` }]);
   }
+  if (shopConfig.accept_trx) {
+    paymentButtons.push([{ text: `💎 TRX ≈${trxAmount} TRX`, callback_data: `pay_trx_${orderNo}` }]);
+  }
+  // 法币支付选项
   if (shopConfig.enable_alipay) {
-    paymentMethods.push(`💳 支付宝: 请发送 /pay_alipay_${orderNo} 获取付款码`);
+    paymentButtons.push([{ text: `💳 支付宝 ¥${cnyAmount}`, callback_data: `pay_alipay_${orderNo}` }]);
   }
   if (shopConfig.enable_wechat) {
-    paymentMethods.push(`💚 微信支付: 请发送 /pay_wechat_${orderNo} 获取付款码`);
+    paymentButtons.push([{ text: `💚 微信支付 ¥${cnyAmount}`, callback_data: `pay_wechat_${orderNo}` }]);
   }
+  
+  // 取消按钮
+  paymentButtons.push([{ text: '❌ 取消订单', callback_data: `pay_cancel_${orderNo}` }]);
 
-  // 计算倒计时显示时间 (中国时区 UTC+8, 24小时制)
-  const expireTime = new Date(expiresAt);
-  const chinaTime = new Date(expireTime.getTime() + 8 * 60 * 60 * 1000); // 转换为中国时区
-  const expireTimeStr = `${chinaTime.getUTCHours().toString().padStart(2, '0')}:${chinaTime.getUTCMinutes().toString().padStart(2, '0')}`;
-
-  // 构建金额显示，包含三种货币转换
-  let amountDisplay = `${finalPrice} ${product.currency}`;
+  // 构建订单信息显示
+  let amountDisplay = `${basePrice} ${product.currency}`;
   if (product.currency === 'CNY' && usdtAmount > 0) {
-    amountDisplay += ` (≈${usdtAmount} USDT)`;
+    amountDisplay += ` (≈${usdtAmount} USDT ≈${trxAmount} TRX)`;
   } else if (product.currency === 'TRX' && usdtAmount > 0) {
     amountDisplay += ` (≈${usdtAmount} USDT ≈¥${cnyAmount})`;
   } else if (product.currency === 'USDT' && cnyAmount > 0) {
-    amountDisplay += ` (≈¥${cnyAmount})`;
+    amountDisplay += ` (≈¥${cnyAmount} ≈${trxAmount} TRX)`;
   }
 
   const message = `🛒 *订单已创建*
@@ -332,7 +283,170 @@ async function handleBuyCommand(
 📊 库存: ${product.stock_content.length} 件
 
 ────────────────
-${paymentMethods.join('\n\n')}
+💳 *请选择支付方式:*
+
+⏰ 订单有效期: 30分钟
+⚠️ 超时订单将自动取消`;
+
+  return { 
+    handled: true, 
+    message, 
+    inlineKeyboard: { inline_keyboard: paymentButtons },
+    orderId: newOrder.id 
+  };
+}
+
+// 处理支付方式选择回调 - 显示支付详情
+async function handlePaymentMethodCallback(
+  supabase: any,
+  botToken: string,
+  chatId: number,
+  callbackData: string,
+  messageId: number
+): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string; orderId?: string }> {
+  // 解析回调: pay_<method>_<orderNo>
+  const match = callbackData.match(/^pay_(usdt|trx|alipay|wechat|cancel)_(.+)$/i);
+  if (!match) {
+    return { handled: false };
+  }
+
+  const paymentMethod = match[1].toLowerCase();
+  const orderNo = match[2];
+
+  // 获取订单
+  const { data: order, error: orderError } = await supabase
+    .from('shop_orders')
+    .select('*, shop_products(*)')
+    .eq('order_no', orderNo)
+    .maybeSingle();
+
+  if (orderError || !order) {
+    return { handled: true, message: '❌ 订单不存在或已过期' };
+  }
+
+  if (order.status !== 'pending') {
+    return { handled: true, message: '❌ 订单已完成或已取消' };
+  }
+
+  // 处理取消订单
+  if (paymentMethod === 'cancel') {
+    await supabase
+      .from('shop_orders')
+      .update({ status: 'cancelled', payment_method: 'cancelled' })
+      .eq('order_no', orderNo);
+    
+    // 删除原消息
+    await sendTelegramMessage(botToken, 'deleteMessage', {
+      chat_id: chatId,
+      message_id: messageId
+    });
+    
+    return { handled: true, message: `✅ 订单 \`${orderNo}\` 已取消` };
+  }
+
+  // 获取商店配置
+  const { data: shopConfig } = await supabase
+    .from('shop_configs')
+    .select('*')
+    .eq('bot_token', botToken)
+    .maybeSingle();
+
+  if (!shopConfig) {
+    return { handled: true, message: '❌ 商店配置错误' };
+  }
+
+  // 根据选择的支付方式计算最终金额
+  let finalAmount = order.amount;
+  let displayCurrency = order.currency;
+  let cryptoQrUrl = '';
+  
+  // 对于虚拟货币支付，需要转换金额并添加随机小数
+  if (paymentMethod === 'usdt' || paymentMethod === 'trx') {
+    // 先转换为对应货币金额
+    if (paymentMethod === 'usdt') {
+      if (order.currency === 'CNY') {
+        const conversion = await convertCnyToUsdt(order.amount);
+        finalAmount = conversion.usdtAmount;
+      } else if (order.currency === 'TRX') {
+        const conversion = await convertTrxToUsdt(order.amount);
+        finalAmount = conversion.usdtAmount;
+      }
+      // 如果是USDT定价，finalAmount = order.amount
+      displayCurrency = 'USDT';
+    } else {
+      // TRX
+      if (order.currency === 'CNY') {
+        const cnyConversion = await convertCnyToUsdt(order.amount);
+        const trxConversion = await convertUsdtToTrx(cnyConversion.usdtAmount);
+        finalAmount = trxConversion.trxAmount;
+      } else if (order.currency === 'USDT') {
+        const conversion = await convertUsdtToTrx(order.amount);
+        finalAmount = conversion.trxAmount;
+      }
+      // 如果是TRX定价，finalAmount = order.amount
+      displayCurrency = 'TRX';
+    }
+    
+    // 添加随机小数防撞单
+    finalAmount = generateRandomDecimal(finalAmount, shopConfig.random_decimals);
+    
+    // 生成二维码
+    if (shopConfig.wallet_address) {
+      cryptoQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shopConfig.wallet_address)}`;
+    }
+  } else {
+    // 法币支付 - 转换为CNY
+    if (order.currency === 'USDT') {
+      const conversion = await convertUsdtToCny(order.amount);
+      finalAmount = conversion.cnyAmount;
+    } else if (order.currency === 'TRX') {
+      const trxConversion = await convertTrxToUsdt(order.amount);
+      const cnyConversion = await convertUsdtToCny(trxConversion.usdtAmount);
+      finalAmount = cnyConversion.cnyAmount;
+    }
+    displayCurrency = 'CNY';
+  }
+
+  // 更新订单的支付方式和最终金额
+  await supabase
+    .from('shop_orders')
+    .update({ 
+      payment_method: paymentMethod,
+      amount: finalAmount,
+      currency: displayCurrency
+    })
+    .eq('order_no', orderNo);
+
+  // 计算过期时间显示
+  const expireTime = new Date(order.expires_at);
+  const chinaTime = new Date(expireTime.getTime() + 8 * 60 * 60 * 1000);
+  const expireTimeStr = `${chinaTime.getUTCHours().toString().padStart(2, '0')}:${chinaTime.getUTCMinutes().toString().padStart(2, '0')}`;
+
+  // 构建支付详情消息
+  let paymentInfo = '';
+  if (paymentMethod === 'usdt' || paymentMethod === 'trx') {
+    const currencyLabel = paymentMethod.toUpperCase();
+    paymentInfo = `💎 支付方式: ${currencyLabel}
+
+💰 需支付: ${finalAmount} ${currencyLabel}
+
+📍 收款地址 (点击复制):
+\`${shopConfig.wallet_address}\``;
+  } else {
+    paymentInfo = `💳 支付方式: ${paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
+
+💰 需支付: ¥${finalAmount}
+
+请发送 /pay_${paymentMethod}_${orderNo} 获取付款码`;
+  }
+
+  const message = `🛒 *订单支付详情*
+
+📦 商品: ${order.product_name}
+📝 订单号: \`${orderNo}\`
+
+────────────────
+${paymentInfo}
 ────────────────
 
 ⏰ 支付截止: ${expireTimeStr} (30分钟)
@@ -343,11 +457,11 @@ ${paymentMethods.join('\n\n')}
 例：金额10.12TRX+手续费1TRX=11.12TRX
 tokenpocket（简称TP）
 直接付金额10.12TRX（手续费扣余额）
-总到账需要金额10.12TRX（自己计算）
+总到账需要金额${finalAmount}${displayCurrency}（自己计算）
 付错额度不会发货联系人工客服处理
 ✅ 支付成功后将自动发货到此对话`;
 
-  return { handled: true, message, cryptoQrUrl, orderId: newOrder.id };
+  return { handled: true, message, cryptoQrUrl, orderId: order.id };
 }
 
 // 处理 /shop 命令 - 显示商品列表
@@ -908,6 +1022,76 @@ serve(async (req) => {
 
     // 处理 callback_query（内联按钮点击）
     if (body.callback_query) {
+      const callbackData = body.callback_query.data || '';
+      const cbChatId = body.callback_query.message?.chat?.id;
+      const cbMessageId = body.callback_query.message?.message_id;
+      
+      // 先回应callback_query，避免loading状态
+      await sendTelegramMessage(botToken, 'answerCallbackQuery', {
+        callback_query_id: body.callback_query.id
+      });
+      
+      // 优先检查是否是支付方式选择回调
+      if (callbackData.startsWith('pay_')) {
+        console.log(`[TG Shop] Payment method callback: ${callbackData}`);
+        
+        const paymentResult = await handlePaymentMethodCallback(
+          supabase,
+          botToken,
+          cbChatId,
+          callbackData,
+          cbMessageId
+        );
+        
+        if (paymentResult.handled) {
+          // 删除原来的支付方式选择消息
+          await sendTelegramMessage(botToken, 'deleteMessage', {
+            chat_id: cbChatId,
+            message_id: cbMessageId
+          });
+          
+          if (paymentResult.message) {
+            let qrMessageId: number | null = null;
+            
+            // 如果有加密货币二维码，先发送二维码图片
+            if (paymentResult.cryptoQrUrl) {
+              const qrResult = await sendTelegramMessage(botToken, 'sendPhoto', {
+                chat_id: cbChatId,
+                photo: paymentResult.cryptoQrUrl,
+                caption: '📍 扫码获取收款地址'
+              });
+              if (qrResult.ok && qrResult.result?.message_id) {
+                qrMessageId = qrResult.result.message_id;
+              }
+            }
+            
+            // 发送支付详情
+            const msgResult = await sendTelegramMessage(botToken, 'sendMessage', {
+              chat_id: cbChatId,
+              text: paymentResult.message,
+              parse_mode: 'Markdown'
+            });
+            
+            // 保存消息ID以便超时后删除
+            if (msgResult.ok && msgResult.result?.message_id && paymentResult.orderId) {
+              const updateData: any = { telegram_message_id: msgResult.result.message_id };
+              if (qrMessageId) {
+                updateData.telegram_qr_message_id = qrMessageId;
+              }
+              await supabase
+                .from('shop_orders')
+                .update(updateData)
+                .eq('id', paymentResult.orderId);
+            }
+          }
+          
+          return new Response(JSON.stringify({ ok: true, payment_handled: true }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+      
+      // 其他回调走原有自动回复逻辑
       const handled = await handleCallbackQuery(botToken, body.callback_query, autoReplyRules);
       console.log(`Callback query handled: ${handled}`);
       
@@ -917,9 +1101,7 @@ serve(async (req) => {
       // 如果活动记录开启且有接收者，转发内联按钮点击事件
       if (activityLogEnabled && activityRecipient > 0) {
         const cbFromUser = body.callback_query.from;
-        const cbChatId = body.callback_query.message?.chat?.id;
         const cbUserName = cbFromUser.first_name + (cbFromUser.last_name ? ' ' + cbFromUser.last_name : '');
-        const callbackData = body.callback_query.data || '';
         
         if (cbChatId && cbChatId !== activityRecipient) {
           const activityText = `📋 用户操作记录\n来自: ${cbUserName}\n用户ID: ${cbChatId}\n操作: 点击内联按钮\n按钮数据: ${callbackData}`;
@@ -1167,37 +1349,21 @@ serve(async (req) => {
         text
       );
       if (buyResult.handled && buyResult.message) {
-        let qrMessageId: number | null = null;
-        
-        // 如果有加密货币二维码，先发送二维码图片
-        if (buyResult.cryptoQrUrl) {
-          const qrResult = await sendTelegramMessage(botToken, 'sendPhoto', {
-            chat_id: chatId,
-            photo: buyResult.cryptoQrUrl,
-            caption: '📍 扫码获取收款地址'
-          });
-          if (qrResult.ok && qrResult.result?.message_id) {
-            qrMessageId = qrResult.result.message_id;
-          }
-        }
-        // 发送订单详情并保存消息ID
+        // 发送订单详情，带支付方式选择按钮
         const msgResult = await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
           text: buyResult.message,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: buyResult.inlineKeyboard
         });
         
-        // 保存消息ID以便超时后删除 (包括二维码消息)
+        // 保存消息ID以便超时后删除
         if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
-          const updateData: any = { telegram_message_id: msgResult.result.message_id };
-          if (qrMessageId) {
-            updateData.telegram_qr_message_id = qrMessageId;
-          }
           await supabase
             .from('shop_orders')
-            .update(updateData)
+            .update({ telegram_message_id: msgResult.result.message_id })
             .eq('id', buyResult.orderId);
-          console.log(`[TG Shop] Saved message_id ${msgResult.result.message_id}, qr_message_id ${qrMessageId} for order ${buyResult.orderId}`);
+          console.log(`[TG Shop] Saved message_id ${msgResult.result.message_id} for order ${buyResult.orderId}`);
         }
         
         keyboardHandled = true;
