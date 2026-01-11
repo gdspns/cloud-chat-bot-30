@@ -37,6 +37,36 @@ function generateRandomDecimal(price: number, enabled: boolean): number {
   return Math.round((price + randomMills / 1000) * 1000) / 1000;
 }
 
+// 从币安获取TRX/USDT实时汇率
+async function getTrxUsdtRate(): Promise<number> {
+  try {
+    const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=TRXUSDT');
+    if (!response.ok) {
+      console.error('[TG Shop] Failed to fetch TRX rate from Binance:', response.status);
+      return 0;
+    }
+    const data = await response.json();
+    const rate = parseFloat(data.price);
+    console.log(`[TG Shop] TRX/USDT rate from Binance: ${rate}`);
+    return rate;
+  } catch (error) {
+    console.error('[TG Shop] Error fetching TRX rate:', error);
+    return 0;
+  }
+}
+
+// 将USDT金额转换为TRX金额
+async function convertUsdtToTrx(usdtAmount: number): Promise<{ trxAmount: number; rate: number }> {
+  const rate = await getTrxUsdtRate();
+  if (rate <= 0) {
+    // 如果获取失败，返回0表示无法转换
+    return { trxAmount: 0, rate: 0 };
+  }
+  // USDT / TRX价格 = TRX数量
+  const trxAmount = Math.round((usdtAmount / rate) * 1000) / 1000; // 保留3位小数
+  return { trxAmount, rate };
+}
+
 // 生成订单号
 function generateOrderNo(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -140,11 +170,24 @@ async function handleBuyCommand(
   // 构建支付信息
   let paymentMethods = [];
   let cryptoQrUrl = '';
+  let trxAmount = 0;
+  let trxRate = 0;
   
   if (shopConfig.accept_usdt || shopConfig.accept_trx) {
     const cryptoLines = [];
     if (shopConfig.accept_usdt) cryptoLines.push(`• USDT(TRC20): ${finalPrice} USDT`);
-    if (shopConfig.accept_trx) cryptoLines.push(`• TRX: ${finalPrice} TRX`);
+    
+    // 如果接受TRX，从币安获取实时汇率转换
+    if (shopConfig.accept_trx) {
+      const conversion = await convertUsdtToTrx(finalPrice);
+      if (conversion.trxAmount > 0) {
+        trxAmount = conversion.trxAmount;
+        trxRate = conversion.rate;
+        cryptoLines.push(`• TRX: ${trxAmount} TRX (≈$${conversion.rate.toFixed(4)}/TRX)`);
+      } else {
+        cryptoLines.push(`• TRX: 暂时无法获取汇率`);
+      }
+    }
     
     // 使用 code 格式让钱包地址可点击复制，添加复制提示
     paymentMethods.push(`💎 虚拟货币:\n${cryptoLines.join('\n')}\n\n📍 收款地址 (点击复制):\n\`${shopConfig.wallet_address}\``);
