@@ -457,7 +457,7 @@ ${paymentInfo}
 例：金额10.12TRX+手续费1TRX=11.12TRX
 tokenpocket（简称TP）
 直接付金额10.12TRX（手续费扣余额）
-总到账需要金额${finalAmount}${displayCurrency}（自己计算）
+总到账需要金额10.12TRX（自己计算）
 付错额度不会发货联系人工客服处理
 ✅ 支付成功后将自动发货到此对话`;
 
