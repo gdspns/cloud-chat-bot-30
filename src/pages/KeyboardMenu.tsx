@@ -61,8 +61,11 @@ import {
   Cloud,
   CloudOff,
   Smile,
-  Video, // 新增图标
+  Video,
+  ShoppingCart,
 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { TgShopPanel } from "@/components/TgShop";
 import { Navbar } from "@/components/Navbar";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -485,7 +488,7 @@ function Workspace({
   commands,
   setCommands,
 }: any) {
-  const [activeTab, setActiveTab] = useState<"message" | "keyboard" | "commands" | "settings" | "users">("settings");
+  const [activeTab, setActiveTab] = useState<"message" | "keyboard" | "commands" | "settings" | "users" | "shop">("settings");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
   const [flowMessages, setFlowMessages] = useState<MessageData[]>([
@@ -1295,6 +1298,17 @@ function Workspace({
             active={activeTab === "users"}
             onClick={() => setActiveTab("users")}
           />
+          
+          {/* 分隔线 */}
+          <Separator className="my-4" />
+          
+          {/* TG商城入口 */}
+          <SidebarItem
+            icon={<ShoppingCart size={18} />}
+            label="TG商城"
+            active={activeTab === "shop"}
+            onClick={() => setActiveTab("shop")}
+          />
         </nav>
 
         <div className="p-4 border-t space-y-3">
@@ -1429,6 +1443,12 @@ function Workspace({
               setTargetChatId={setTargetChatId}
               handlePushMenu={handlePushMenu}
               botToken={botProfile?.token}
+            />
+          )}
+          {activeTab === "shop" && (
+            <TgShopPanel
+              botToken={botProfile?.token}
+              showToast={showToast}
             />
           )}
         </div>
