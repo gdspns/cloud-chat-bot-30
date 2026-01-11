@@ -442,7 +442,7 @@ async function handleOrderCommand(
 
   const orderLines = orders.map((o: any) => {
     const status = o.status === 'paid' ? '✅' : '⏳';
-    return `${status} \`${o.order_no}\` - ${o.product_name} - ${o.amount} ${o.currency}`;
+    return `${status} \`/order ${o.order_no}\` - ${o.product_name} - ${o.amount} ${o.currency}`;
   });
 
   const message = `📋 **您的订单** (最近10条)
