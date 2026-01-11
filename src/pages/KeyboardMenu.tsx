@@ -791,9 +791,9 @@ function Workspace({
       if (data) {
         if (data.reply_keyboard) setMenuPages(data.reply_keyboard as any);
         if (data.auto_reply_rules) setAutoReplyRules(data.auto_reply_rules as any);
-        if (data.flow_messages) {
+        if (data.flow_messages && Array.isArray(data.flow_messages) && (data.flow_messages as any[]).length > 0) {
           setFlowMessages(data.flow_messages as any);
-          setActiveFlowMsgId((data.flow_messages as any)[0]?.id);
+          setActiveFlowMsgId((data.flow_messages as any)[0]?.id || '');
         }
         if (data.commands) setCommands(data.commands as any);
         if (data.force_menu_on_start !== null) setForceMenuOnStart(data.force_menu_on_start);
@@ -1090,9 +1090,9 @@ function Workspace({
         if (config.commands) setCommands(config.commands);
         if (config.menuPages) setMenuPages(config.menuPages);
         if (config.autoReplyRules) setAutoReplyRules(config.autoReplyRules);
-        if (config.flowMessages) {
+        if (config.flowMessages && Array.isArray(config.flowMessages) && config.flowMessages.length > 0) {
           setFlowMessages(config.flowMessages);
-          setActiveFlowMsgId(config.flowMessages[0].id);
+          setActiveFlowMsgId(config.flowMessages[0]?.id || '');
         }
         if (config.knownUsers && Array.isArray(config.knownUsers)) {
           setKnownUsers(config.knownUsers);
@@ -2764,7 +2764,9 @@ function MessageFlowEditor({
     // 从 messages 中移除
     const newMsgs = messages.filter((m: MessageData) => m.id !== activeMsgId);
     setMessages(newMsgs);
-    setActiveMsgId(newMsgs[0].id);
+    if (newMsgs.length > 0) {
+      setActiveMsgId(newMsgs[0].id);
+    }
 
     // 同时从 autoReplyRules 中删除对应的规则（根据 label 匹配）
     if (msgToRemove?.label) {
