@@ -29,11 +29,12 @@ interface ShopConfig {
   admin_id: string | null;
 }
 
-// 生成随机小数防撞单
+// 生成随机小数防撞单 (0.010-0.099，三位小数)
 function generateRandomDecimal(price: number, enabled: boolean): number {
   if (!enabled) return price;
-  const randomCents = Math.floor(Math.random() * 99) + 1; // 0.01 - 0.99
-  return Math.round((price + randomCents / 100) * 100) / 100;
+  // 生成 10-99 的随机数，代表 0.010-0.099
+  const randomMills = Math.floor(Math.random() * 90) + 10; // 10-99
+  return Math.round((price + randomMills / 1000) * 1000) / 1000;
 }
 
 // 生成订单号
@@ -1000,13 +1001,18 @@ serve(async (req) => {
         text
       );
       if (buyResult.handled && buyResult.message) {
+        let qrMessageId: number | null = null;
+        
         // 如果有加密货币二维码，先发送二维码图片
         if (buyResult.cryptoQrUrl) {
-          await sendTelegramMessage(botToken, 'sendPhoto', {
+          const qrResult = await sendTelegramMessage(botToken, 'sendPhoto', {
             chat_id: chatId,
             photo: buyResult.cryptoQrUrl,
             caption: '📍 扫码获取收款地址'
           });
+          if (qrResult.ok && qrResult.result?.message_id) {
+            qrMessageId = qrResult.result.message_id;
+          }
         }
         // 发送订单详情并保存消息ID
         const msgResult = await sendTelegramMessage(botToken, 'sendMessage', {
@@ -1015,13 +1021,17 @@ serve(async (req) => {
           parse_mode: 'Markdown'
         });
         
-        // 保存消息ID以便超时后删除
+        // 保存消息ID以便超时后删除 (包括二维码消息)
         if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
+          const updateData: any = { telegram_message_id: msgResult.result.message_id };
+          if (qrMessageId) {
+            updateData.telegram_qr_message_id = qrMessageId;
+          }
           await supabase
             .from('shop_orders')
-            .update({ telegram_message_id: msgResult.result.message_id })
+            .update(updateData)
             .eq('id', buyResult.orderId);
-          console.log(`[TG Shop] Saved message_id ${msgResult.result.message_id} for order ${buyResult.orderId}`);
+          console.log(`[TG Shop] Saved message_id ${msgResult.result.message_id}, qr_message_id ${qrMessageId} for order ${buyResult.orderId}`);
         }
         
         keyboardHandled = true;
