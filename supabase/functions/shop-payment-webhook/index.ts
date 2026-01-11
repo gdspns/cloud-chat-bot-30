@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
     if (order.telegram_user_id && shopConfig) {
       const message = `✅ **支付成功！**
 
-💰 订单号: \`${orderNo}\`
+💰 订单号: \`/order ${orderNo}\`
 🎁 商品: ${order.product_name}
 💵 金额: ${order.amount} ${order.currency}
 ${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
@@ -198,7 +198,8 @@ ${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
 📦 **您的卡密：**
 \`${deliveryContent}\`
 ────────────────
-感谢您的惠顾！`
+感谢您的惠顾！点击卡密可复制！
+点击上面订单号可复制粘贴发送查询！`
 
       try {
         await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
