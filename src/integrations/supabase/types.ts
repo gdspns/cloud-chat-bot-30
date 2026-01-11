@@ -327,6 +327,182 @@ export type Database = {
           },
         ]
       }
+      shop_configs: {
+        Row: {
+          accept_trx: boolean | null
+          accept_usdt: boolean | null
+          admin_id: string | null
+          alipay_provider: string | null
+          bot_token: string
+          connection_mode: string | null
+          created_at: string
+          enable_alipay: boolean | null
+          enable_wechat: boolean | null
+          id: string
+          random_decimals: boolean | null
+          tron_grid_key: string | null
+          updated_at: string
+          wallet_address: string | null
+          webhook_url: string | null
+          wechat_provider: string | null
+          xunhu_id: string | null
+          xunhu_secret: string | null
+          yungou_id: string | null
+          yungou_key: string | null
+        }
+        Insert: {
+          accept_trx?: boolean | null
+          accept_usdt?: boolean | null
+          admin_id?: string | null
+          alipay_provider?: string | null
+          bot_token: string
+          connection_mode?: string | null
+          created_at?: string
+          enable_alipay?: boolean | null
+          enable_wechat?: boolean | null
+          id?: string
+          random_decimals?: boolean | null
+          tron_grid_key?: string | null
+          updated_at?: string
+          wallet_address?: string | null
+          webhook_url?: string | null
+          wechat_provider?: string | null
+          xunhu_id?: string | null
+          xunhu_secret?: string | null
+          yungou_id?: string | null
+          yungou_key?: string | null
+        }
+        Update: {
+          accept_trx?: boolean | null
+          accept_usdt?: boolean | null
+          admin_id?: string | null
+          alipay_provider?: string | null
+          bot_token?: string
+          connection_mode?: string | null
+          created_at?: string
+          enable_alipay?: boolean | null
+          enable_wechat?: boolean | null
+          id?: string
+          random_decimals?: boolean | null
+          tron_grid_key?: string | null
+          updated_at?: string
+          wallet_address?: string | null
+          webhook_url?: string | null
+          wechat_provider?: string | null
+          xunhu_id?: string | null
+          xunhu_secret?: string | null
+          yungou_id?: string | null
+          yungou_key?: string | null
+        }
+        Relationships: []
+      }
+      shop_orders: {
+        Row: {
+          amount: number
+          bot_token: string
+          created_at: string
+          currency: string
+          delivered_at: string | null
+          delivery_content: string | null
+          id: string
+          order_no: string
+          payment_method: string
+          product_id: string | null
+          product_name: string
+          status: string
+          telegram_user_id: number | null
+          telegram_username: string | null
+          tx_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bot_token: string
+          created_at?: string
+          currency: string
+          delivered_at?: string | null
+          delivery_content?: string | null
+          id?: string
+          order_no: string
+          payment_method: string
+          product_id?: string | null
+          product_name: string
+          status?: string
+          telegram_user_id?: number | null
+          telegram_username?: string | null
+          tx_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bot_token?: string
+          created_at?: string
+          currency?: string
+          delivered_at?: string | null
+          delivery_content?: string | null
+          id?: string
+          order_no?: string
+          payment_method?: string
+          product_id?: string | null
+          product_name?: string
+          status?: string
+          telegram_user_id?: number | null
+          telegram_username?: string | null
+          tx_hash?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "shop_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shop_products: {
+        Row: {
+          bot_token: string
+          created_at: string
+          currency: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          keywords: string[] | null
+          name: string
+          price: number
+          stock_content: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          bot_token: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          name: string
+          price: number
+          stock_content?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          bot_token?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          name?: string
+          price?: number
+          stock_content?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

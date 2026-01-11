@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check } from "lucide-react";
+import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink } from "lucide-react";
 import { ShopConfig } from "./types";
 
 interface ShopSettingsProps {
   config: ShopConfig;
   onSave: (config: Partial<ShopConfig>) => void;
   showToast: (type: "success" | "error" | "info", message: string) => void;
+  botToken?: string;
 }
 
-export function ShopSettings({ config, onSave, showToast }: ShopSettingsProps) {
+export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettingsProps) {
   const [localConfig, setLocalConfig] = useState(config);
   const [isVerifying, setIsVerifying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [webhookCopied, setWebhookCopied] = useState(false);
 
   useEffect(() => {
     setLocalConfig(config);
@@ -22,7 +24,7 @@ export function ShopSettings({ config, onSave, showToast }: ShopSettingsProps) {
   };
 
   const handleVerifyConnection = () => {
-    if (!localConfig.token) {
+    if (!localConfig.token && !botToken) {
       showToast("error", "请先填写 Telegram Bot Token");
       return;
     }
@@ -48,7 +50,6 @@ export function ShopSettings({ config, onSave, showToast }: ShopSettingsProps) {
 
   const handleSaveClick = () => {
     onSave(localConfig);
-    showToast("success", "配置已保存");
   };
 
   const handleCopyAddress = () => {
@@ -56,6 +57,27 @@ export function ShopSettings({ config, onSave, showToast }: ShopSettingsProps) {
     navigator.clipboard.writeText(localConfig.walletAddress).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      showToast("error", "复制失败");
+    });
+  };
+
+  // 生成 Webhook URL
+  const getWebhookUrl = () => {
+    const token = botToken || localConfig.token;
+    if (!token) return '';
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+    return `${baseUrl}/functions/v1/shop-payment-webhook?bot_token=${token}`;
+  };
+
+  const handleCopyWebhook = (type: string) => {
+    const token = botToken || localConfig.token;
+    if (!token) return;
+    const url = `${getWebhookUrl()}&type=${type}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setWebhookCopied(true);
+      setTimeout(() => setWebhookCopied(false), 2000);
+      showToast("success", "Webhook URL 已复制");
     }).catch(() => {
       showToast("error", "复制失败");
     });
@@ -72,16 +94,27 @@ export function ShopSettings({ config, onSave, showToast }: ShopSettingsProps) {
             <Bot size={20} className="text-primary"/> 机器人与管理员
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-foreground mb-1">Telegram Bot Token (必填)</label>
-              <input 
-                type="password" 
-                value={localConfig.token}
-                onChange={(e) => handleChange('token', e.target.value)}
-                placeholder="123456789:ABCdefGHIjklMNOpqrs..."
-                className="w-full p-2 bg-background border rounded font-mono text-sm focus:ring-2 focus:ring-primary outline-none"
-              />
-            </div>
+            {!botToken && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-foreground mb-1">Telegram Bot Token (必填)</label>
+                <input 
+                  type="password" 
+                  value={localConfig.token}
+                  onChange={(e) => handleChange('token', e.target.value)}
+                  placeholder="123456789:ABCdefGHIjklMNOpqrs..."
+                  className="w-full p-2 bg-background border rounded font-mono text-sm focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+            )}
+            {botToken && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-foreground mb-1">Telegram Bot Token</label>
+                <div className="flex items-center gap-2 p-2 bg-muted border rounded">
+                  <span className="font-mono text-sm text-muted-foreground">***{botToken.slice(-8)}</span>
+                  <span className="text-xs text-green-600 bg-green-500/10 px-2 py-0.5 rounded">已从菜单键盘继承</span>
+                </div>
+              </div>
+            )}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-foreground mb-1">管理员 ID (Admin ID)</label>
               <input 
@@ -119,6 +152,63 @@ export function ShopSettings({ config, onSave, showToast }: ShopSettingsProps) {
                 {isVerifying ? '验证中...' : '验证并连接'}
               </button>
             )}
+          </div>
+        </div>
+
+        {/* 支付回调 Webhook */}
+        <div className="bg-card p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+            <ExternalLink size={20} className="text-blue-600"/> 支付回调 Webhook
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            将以下 Webhook URL 配置到您的支付平台，用于接收支付成功通知并自动发货。
+          </p>
+          
+          <div className="space-y-3">
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-medium text-foreground">USDT/TRX 链上支付</span>
+                <button 
+                  onClick={() => handleCopyWebhook('crypto')}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  {webhookCopied ? <Check size={12}/> : <Copy size={12}/>} 复制
+                </button>
+              </div>
+              <code className="text-xs text-muted-foreground break-all block">
+                {getWebhookUrl()}&type=crypto
+              </code>
+            </div>
+            
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-medium text-foreground">YunGouOS 回调</span>
+                <button 
+                  onClick={() => handleCopyWebhook('yungou')}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  <Copy size={12}/> 复制
+                </button>
+              </div>
+              <code className="text-xs text-muted-foreground break-all block">
+                {getWebhookUrl()}&type=yungou
+              </code>
+            </div>
+            
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-medium text-foreground">虎皮椒 (XunHuPay) 回调</span>
+                <button 
+                  onClick={() => handleCopyWebhook('xunhu')}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  <Copy size={12}/> 复制
+                </button>
+              </div>
+              <code className="text-xs text-muted-foreground break-all block">
+                {getWebhookUrl()}&type=xunhu
+              </code>
+            </div>
           </div>
         </div>
 

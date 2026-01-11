@@ -6,6 +6,8 @@ interface BotSimulatorProps {
   products: Product[];
   orders: Order[];
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
+  onAddOrder?: (order: Omit<Order, 'id'>, productId?: string, telegramUserId?: number, telegramUsername?: string) => Promise<Order | null>;
+  onUpdateOrderStatus?: (orderId: string, status: Order['status']) => Promise<boolean>;
   config: ShopConfig;
   showToast: (type: "success" | "error" | "info", message: string) => void;
 }
@@ -55,7 +57,15 @@ function TgMessage({ text, isBot = false, buttons = [], image }: {
   );
 }
 
-export function BotSimulator({ products, orders, setOrders, config, showToast }: BotSimulatorProps) {
+export function BotSimulator({ 
+  products, 
+  orders, 
+  setOrders, 
+  onAddOrder,
+  onUpdateOrderStatus,
+  config, 
+  showToast 
+}: BotSimulatorProps) {
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', text: '👋 欢迎使用模拟器！\n🔹 输入 /buy [关键词] 购买\n🔹 输入 /orders 查询订单', isBot: true }
   ]);
@@ -89,13 +99,17 @@ export function BotSimulator({ products, orders, setOrders, config, showToast }:
     return "7.85";
   };
 
-  const handleSimulatePayment = (product: Product, orderId: string) => {
+  const handleSimulatePayment = async (product: Product, orderId: string) => {
     setMessages(prev => [...prev, { id: generateId(), text: '🔄 模拟链上数据监测中...', isBot: true }]);
 
     // 更新订单状态
-    setOrders(prev => prev.map(o => 
-      o.orderId === orderId ? { ...o, status: 'paid' as const } : o
-    ));
+    if (onUpdateOrderStatus) {
+      await onUpdateOrderStatus(orderId, 'paid');
+    } else {
+      setOrders(prev => prev.map(o => 
+        o.orderId === orderId ? { ...o, status: 'paid' as const } : o
+      ));
+    }
 
     setTimeout(() => {
       const stockLine = product.stockContent ? product.stockContent.split('\n')[0] : '库存不足，请联系管理员补货';
@@ -209,8 +223,7 @@ export function BotSimulator({ products, orders, setOrders, config, showToast }:
           image = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${qrData}`;
 
           // 创建订单
-          const newOrder: Order = {
-            id: generateId(),
+          const newOrder: Omit<Order, 'id'> = {
             orderId,
             productName: product.name,
             amount: finalAmount,
@@ -219,7 +232,12 @@ export function BotSimulator({ products, orders, setOrders, config, showToast }:
             createdAt: new Date().toISOString(),
             customer: 'SimulatorUser'
           };
-          setOrders(prev => [...prev, newOrder]);
+
+          if (onAddOrder) {
+            await onAddOrder(newOrder, product.id, undefined, 'SimulatorUser');
+          } else {
+            setOrders(prev => [...prev, { ...newOrder, id: generateId() }]);
+          }
 
           if (isCrypto) {
             responseText = `🧾 **订单已创建**\n订单号: \`${orderId}\`${rateMsg}\n\n请扫码支付准确金额 (防撞单):\n\n💎 **${finalAmount} ${currency}**\n\n收款地址 (TRC20):\n\`${config.walletAddress}\`\n\n⏳ 支付完成后系统自动发货。`;

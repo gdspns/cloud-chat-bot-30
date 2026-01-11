@@ -1,12 +1,14 @@
 import React from "react";
-import { Eye, Check, Download } from "lucide-react";
+import { Eye, Check, Download, RefreshCw } from "lucide-react";
 import { Order } from "./types";
 
 interface OrderManagerProps {
   orders: Order[];
+  onRefresh?: () => Promise<void>;
+  isLoading?: boolean;
 }
 
-export function OrderManager({ orders }: OrderManagerProps) {
+export function OrderManager({ orders, onRefresh, isLoading }: OrderManagerProps) {
   const handleExportCSV = () => {
     const headers = ['订单号', '商品', '用户', '金额', '货币', '状态', '时间'];
     const rows = orders.map(order => [
@@ -35,6 +37,15 @@ export function OrderManager({ orders }: OrderManagerProps) {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-foreground">订单记录</h2>
           <div className="flex gap-2">
+            {onRefresh && (
+              <button 
+                onClick={onRefresh}
+                disabled={isLoading}
+                className="bg-card border px-4 py-2 rounded text-sm hover:bg-muted flex items-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> 刷新
+              </button>
+            )}
             <button 
               onClick={handleExportCSV}
               className="bg-card border px-4 py-2 rounded text-sm hover:bg-muted flex items-center gap-2"
