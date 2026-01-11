@@ -337,6 +337,12 @@ ${paymentMethods.join('\n\n')}
 
 ⏰ 支付截止: ${expireTimeStr} (30分钟)
 ⚠️ 超时订单将自动取消并删除
+⚠️付款转账精确到小数点后面数值
+⚠️虚拟货币转账不包含扣除的手续费
+例:金额10.12TRX+手续费1TRX=11.12TRX
+总到账需要金额10.12TRX（自己计算）
+自己理解错导致货币丢失一概自负
+不懂可以先咨询人工客服
 ✅ 支付成功后将自动发货到此对话`;
 
   return { handled: true, message, cryptoQrUrl, orderId: newOrder.id };
@@ -450,7 +456,7 @@ async function handleOrderCommand(
 ${orderLines.join('\n')}
 
 ────────────────
-💡 查看详情: /order <订单号>`;
+💡 点击上面订单号可复制粘贴发送查询`;
 
   return { handled: true, message };
 }
