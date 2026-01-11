@@ -2024,7 +2024,11 @@ function KeyboardEditor({
   const [activePageId, setActivePageId] = useState("main");
   const [isPushing, setIsPushing] = useState(false);
   const [dbUsers, setDbUsers] = useState<any[]>([]);
-  const activePage = menuPages.find((p: MenuPage) => p.id === activePageId) || menuPages[0];
+  // 安全获取activePage，确保始终有有效值
+  const defaultPage: MenuPage = { id: 'main', name: '主菜单', rows: [] };
+  const activePage = (menuPages.length > 0 
+    ? (menuPages.find((p: MenuPage) => p.id === activePageId) || menuPages[0])
+    : defaultPage);
 
   useEffect(() => {
     const loadUsers = async () => {
