@@ -20,6 +20,66 @@ interface TronTransaction {
   block_timestamp: number
 }
 
+interface ShopOrder {
+  id: string
+  order_no: string
+  amount: number
+  currency: string
+  product_name: string
+  telegram_user_id: number | null
+  telegram_username: string | null
+  created_at: string
+}
+
+// 从币安获取CNY/USD汇率
+async function getCnyUsdtRate(): Promise<number> {
+  try {
+    const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    if (!response.ok) return 7.25;
+    const data = await response.json();
+    return data.rates?.CNY || 7.25;
+  } catch {
+    return 7.25;
+  }
+}
+
+// 从币安获取TRX/USDT实时汇率
+async function getTrxUsdtRate(): Promise<number> {
+  try {
+    const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=TRXUSDT');
+    if (!response.ok) return 0;
+    const data = await response.json();
+    return parseFloat(data.price) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+// 将订单金额转换为预期的链上金额 (USDT或TRX)
+async function getExpectedCryptoAmount(order: ShopOrder, paymentCurrency: 'USDT' | 'TRX'): Promise<number> {
+  let usdtAmount = order.amount;
+  
+  // 如果是CNY定价，先转换为USDT
+  if (order.currency === 'CNY') {
+    const cnyRate = await getCnyUsdtRate();
+    usdtAmount = Math.round((order.amount / cnyRate) * 1000) / 1000;
+    console.log(`[Check Tron] CNY ${order.amount} -> USDT ${usdtAmount}`);
+  }
+  
+  // 如果支付的是TRX，再转换为TRX
+  if (paymentCurrency === 'TRX') {
+    const trxRate = await getTrxUsdtRate();
+    if (trxRate > 0) {
+      const trxAmount = Math.round((usdtAmount / trxRate) * 1000) / 1000;
+      console.log(`[Check Tron] USDT ${usdtAmount} -> TRX ${trxAmount}`);
+      return trxAmount;
+    }
+    return 0; // 无法获取汇率
+  }
+  
+  return usdtAmount;
+}
+
 // 获取 TRC20 转账记录 (USDT)
 async function getTRC20Transactions(address: string, apiKey: string): Promise<TronTransaction[]> {
   const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?only_to=true&limit=50&contract_address=${USDT_CONTRACT}`
@@ -121,26 +181,33 @@ Deno.serve(async (req) => {
 
       // 匹配订单与交易
       for (const order of pendingOrders) {
-        const orderAmount = parseFloat(order.amount)
         const orderCreatedAt = new Date(order.created_at).getTime()
+        
+        // 判断该订单期望的支付币种
+        const orderPaymentCurrency = order.currency === 'TRX' ? 'TRX' : 'USDT'
 
         for (const tx of transactions) {
           // 检查时间 (交易在订单创建之后)
           if (tx.block_timestamp < orderCreatedAt) continue
 
-          // 计算交易金额
-          let txAmount: number
-          if (order.currency === 'USDT') {
-            // USDT 有 6 位小数
-            txAmount = parseInt(tx.value) / 1e6
-          } else {
-            // TRX 有 6 位小数
-            txAmount = parseInt(tx.value) / 1e6
-          }
+          // 计算链上交易金额 (USDT和TRX都是6位小数)
+          const txAmount = parseInt(tx.value) / 1e6
+          
+          // 判断该交易是USDT还是TRX
+          const isUsdtTx = tx.token_info?.symbol === 'USDT' || (tx.token_info !== undefined)
+          const txCurrency = isUsdtTx ? 'USDT' : 'TRX'
+          
+          // 获取该订单预期的链上支付金额 (考虑CNY转换)
+          const expectedAmount = await getExpectedCryptoAmount(
+            order as ShopOrder, 
+            txCurrency as 'USDT' | 'TRX'
+          )
+          
+          if (expectedAmount <= 0) continue
 
-          // 匹配金额 (允许 0.05 误差用于防撞单)
-          if (Math.abs(txAmount - orderAmount) < 0.06) {
-            console.log(`[Check Tron] Matched order ${order.order_no} with tx ${tx.transaction_id}`)
+          // 匹配金额 (允许 0.1 误差，因为汇率波动和防撞单小数)
+          if (Math.abs(txAmount - expectedAmount) < 0.15) {
+            console.log(`[Check Tron] Matched order ${order.order_no} (${order.currency} ${order.amount}) with tx ${tx.transaction_id} (${txCurrency} ${txAmount})`)
             
             // 调用支付回调
             const webhookUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${bot_token}&type=crypto`
