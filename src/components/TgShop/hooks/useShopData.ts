@@ -418,6 +418,30 @@ export function useShopData(botToken?: string) {
     }
   }, [botToken]);
 
+  // 清空指定状态的订单
+  const clearOrdersByStatus = useCallback(async (status: Order['status']) => {
+    if (!botToken) return false;
+
+    setIsSyncing(true);
+    try {
+      const { error } = await supabase
+        .from('shop_orders')
+        .delete()
+        .eq('bot_token', botToken)
+        .eq('status', status);
+
+      if (error) throw error;
+
+      setOrders(prev => prev.filter(o => o.status !== status));
+      return true;
+    } catch (error) {
+      console.error('Failed to clear orders:', error);
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [botToken]);
+
   // 刷新数据
   const refreshData = useCallback(async () => {
     await loadData();
@@ -435,6 +459,7 @@ export function useShopData(botToken?: string) {
     deleteProduct,
     addOrder,
     updateOrderStatus,
+    clearOrdersByStatus,
     refreshData,
     setProducts,
     setOrders

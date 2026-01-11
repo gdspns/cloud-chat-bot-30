@@ -28,9 +28,19 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
     deleteProduct,
     addOrder,
     updateOrderStatus,
+    clearOrdersByStatus,
     refreshData,
     setOrders
   } = useShopData(botToken);
+
+  const handleClearOrders = async (status: 'pending' | 'paid' | 'cancelled') => {
+    const success = await clearOrdersByStatus(status);
+    if (success) {
+      showToast("success", "订单已清空");
+    } else {
+      showToast("error", "清空失败，请重试");
+    }
+  };
 
   const handleSaveConfig = async (newConfig: Parameters<typeof saveConfig>[0]) => {
     const success = await saveConfig(newConfig);
@@ -183,6 +193,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
               <OrderManager 
                 orders={orders} 
                 onRefresh={refreshData}
+                onClearOrders={handleClearOrders}
                 isLoading={isLoading}
               />
             )}
