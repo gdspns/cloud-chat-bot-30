@@ -41,6 +41,31 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
     }
   };
 
+  // 如果没有 botToken，显示提示
+  if (!botToken) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-muted/30 p-8">
+        <div className="max-w-md text-center space-y-4">
+          <div className="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
+            <CloudOff className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">未连接机器人</h2>
+          <p className="text-sm text-muted-foreground">
+            请先在左侧"菜单键盘"中连接一个 Telegram 机器人，然后再使用 TG 商城功能。
+            <br />
+            商城数据将与该机器人绑定，确保数据隔离。
+          </p>
+          <div className="pt-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg text-sm text-primary">
+              <Activity size={16} />
+              <span>请先连接机器人</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* 顶部导航栏 */}

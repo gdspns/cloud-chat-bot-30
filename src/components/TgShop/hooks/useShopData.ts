@@ -223,28 +223,46 @@ export function useShopData(botToken?: string) {
 
   // 保存配置
   const saveConfig = useCallback(async (newConfig: Partial<ShopConfig>) => {
-    if (!botToken) return;
+    if (!botToken) {
+      console.error('Cannot save config: botToken is missing');
+      return false;
+    }
 
     setIsSyncing(true);
     try {
       const mergedConfig = { ...config, ...newConfig };
       const dbConfig = configToDbConfig(mergedConfig, botToken);
 
-      const { data: existing } = await supabase
+      const { data: existing, error: selectError } = await supabase
         .from('shop_configs')
         .select('id')
         .eq('bot_token', botToken)
         .maybeSingle();
 
+      if (selectError) {
+        console.error('Failed to check existing config:', selectError);
+        throw selectError;
+      }
+
       if (existing) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('shop_configs')
           .update(dbConfig as any)
           .eq('bot_token', botToken);
+        
+        if (updateError) {
+          console.error('Failed to update config:', updateError);
+          throw updateError;
+        }
       } else {
-        await supabase
+        const { error: insertError } = await supabase
           .from('shop_configs')
           .insert(dbConfig as any);
+        
+        if (insertError) {
+          console.error('Failed to insert config:', insertError);
+          throw insertError;
+        }
       }
 
       setConfig(mergedConfig);
