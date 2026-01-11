@@ -953,6 +953,55 @@ serve(async (req) => {
       keyboardHandled = true;
     }
     
+    // ========== TG商城命令处理 ==========
+    // 处理 /shop 命令
+    if (!keyboardHandled && text.toLowerCase() === '/shop') {
+      const shopResult = await handleShopCommand(supabase, botToken);
+      if (shopResult.handled && shopResult.message) {
+        await sendTelegramMessage(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text: shopResult.message,
+          parse_mode: 'Markdown'
+        });
+        keyboardHandled = true;
+        console.log('[TG Shop] /shop command handled');
+      }
+    }
+    
+    // 处理 /buy 命令
+    if (!keyboardHandled && text.toLowerCase().startsWith('/buy')) {
+      const buyResult = await handleBuyCommand(
+        supabase, 
+        botToken, 
+        chatId, 
+        fromUser.username || null,
+        text
+      );
+      if (buyResult.handled && buyResult.message) {
+        await sendTelegramMessage(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text: buyResult.message,
+          parse_mode: 'Markdown'
+        });
+        keyboardHandled = true;
+        console.log('[TG Shop] /buy command handled');
+      }
+    }
+    
+    // 处理 /order 命令
+    if (!keyboardHandled && text.toLowerCase().startsWith('/order')) {
+      const orderResult = await handleOrderCommand(supabase, botToken, chatId, text);
+      if (orderResult.handled && orderResult.message) {
+        await sendTelegramMessage(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text: orderResult.message,
+          parse_mode: 'Markdown'
+        });
+        keyboardHandled = true;
+        console.log('[TG Shop] /order command handled');
+      }
+    }
+    
     // 处理 /start 命令
     if (!keyboardHandled && text === '/start') {
       // 欢迎语逻辑：

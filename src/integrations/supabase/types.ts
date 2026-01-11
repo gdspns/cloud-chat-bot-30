@@ -187,6 +187,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_job_logs: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          id: string
+          job_name: string
+          result: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          job_name: string
+          result?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          job_name?: string
+          result?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       disabled_users: {
         Row: {
           disabled_at: string
@@ -536,6 +566,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      invoke_check_tron_payment: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
