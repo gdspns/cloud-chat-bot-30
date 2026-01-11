@@ -341,8 +341,7 @@ ${paymentMethods.join('\n\n')}
 ⚠️虚拟货币转账不包含扣除的手续费
 例:金额10.12TRX+手续费1TRX=11.12TRX
 总到账需要金额10.12TRX（自己计算）
-自己理解错导致货币丢失一概自负
-不懂可以先咨询人工客服
+付错额度不会发货联系人工客服处理
 ✅ 支付成功后将自动发货到此对话`;
 
   return { handled: true, message, cryptoQrUrl, orderId: newOrder.id };
