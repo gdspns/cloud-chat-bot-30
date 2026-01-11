@@ -63,18 +63,35 @@ serve(async (req) => {
 
     for (const [botToken, orders] of ordersByBot) {
       for (const order of orders) {
-        // 尝试删除 Telegram 消息
-        if (order.telegram_message_id && order.telegram_chat_id) {
-          const deleteResult = await sendTelegramRequest(botToken, 'deleteMessage', {
-            chat_id: order.telegram_chat_id,
-            message_id: order.telegram_message_id,
-          });
+        // 尝试删除 Telegram 消息 (包括二维码消息)
+        if (order.telegram_chat_id) {
+          // 先删除二维码消息
+          if (order.telegram_qr_message_id) {
+            const qrDeleteResult = await sendTelegramRequest(botToken, 'deleteMessage', {
+              chat_id: order.telegram_chat_id,
+              message_id: order.telegram_qr_message_id,
+            });
+            if (qrDeleteResult.ok) {
+              deletedMessages++;
+              console.log(`[Cleanup] Deleted QR message ${order.telegram_qr_message_id} for order ${order.order_no}`);
+            } else {
+              console.log(`[Cleanup] Failed to delete QR message for order ${order.order_no}:`, qrDeleteResult);
+            }
+          }
           
-          if (deleteResult.ok) {
-            deletedMessages++;
-            console.log(`[Cleanup] Deleted message ${order.telegram_message_id} for order ${order.order_no}`);
-          } else {
-            console.log(`[Cleanup] Failed to delete message for order ${order.order_no}:`, deleteResult);
+          // 再删除订单详情消息
+          if (order.telegram_message_id) {
+            const deleteResult = await sendTelegramRequest(botToken, 'deleteMessage', {
+              chat_id: order.telegram_chat_id,
+              message_id: order.telegram_message_id,
+            });
+            
+            if (deleteResult.ok) {
+              deletedMessages++;
+              console.log(`[Cleanup] Deleted message ${order.telegram_message_id} for order ${order.order_no}`);
+            } else {
+              console.log(`[Cleanup] Failed to delete message for order ${order.order_no}:`, deleteResult);
+            }
           }
         }
 

@@ -443,6 +443,7 @@ export type Database = {
           status: string
           telegram_chat_id: number | null
           telegram_message_id: number | null
+          telegram_qr_message_id: number | null
           telegram_user_id: number | null
           telegram_username: string | null
           tx_hash: string | null
@@ -464,6 +465,7 @@ export type Database = {
           status?: string
           telegram_chat_id?: number | null
           telegram_message_id?: number | null
+          telegram_qr_message_id?: number | null
           telegram_user_id?: number | null
           telegram_username?: string | null
           tx_hash?: string | null
@@ -485,6 +487,7 @@ export type Database = {
           status?: string
           telegram_chat_id?: number | null
           telegram_message_id?: number | null
+          telegram_qr_message_id?: number | null
           telegram_user_id?: number | null
           telegram_username?: string | null
           tx_hash?: string | null
