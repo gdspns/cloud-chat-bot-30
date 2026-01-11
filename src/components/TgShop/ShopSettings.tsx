@@ -23,20 +23,39 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
     setLocalConfig(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleVerifyConnection = () => {
-    if (!localConfig.token && !botToken) {
+  const handleVerifyConnection = async () => {
+    const token = botToken || localConfig.token;
+    if (!token) {
       showToast("error", "请先填写 Telegram Bot Token");
       return;
     }
     setIsVerifying(true);
     
-    setTimeout(() => {
+    try {
+      // 调用真实的 Telegram API 验证 Bot Token
+      const response = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+      const data = await response.json();
+      
+      if (data.ok && data.result) {
+        const botInfo = data.result;
+        const newConfig = { 
+          ...localConfig, 
+          status: 'online' as const,
+          botUsername: botInfo.username,
+          botFirstName: botInfo.first_name
+        };
+        setLocalConfig(newConfig);
+        onSave(newConfig);
+        showToast("success", `连接成功！机器人 @${botInfo.username} 已上线。`);
+      } else {
+        showToast("error", `验证失败: ${data.description || 'Token 无效'}`);
+      }
+    } catch (error) {
+      console.error('Bot verification error:', error);
+      showToast("error", "网络错误，请检查网络连接后重试");
+    } finally {
       setIsVerifying(false);
-      const newConfig = { ...localConfig, status: 'online' as const };
-      setLocalConfig(newConfig);
-      onSave(newConfig);
-      showToast("success", "连接成功！机器人已上线运行。");
-    }, 1500);
+    }
   };
 
   const handleDisconnect = () => {
@@ -160,8 +179,12 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
             <ExternalLink size={20} className="text-blue-600"/> 支付回调 Webhook
           </h3>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-muted-foreground mb-2">
             将以下 Webhook URL 配置到您的支付平台，用于接收支付成功通知并自动发货。
+          </p>
+          <p className="text-xs text-amber-600 bg-amber-500/10 p-2 rounded mb-4">
+            ⚠️ <strong>USDT/TRX 链上监控：</strong>系统会自动通过 TronGrid API 轮询检测链上转账。
+            您需要设置一个定时任务（如 cron job）每分钟调用一次 <code className="bg-background px-1 rounded">check-tron-payment</code> 接口来启动自动监控。
           </p>
           
           <div className="space-y-3">

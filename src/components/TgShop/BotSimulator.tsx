@@ -219,9 +219,6 @@ export function BotSimulator({
 
           const finalAmount = isCrypto ? getCollisionProofAmount(payAmount) : payAmount;
           
-          const qrData = isCrypto ? config.walletAddress : `https://pay.mock.com/${method}/${orderId}`;
-          image = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${qrData}`;
-
           // 创建订单
           const newOrder: Omit<Order, 'id'> = {
             orderId,
@@ -240,12 +237,48 @@ export function BotSimulator({
           }
 
           if (isCrypto) {
-            responseText = `🧾 **订单已创建**\n订单号: \`${orderId}\`${rateMsg}\n\n请扫码支付准确金额 (防撞单):\n\n💎 **${finalAmount} ${currency}**\n\n收款地址 (TRC20):\n\`${config.walletAddress}\`\n\n⏳ 支付完成后系统自动发货。`;
+            // 加密货币支付 - 生成钱包地址二维码
+            const qrData = config.walletAddress || 'TRC20_ADDRESS_NOT_CONFIGURED';
+            image = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${qrData}`;
+            responseText = `🧾 **订单已创建**\n订单号: \`${orderId}\`${rateMsg}\n\n请扫码支付准确金额 (防撞单):\n\n💎 **${finalAmount} ${currency}**\n\n收款地址 (TRC20):\n\`${config.walletAddress || '未配置'}\`\n\n⏳ 系统自动监控链上转账，支付后自动发货。`;
           } else {
-            const providerName = method === 'alipay' 
-              ? (config.alipayProvider === 'yungou' ? 'YunGouOS' : 'XunHuPay') 
-              : (config.wechatProvider === 'yungou' ? 'YunGouOS' : 'XunHuPay');
-            responseText = `🧾 **${method === 'alipay' ? '支付宝' : '微信'}订单已创建**\n订单号: \`${orderId}\`\n通道: ${providerName}\n\n请支付: **${finalAmount} CNY**\n\n⏳ 扫码支付后自动发货。`;
+            // 法币支付 - 调用真实支付API
+            const provider = method === 'alipay' ? config.alipayProvider : config.wechatProvider;
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const notifyUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${config.token}&type=${provider}`;
+            
+            try {
+              setMessages(prev => [...prev, { id: generateId(), text: '🔄 正在创建支付订单...', isBot: true }]);
+              
+              const payRes = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  bot_token: config.token,
+                  order_no: orderId,
+                  product_name: product.name,
+                  amount: finalAmount,
+                  payment_method: method,
+                  provider: provider,
+                  notify_url: notifyUrl
+                })
+              });
+              
+              const payData = await payRes.json();
+              
+              if (payData.success && payData.qr_code) {
+                image = payData.qr_code;
+                responseText = `🧾 **${method === 'alipay' ? '支付宝' : '微信'}订单已创建**\n订单号: \`${orderId}\`\n通道: ${provider === 'yungou' ? 'YunGouOS' : 'XunHuPay'}\n\n请支付: **${finalAmount} CNY**\n\n⏳ 扫码支付后自动发货。`;
+              } else {
+                // 支付API失败，使用模拟
+                image = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PAYMENT_${orderId}`;
+                responseText = `⚠️ 支付通道暂不可用\n错误: ${payData.error || '未知错误'}\n\n订单号: \`${orderId}\`\n金额: **${finalAmount} CNY**\n\n请联系管理员配置支付通道。`;
+              }
+            } catch (payError) {
+              console.error('Payment API error:', payError);
+              image = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PAYMENT_${orderId}`;
+              responseText = `⚠️ 网络错误，无法创建支付\n\n订单号: \`${orderId}\`\n金额: **${finalAmount} CNY**`;
+            }
           }
           
           buttons = [{ text: '✅ 我已支付 (点击模拟回调)', onClick: () => handleSimulatePayment(product, orderId) }];
