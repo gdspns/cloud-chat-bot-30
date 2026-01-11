@@ -1,85 +1,44 @@
-import React, { useState, useEffect } from "react";
-import { Settings, Package, ShoppingCart, Terminal, Activity } from "lucide-react";
-import { Product, Order, ShopConfig, ShopTab } from "./types";
+import React, { useState } from "react";
+import { Settings, Package, ShoppingCart, Terminal, Activity, Cloud, CloudOff, RefreshCw } from "lucide-react";
+import { ShopTab } from "./types";
 import { ShopNavButton } from "./ShopNavButton";
 import { ProductManager } from "./ProductManager";
 import { OrderManager } from "./OrderManager";
 import { ShopSettings } from "./ShopSettings";
 import { BotSimulator } from "./BotSimulator";
+import { useShopData } from "./hooks/useShopData";
 
 interface TgShopPanelProps {
   botToken?: string;
   showToast: (type: "success" | "error" | "info", message: string) => void;
 }
 
-const defaultConfig: ShopConfig = {
-  token: '',
-  adminId: '',
-  status: 'offline',
-  walletAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
-  tronGridKey: '',
-  acceptUsdt: true,
-  acceptTrx: false,
-  randomDecimals: true,
-  connectionMode: 'polling',
-  webhookUrl: '',
-  yungouId: '',
-  yungouKey: '',
-  xunhuId: '',
-  xunhuSecret: '',
-  enableAlipay: false,
-  alipayProvider: 'yungou',
-  enableWechat: false,
-  wechatProvider: 'xunhu'
-};
-
 export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
   const [activeTab, setActiveTab] = useState<ShopTab>('settings');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [config, setConfig] = useState<ShopConfig>(defaultConfig);
+  
+  const {
+    products,
+    orders,
+    config,
+    isLoading,
+    isSyncing,
+    saveConfig,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    addOrder,
+    updateOrderStatus,
+    refreshData,
+    setOrders
+  } = useShopData(botToken);
 
-  // 从 localStorage 加载数据
-  useEffect(() => {
-    const storageKey = botToken ? `tg_shop_${botToken.slice(-8)}` : 'tg_shop_default';
-    
-    const savedProducts = localStorage.getItem(`${storageKey}_products`);
-    const savedOrders = localStorage.getItem(`${storageKey}_orders`);
-    const savedConfig = localStorage.getItem(`${storageKey}_config`);
-
-    if (savedProducts) {
-      try {
-        setProducts(JSON.parse(savedProducts));
-      } catch (e) {}
+  const handleSaveConfig = async (newConfig: Parameters<typeof saveConfig>[0]) => {
+    const success = await saveConfig(newConfig);
+    if (success) {
+      showToast("success", "配置已保存并同步到云端");
+    } else {
+      showToast("error", "保存失败，请重试");
     }
-    if (savedOrders) {
-      try {
-        setOrders(JSON.parse(savedOrders));
-      } catch (e) {}
-    }
-    if (savedConfig) {
-      try {
-        setConfig(prev => ({ ...prev, ...JSON.parse(savedConfig) }));
-      } catch (e) {}
-    }
-  }, [botToken]);
-
-  // 保存到 localStorage
-  useEffect(() => {
-    const storageKey = botToken ? `tg_shop_${botToken.slice(-8)}` : 'tg_shop_default';
-    localStorage.setItem(`${storageKey}_products`, JSON.stringify(products));
-  }, [products, botToken]);
-
-  useEffect(() => {
-    const storageKey = botToken ? `tg_shop_${botToken.slice(-8)}` : 'tg_shop_default';
-    localStorage.setItem(`${storageKey}_orders`, JSON.stringify(orders));
-  }, [orders, botToken]);
-
-  const handleSaveConfig = (newConfig: Partial<ShopConfig>) => {
-    const mergedConfig = { ...config, ...newConfig };
-    setConfig(mergedConfig);
-    const storageKey = botToken ? `tg_shop_${botToken.slice(-8)}` : 'tg_shop_default';
-    localStorage.setItem(`${storageKey}_config`, JSON.stringify(mergedConfig));
   };
 
   return (
@@ -124,6 +83,30 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* 同步状态指示器 */}
+          <div className="flex items-center gap-2">
+            {isSyncing ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <RefreshCw size={12} className="animate-spin" />
+                <span>同步中...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-green-600">
+                <Cloud size={12} />
+                <span>已同步</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={refreshData}
+            disabled={isLoading || isSyncing}
+            className="p-1.5 rounded hover:bg-muted transition-colors disabled:opacity-50"
+            title="刷新数据"
+          >
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+          </button>
+
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
             config.status === 'online' 
               ? 'bg-green-500/10 border-green-500/50 text-green-600' 
@@ -139,37 +122,59 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
         </div>
       </header>
 
-      {/* 主内容区 */}
-      <main className="flex-1 overflow-hidden">
-        <div className="h-full bg-muted/30">
-          {activeTab === 'settings' && (
-            <ShopSettings 
-              config={config} 
-              onSave={handleSaveConfig} 
-              showToast={showToast} 
-            />
-          )}
-          {activeTab === 'products' && (
-            <ProductManager 
-              products={products} 
-              setProducts={setProducts} 
-              showToast={showToast} 
-            />
-          )}
-          {activeTab === 'orders' && (
-            <OrderManager orders={orders} />
-          )}
-          {activeTab === 'simulator' && (
-            <BotSimulator 
-              products={products} 
-              orders={orders}
-              setOrders={setOrders}
-              config={config} 
-              showToast={showToast} 
-            />
-          )}
+      {/* 加载状态 */}
+      {isLoading && (
+        <div className="flex-1 flex items-center justify-center bg-muted/30">
+          <div className="flex flex-col items-center gap-3">
+            <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground">加载数据中...</span>
+          </div>
         </div>
-      </main>
+      )}
+
+      {/* 主内容区 */}
+      {!isLoading && (
+        <main className="flex-1 overflow-hidden">
+          <div className="h-full bg-muted/30">
+            {activeTab === 'settings' && (
+              <ShopSettings 
+                config={config} 
+                onSave={handleSaveConfig} 
+                showToast={showToast}
+                botToken={botToken}
+              />
+            )}
+            {activeTab === 'products' && (
+              <ProductManager 
+                products={products}
+                onAddProduct={addProduct}
+                onUpdateProduct={updateProduct}
+                onDeleteProduct={deleteProduct}
+                showToast={showToast}
+                isSyncing={isSyncing}
+              />
+            )}
+            {activeTab === 'orders' && (
+              <OrderManager 
+                orders={orders} 
+                onRefresh={refreshData}
+                isLoading={isLoading}
+              />
+            )}
+            {activeTab === 'simulator' && (
+              <BotSimulator 
+                products={products} 
+                orders={orders}
+                setOrders={setOrders}
+                onAddOrder={addOrder}
+                onUpdateOrderStatus={updateOrderStatus}
+                config={config} 
+                showToast={showToast} 
+              />
+            )}
+          </div>
+        </main>
+      )}
     </div>
   );
 }

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Search } from "lucide-react";
+import { Plus, Trash2, Save, Search, Cloud, Loader2 } from "lucide-react";
 import { Product } from "./types";
 
 interface ProductManagerProps {
   products: Product[];
-  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  onAddProduct: (product: Omit<Product, 'id'>) => Promise<Product | null>;
+  onUpdateProduct: (id: string, updates: Partial<Product>) => Promise<boolean>;
+  onDeleteProduct: (id: string) => Promise<boolean>;
   showToast: (type: "success" | "error" | "info", message: string) => void;
+  isSyncing: boolean;
 }
 
 const defaultFormData: Omit<Product, 'id' | 'keywordsList'> = {
@@ -19,9 +22,17 @@ const defaultFormData: Omit<Product, 'id' | 'keywordsList'> = {
   type: 'auto'
 };
 
-export function ProductManager({ products, setProducts, showToast }: ProductManagerProps) {
+export function ProductManager({ 
+  products, 
+  onAddProduct, 
+  onUpdateProduct, 
+  onDeleteProduct, 
+  showToast,
+  isSyncing 
+}: ProductManagerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(defaultFormData);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (editingId) {
@@ -35,38 +46,59 @@ export function ProductManager({ products, setProducts, showToast }: ProductMana
     setFormData(prev => ({ ...prev, stockCount: lines }));
   }, [formData.stockContent]);
 
-  const handleSave = () => {
-    const keywordsList = formData.keywords.split(',').map(k => k.trim().toLowerCase());
+  const handleSave = async () => {
+    if (!formData.name.trim()) {
+      showToast("error", "请输入商品名称");
+      return;
+    }
+
+    setIsSaving(true);
+    const keywordsList = formData.keywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
     const now = new Date().toISOString();
     
-    if (editingId) {
-      setProducts(prev => prev.map(p => 
-        p.id === editingId 
-          ? { ...p, ...formData, keywordsList, updatedAt: now }
-          : p
-      ));
-      showToast("success", "商品已更新");
-    } else {
-      const newProduct: Product = {
-        id: crypto.randomUUID(),
-        ...formData,
-        keywordsList,
-        createdAt: now,
-        updatedAt: now
-      };
-      setProducts(prev => [...prev, newProduct]);
-      showToast("success", "商品已创建");
+    try {
+      if (editingId) {
+        const success = await onUpdateProduct(editingId, { 
+          ...formData, 
+          keywordsList, 
+          updatedAt: now 
+        });
+        if (success) {
+          showToast("success", "商品已更新并同步到云端");
+        } else {
+          showToast("error", "更新失败，请重试");
+        }
+      } else {
+        const newProduct = await onAddProduct({
+          ...formData,
+          keywordsList,
+          createdAt: now,
+          updatedAt: now
+        });
+        if (newProduct) {
+          showToast("success", "商品已创建并同步到云端");
+        } else {
+          showToast("error", "创建失败，请重试");
+        }
+      }
+      
+      setEditingId(null);
+      setFormData(defaultFormData);
+    } finally {
+      setIsSaving(false);
     }
-    
-    setEditingId(null);
-    setFormData(defaultFormData);
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("确定删除吗？")) return;
-    setProducts(prev => prev.filter(p => p.id !== id));
-    if (editingId === id) setEditingId(null);
-    showToast("info", "商品已删除");
+  const handleDelete = async (id: string) => {
+    if (!confirm("确定删除吗？此操作不可撤销。")) return;
+    
+    const success = await onDeleteProduct(id);
+    if (success) {
+      if (editingId === id) setEditingId(null);
+      showToast("info", "商品已删除");
+    } else {
+      showToast("error", "删除失败，请重试");
+    }
   };
 
   const handleNew = () => {
@@ -127,13 +159,22 @@ export function ProductManager({ products, setProducts, showToast }: ProductMana
       <div className="flex-1 bg-muted/50 p-8 overflow-y-auto min-w-[400px]">
         <div className="max-w-2xl mx-auto bg-card rounded-xl shadow-sm border overflow-hidden">
           <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-lg font-bold text-foreground">
-              {editingId ? '编辑商品' : '新建商品'}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-foreground">
+                {editingId ? '编辑商品' : '新建商品'}
+              </h2>
+              {isSyncing && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Loader2 size={12} className="animate-spin" />
+                  <span>同步中...</span>
+                </div>
+              )}
+            </div>
             {editingId && (
               <button 
                 onClick={() => handleDelete(editingId)} 
                 className="text-destructive hover:bg-destructive/10 p-2 rounded"
+                disabled={isSaving}
               >
                 <Trash2 size={18}/>
               </button>
@@ -219,9 +260,18 @@ export function ProductManager({ products, setProducts, showToast }: ProductMana
 
             <button 
               onClick={handleSave}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-lg shadow-lg transition-all flex justify-center items-center gap-2"
+              disabled={isSaving || isSyncing}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-lg shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50"
             >
-              <Save size={18} /> 保存配置
+              {isSaving ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" /> 保存中...
+                </>
+              ) : (
+                <>
+                  <Cloud size={18} /> 保存并同步到云端
+                </>
+              )}
             </button>
           </div>
         </div>
