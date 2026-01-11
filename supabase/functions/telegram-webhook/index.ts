@@ -160,9 +160,10 @@ async function handleBuyCommand(
     paymentMethods.push(`💚 微信支付: 请发送 /pay_wechat_${orderNo} 获取付款码`);
   }
 
-  // 计算倒计时显示时间
+  // 计算倒计时显示时间 (中国时区 UTC+8, 24小时制)
   const expireTime = new Date(expiresAt);
-  const expireTimeStr = `${expireTime.getHours().toString().padStart(2, '0')}:${expireTime.getMinutes().toString().padStart(2, '0')}`;
+  const chinaTime = new Date(expireTime.getTime() + 8 * 60 * 60 * 1000); // 转换为中国时区
+  const expireTimeStr = `${chinaTime.getUTCHours().toString().padStart(2, '0')}:${chinaTime.getUTCMinutes().toString().padStart(2, '0')}`;
 
   const message = `🛒 *订单已创建*
 
