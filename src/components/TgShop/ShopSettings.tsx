@@ -182,9 +182,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           <p className="text-sm text-muted-foreground mb-2">
             将以下 Webhook URL 配置到您的支付平台，用于接收支付成功通知并自动发货。
           </p>
-          <p className="text-xs text-amber-600 bg-amber-500/10 p-2 rounded mb-4">
-            ⚠️ <strong>USDT/TRX 链上监控：</strong>系统会自动通过 TronGrid API 轮询检测链上转账。
-            您需要设置一个定时任务（如 cron job）每分钟调用一次 <code className="bg-background px-1 rounded">check-tron-payment</code> 接口来启动自动监控。
+          <p className="text-xs text-green-600 bg-green-500/10 p-2 rounded mb-4">
+            ✅ <strong>USDT/TRX 链上监控已自动启用：</strong>系统已配置 pg_cron 定时任务，每分钟自动调用 TronGrid API 检测链上转账并完成发货。无需手动配置。
           </p>
           
           <div className="space-y-3">
@@ -233,6 +232,46 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               </code>
             </div>
           </div>
+        </div>
+
+        {/* Telegram 购买命令说明 */}
+        <div className="bg-card p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+            <Bot size={20} className="text-purple-600"/> Telegram 购买命令
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            用户在 Telegram 中与您的机器人对话时，可以使用以下命令直接购买商品：
+          </p>
+          
+          <div className="space-y-3">
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex justify-between items-center mb-1">
+                <code className="text-sm font-bold text-primary">/shop</code>
+                <span className="text-xs text-muted-foreground">查看商品列表</span>
+              </div>
+              <p className="text-xs text-muted-foreground">显示所有上架商品及价格</p>
+            </div>
+            
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex justify-between items-center mb-1">
+                <code className="text-sm font-bold text-primary">/buy &lt;商品名&gt;</code>
+                <span className="text-xs text-muted-foreground">购买商品</span>
+              </div>
+              <p className="text-xs text-muted-foreground">例如: <code>/buy VIP会员</code> - 创建订单并显示付款信息</p>
+            </div>
+            
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex justify-between items-center mb-1">
+                <code className="text-sm font-bold text-primary">/order</code>
+                <span className="text-xs text-muted-foreground">查看我的订单</span>
+              </div>
+              <p className="text-xs text-muted-foreground">查看订单历史及状态，支持 <code>/order 订单号</code> 查询特定订单</p>
+            </div>
+          </div>
+          
+          <p className="text-xs text-green-600 bg-green-500/10 p-2 rounded mt-4">
+            ✅ 这些命令已自动集成到您的 Telegram 机器人，用户可直接使用。支付成功后系统将自动发送卡密。
+          </p>
         </div>
 
         {/* 虚拟货币设置 */}
