@@ -55,6 +55,37 @@ async function getTrxUsdtRate(): Promise<number> {
   }
 }
 
+// 从币安获取CNY/USDT汇率 (使用USDT/CNY交易对)
+async function getCnyUsdtRate(): Promise<number> {
+  try {
+    // 币安P2P参考价格，使用FDUSD/USDT作为参考 (或使用固定汇率作为备选)
+    // 由于币安没有直接的CNY交易对，我们使用一个相对稳定的汇率API
+    const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    if (!response.ok) {
+      console.error('[TG Shop] Failed to fetch CNY rate:', response.status);
+      // 使用备用固定汇率
+      return 7.25;
+    }
+    const data = await response.json();
+    const cnyRate = data.rates?.CNY || 7.25;
+    console.log(`[TG Shop] USD/CNY rate: ${cnyRate}`);
+    return cnyRate;
+  } catch (error) {
+    console.error('[TG Shop] Error fetching CNY rate:', error);
+    // 使用备用固定汇率
+    return 7.25;
+  }
+}
+
+// 将CNY金额转换为USDT金额
+async function convertCnyToUsdt(cnyAmount: number): Promise<{ usdtAmount: number; rate: number }> {
+  const rate = await getCnyUsdtRate();
+  // CNY / 汇率 = USDT
+  const usdtAmount = Math.round((cnyAmount / rate) * 1000) / 1000; // 保留3位小数
+  console.log(`[TG Shop] CNY ${cnyAmount} -> USDT ${usdtAmount} (rate: ${rate})`);
+  return { usdtAmount, rate };
+}
+
 // 将USDT金额转换为TRX金额
 async function convertUsdtToTrx(usdtAmount: number): Promise<{ trxAmount: number; rate: number }> {
   const rate = await getTrxUsdtRate();
@@ -172,18 +203,40 @@ async function handleBuyCommand(
   let cryptoQrUrl = '';
   let trxAmount = 0;
   let trxRate = 0;
+  let usdtAmount = finalPrice;
+  let cnyToUsdtRate = 0;
+  
+  // 如果是CNY定价，先转换为USDT等值
+  if (product.currency === 'CNY') {
+    const cnyConversion = await convertCnyToUsdt(finalPrice);
+    usdtAmount = cnyConversion.usdtAmount;
+    cnyToUsdtRate = cnyConversion.rate;
+    console.log(`[TG Shop] CNY ${finalPrice} -> USDT ${usdtAmount}`);
+  }
   
   if (shopConfig.accept_usdt || shopConfig.accept_trx) {
     const cryptoLines = [];
-    if (shopConfig.accept_usdt) cryptoLines.push(`• USDT(TRC20): ${finalPrice} USDT`);
     
-    // 如果接受TRX，从币安获取实时汇率转换
+    // USDT显示：如果是CNY定价则显示转换后的金额
+    if (shopConfig.accept_usdt) {
+      if (product.currency === 'CNY') {
+        cryptoLines.push(`• USDT(TRC20): ${usdtAmount} USDT (¥${finalPrice} ≈ 1:${cnyToUsdtRate.toFixed(2)})`);
+      } else {
+        cryptoLines.push(`• USDT(TRC20): ${finalPrice} USDT`);
+      }
+    }
+    
+    // 如果接受TRX，从币安获取实时汇率转换 (基于USDT等值)
     if (shopConfig.accept_trx) {
-      const conversion = await convertUsdtToTrx(finalPrice);
+      const conversion = await convertUsdtToTrx(usdtAmount);
       if (conversion.trxAmount > 0) {
         trxAmount = conversion.trxAmount;
         trxRate = conversion.rate;
-        cryptoLines.push(`• TRX: ${trxAmount} TRX (≈$${conversion.rate.toFixed(4)}/TRX)`);
+        if (product.currency === 'CNY') {
+          cryptoLines.push(`• TRX: ${trxAmount} TRX (¥${finalPrice} ≈$${conversion.rate.toFixed(4)}/TRX)`);
+        } else {
+          cryptoLines.push(`• TRX: ${trxAmount} TRX (≈$${conversion.rate.toFixed(4)}/TRX)`);
+        }
       } else {
         cryptoLines.push(`• TRX: 暂时无法获取汇率`);
       }
@@ -212,7 +265,7 @@ async function handleBuyCommand(
   const message = `🛒 *订单已创建*
 
 📦 商品: ${product.name}
-💰 金额: ${finalPrice} ${product.currency}
+💰 金额: ${finalPrice} ${product.currency}${product.currency === 'CNY' ? ` (≈${usdtAmount} USDT)` : ''}
 📝 订单号: \`${orderNo}\`
 📊 库存: ${product.stock_content.length} 件
 
