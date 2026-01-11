@@ -168,20 +168,20 @@ Deno.serve(async (req) => {
     for (const config of configs) {
       const { bot_token, wallet_address, tron_grid_key, accept_usdt, accept_trx } = config
 
-      // 获取该店铺的待支付订单
+      // 获取该店铺的所有待支付订单（不限货币，CNY/USDT/TRX 都可以用加密货币支付）
       const { data: pendingOrders, error: ordersError } = await supabase
         .from('shop_orders')
         .select('*')
         .eq('bot_token', bot_token)
         .eq('status', 'pending')
-        .in('currency', ['USDT', 'TRX'])
+        .in('payment_method', ['usdt', 'trx']) // 只检查选择了加密货币支付的订单
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // 24小时内
 
       if (ordersError || !pendingOrders || pendingOrders.length === 0) {
         continue
       }
 
-      console.log(`[Check Tron] Checking ${pendingOrders.length} pending orders for wallet ${wallet_address.slice(-8)}`)
+      console.log(`[Check Tron] Checking ${pendingOrders.length} pending crypto orders for wallet ${wallet_address.slice(-8)}`)
 
       // 获取链上交易
       const transactions: TronTransaction[] = []
@@ -196,12 +196,12 @@ Deno.serve(async (req) => {
         transactions.push(...trxTxs)
       }
 
-      // 匹配订单与交易
+      // 匹配订单与交易 - 不管商品定价货币，只要收到等值的USDT或TRX就匹配
       for (const order of pendingOrders) {
         const orderCreatedAt = new Date(order.created_at).getTime()
         
-        // 判断该订单期望的支付币种
-        const orderPaymentCurrency = order.currency === 'TRX' ? 'TRX' : 'USDT'
+        // 支付方式决定了期望收到什么币种
+        const expectedPaymentCurrency = order.payment_method === 'trx' ? 'TRX' : 'USDT'
 
         for (const tx of transactions) {
           // 检查时间 (交易在订单创建之后)
@@ -214,7 +214,10 @@ Deno.serve(async (req) => {
           const isUsdtTx = tx.token_info?.symbol === 'USDT' || (tx.token_info !== undefined)
           const txCurrency = isUsdtTx ? 'USDT' : 'TRX'
           
-          // 获取该订单预期的链上支付金额 (考虑CNY转换)
+          // 只匹配期望的支付币种
+          if (txCurrency !== expectedPaymentCurrency) continue
+          
+          // 获取该订单预期的链上支付金额 (支持CNY/USDT/TRX任意定价转换)
           const expectedAmount = await getExpectedCryptoAmount(
             order as ShopOrder, 
             txCurrency as 'USDT' | 'TRX'
@@ -222,9 +225,9 @@ Deno.serve(async (req) => {
           
           if (expectedAmount <= 0) continue
 
-          // 匹配金额 (允许 0.1 误差，因为汇率波动和防撞单小数)
+          // 匹配金额 (允许 0.15 误差，因为汇率波动和防撞单小数)
           if (Math.abs(txAmount - expectedAmount) < 0.15) {
-            console.log(`[Check Tron] Matched order ${order.order_no} (${order.currency} ${order.amount}) with tx ${tx.transaction_id} (${txCurrency} ${txAmount})`)
+            console.log(`[Check Tron] Matched order ${order.order_no} (${order.currency} ${order.amount}) with tx ${tx.transaction_id} (${txCurrency} ${txAmount}, expected ${expectedAmount})`)
             
             // 调用支付回调
             const webhookUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${bot_token}&type=crypto`
