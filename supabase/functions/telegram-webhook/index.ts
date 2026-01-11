@@ -50,7 +50,7 @@ async function handleBuyCommand(
   chatId: number,
   username: string | null,
   text: string
-): Promise<{ handled: boolean; message?: string }> {
+): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string }> {
   // 解析命令: /buy <商品名或关键词>
   const match = text.match(/^\/buy\s+(.+)$/i);
   if (!match) {
@@ -131,11 +131,20 @@ async function handleBuyCommand(
 
   // 构建支付信息
   let paymentMethods = [];
+  let cryptoQrUrl = '';
+  
   if (shopConfig.accept_usdt || shopConfig.accept_trx) {
     const cryptoLines = [];
     if (shopConfig.accept_usdt) cryptoLines.push(`• USDT(TRC20): ${finalPrice} USDT`);
     if (shopConfig.accept_trx) cryptoLines.push(`• TRX: ${finalPrice} TRX`);
-    paymentMethods.push(`💎 虚拟货币:\n${cryptoLines.join('\n')}\n收款地址:\n\`${shopConfig.wallet_address}\``);
+    
+    // 使用 code 格式让钱包地址可点击复制，添加复制提示
+    paymentMethods.push(`💎 虚拟货币:\n${cryptoLines.join('\n')}\n\n📍 收款地址 (点击复制):\n\`${shopConfig.wallet_address}\``);
+    
+    // 生成钱包地址二维码URL (使用 QR API)
+    if (shopConfig.wallet_address) {
+      cryptoQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shopConfig.wallet_address)}`;
+    }
   }
   if (shopConfig.enable_alipay) {
     paymentMethods.push(`💳 支付宝: 请发送 /pay_alipay_${orderNo} 获取付款码`);
@@ -144,7 +153,7 @@ async function handleBuyCommand(
     paymentMethods.push(`💚 微信支付: 请发送 /pay_wechat_${orderNo} 获取付款码`);
   }
 
-  const message = `🛒 **订单已创建**
+  const message = `🛒 *订单已创建*
 
 📦 商品: ${product.name}
 💰 金额: ${finalPrice} ${product.currency}
@@ -158,7 +167,7 @@ ${paymentMethods.join('\n\n')}
 ⏰ 请在30分钟内完成支付
 ✅ 支付成功后将自动发货到此对话`;
 
-  return { handled: true, message };
+  return { handled: true, message, cryptoQrUrl };
 }
 
 // 处理 /shop 命令 - 显示商品列表
@@ -978,6 +987,15 @@ serve(async (req) => {
         text
       );
       if (buyResult.handled && buyResult.message) {
+        // 如果有加密货币二维码，先发送二维码图片
+        if (buyResult.cryptoQrUrl) {
+          await sendTelegramMessage(botToken, 'sendPhoto', {
+            chat_id: chatId,
+            photo: buyResult.cryptoQrUrl,
+            caption: '📍 扫码获取收款地址'
+          });
+        }
+        // 发送订单详情
         await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
           text: buyResult.message,
