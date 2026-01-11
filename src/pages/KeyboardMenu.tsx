@@ -1453,17 +1453,19 @@ function Workspace({
           )}
         </div>
 
-        {/* Phone Simulator */}
-        <div className="w-[320px] p-6 flex items-center justify-center bg-muted/50 border-l shrink-0">
-          <PhoneSimulator
-            chatHistory={chatHistory}
-            botProfile={botProfile}
-            menuPages={menuPages}
-            commands={commands}
-            isConnected={isConnected}
-            onSimulateInteraction={handleSimulatorInteraction}
-          />
-        </div>
+        {/* Phone Simulator - 仅在非商城页面显示 */}
+        {activeTab !== "shop" && (
+          <div className="w-[320px] p-6 flex items-center justify-center bg-muted/50 border-l shrink-0">
+            <PhoneSimulator
+              chatHistory={chatHistory}
+              botProfile={botProfile}
+              menuPages={menuPages}
+              commands={commands}
+              isConnected={isConnected}
+              onSimulateInteraction={handleSimulatorInteraction}
+            />
+          </div>
+        )}
       </main>
     </div>
   );
