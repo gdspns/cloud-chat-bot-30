@@ -434,12 +434,15 @@ export type Database = {
           currency: string
           delivered_at: string | null
           delivery_content: string | null
+          expires_at: string | null
           id: string
           order_no: string
           payment_method: string
           product_id: string | null
           product_name: string
           status: string
+          telegram_chat_id: number | null
+          telegram_message_id: number | null
           telegram_user_id: number | null
           telegram_username: string | null
           tx_hash: string | null
@@ -452,12 +455,15 @@ export type Database = {
           currency: string
           delivered_at?: string | null
           delivery_content?: string | null
+          expires_at?: string | null
           id?: string
           order_no: string
           payment_method: string
           product_id?: string | null
           product_name: string
           status?: string
+          telegram_chat_id?: number | null
+          telegram_message_id?: number | null
           telegram_user_id?: number | null
           telegram_username?: string | null
           tx_hash?: string | null
@@ -470,12 +476,15 @@ export type Database = {
           currency?: string
           delivered_at?: string | null
           delivery_content?: string | null
+          expires_at?: string | null
           id?: string
           order_no?: string
           payment_method?: string
           product_id?: string | null
           product_name?: string
           status?: string
+          telegram_chat_id?: number | null
+          telegram_message_id?: number | null
           telegram_user_id?: number | null
           telegram_username?: string | null
           tx_hash?: string | null
@@ -567,6 +576,7 @@ export type Database = {
         Returns: boolean
       }
       invoke_check_tron_payment: { Args: never; Returns: undefined }
+      invoke_cleanup_expired_orders: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
