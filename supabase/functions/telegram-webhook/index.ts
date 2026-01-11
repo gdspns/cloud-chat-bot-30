@@ -50,7 +50,7 @@ async function handleBuyCommand(
   chatId: number,
   username: string | null,
   text: string
-): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string }> {
+): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string; orderId?: string }> {
   // 解析命令: /buy <商品名或关键词>
   const match = text.match(/^\/buy\s+(.+)$/i);
   if (!match) {
@@ -107,9 +107,12 @@ async function handleBuyCommand(
   // 生成订单
   const orderNo = generateOrderNo();
   const finalPrice = generateRandomDecimal(product.price, shopConfig.random_decimals);
+  
+  // 计算过期时间 (30分钟后)
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-  // 创建订单
-  const { error: orderError } = await supabase
+  // 创建订单 (先不存消息ID，发送后再更新)
+  const { data: newOrder, error: orderError } = await supabase
     .from('shop_orders')
     .insert({
       bot_token: botToken,
@@ -121,8 +124,12 @@ async function handleBuyCommand(
       payment_method: 'pending',
       telegram_user_id: chatId,
       telegram_username: username,
+      telegram_chat_id: chatId,
+      expires_at: expiresAt,
       status: 'pending'
-    });
+    })
+    .select()
+    .single();
 
   if (orderError) {
     console.error('[TG Shop] Order creation failed:', orderError);
@@ -153,6 +160,10 @@ async function handleBuyCommand(
     paymentMethods.push(`💚 微信支付: 请发送 /pay_wechat_${orderNo} 获取付款码`);
   }
 
+  // 计算倒计时显示时间
+  const expireTime = new Date(expiresAt);
+  const expireTimeStr = `${expireTime.getHours().toString().padStart(2, '0')}:${expireTime.getMinutes().toString().padStart(2, '0')}`;
+
   const message = `🛒 *订单已创建*
 
 📦 商品: ${product.name}
@@ -164,10 +175,11 @@ async function handleBuyCommand(
 ${paymentMethods.join('\n\n')}
 ────────────────
 
-⏰ 请在30分钟内完成支付
+⏰ 支付截止: ${expireTimeStr} (30分钟)
+⚠️ 超时订单将自动取消并删除
 ✅ 支付成功后将自动发货到此对话`;
 
-  return { handled: true, message, cryptoQrUrl };
+  return { handled: true, message, cryptoQrUrl, orderId: newOrder.id };
 }
 
 // 处理 /shop 命令 - 显示商品列表
@@ -995,12 +1007,22 @@ serve(async (req) => {
             caption: '📍 扫码获取收款地址'
           });
         }
-        // 发送订单详情
-        await sendTelegramMessage(botToken, 'sendMessage', {
+        // 发送订单详情并保存消息ID
+        const msgResult = await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
           text: buyResult.message,
           parse_mode: 'Markdown'
         });
+        
+        // 保存消息ID以便超时后删除
+        if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
+          await supabase
+            .from('shop_orders')
+            .update({ telegram_message_id: msgResult.result.message_id })
+            .eq('id', buyResult.orderId);
+          console.log(`[TG Shop] Saved message_id ${msgResult.result.message_id} for order ${buyResult.orderId}`);
+        }
+        
         keyboardHandled = true;
         console.log('[TG Shop] /buy command handled');
       }
