@@ -6,6 +6,274 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ========== TG商城类型定义 ==========
+interface ShopProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  stock_content: string[] | null;
+  is_active: boolean;
+  keywords: string[] | null;
+}
+
+interface ShopConfig {
+  bot_token: string;
+  wallet_address: string | null;
+  accept_usdt: boolean;
+  accept_trx: boolean;
+  enable_alipay: boolean;
+  enable_wechat: boolean;
+  random_decimals: boolean;
+  admin_id: string | null;
+}
+
+// 生成随机小数防撞单
+function generateRandomDecimal(price: number, enabled: boolean): number {
+  if (!enabled) return price;
+  const randomCents = Math.floor(Math.random() * 99) + 1; // 0.01 - 0.99
+  return Math.round((price + randomCents / 100) * 100) / 100;
+}
+
+// 生成订单号
+function generateOrderNo(): string {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `TG${timestamp}${random}`;
+}
+
+// 处理 /buy 命令
+async function handleBuyCommand(
+  supabase: any,
+  botToken: string,
+  chatId: number,
+  username: string | null,
+  text: string
+): Promise<{ handled: boolean; message?: string }> {
+  // 解析命令: /buy <商品名或关键词>
+  const match = text.match(/^\/buy\s+(.+)$/i);
+  if (!match) {
+    return { 
+      handled: true, 
+      message: '❌ 使用方法: /buy <商品名>\n\n例如: /buy VIP会员\n\n发送 /shop 查看所有商品' 
+    };
+  }
+
+  const keyword = match[1].trim().toLowerCase();
+
+  // 获取商店配置
+  const { data: shopConfig } = await supabase
+    .from('shop_configs')
+    .select('*')
+    .eq('bot_token', botToken)
+    .maybeSingle();
+
+  if (!shopConfig) {
+    return { handled: true, message: '❌ 该机器人未配置商城功能' };
+  }
+
+  // 搜索商品 (按名称或关键词)
+  const { data: products } = await supabase
+    .from('shop_products')
+    .select('*')
+    .eq('bot_token', botToken)
+    .eq('is_active', true);
+
+  if (!products || products.length === 0) {
+    return { handled: true, message: '❌ 暂无可购买的商品' };
+  }
+
+  // 模糊匹配商品
+  const product = products.find((p: ShopProduct) => {
+    const nameMatch = p.name.toLowerCase().includes(keyword);
+    const keywordMatch = p.keywords?.some((k: string) => k.toLowerCase().includes(keyword));
+    return nameMatch || keywordMatch;
+  });
+
+  if (!product) {
+    const productList = products.map((p: ShopProduct) => `• ${p.name} - ${p.price} ${p.currency}`).join('\n');
+    return { 
+      handled: true, 
+      message: `❌ 未找到匹配商品: "${keyword}"\n\n📦 可用商品:\n${productList}\n\n使用 /buy <商品名> 购买` 
+    };
+  }
+
+  // 检查库存
+  if (!product.stock_content || product.stock_content.length === 0) {
+    return { handled: true, message: `❌ 商品 "${product.name}" 暂无库存，请稍后再试` };
+  }
+
+  // 生成订单
+  const orderNo = generateOrderNo();
+  const finalPrice = generateRandomDecimal(product.price, shopConfig.random_decimals);
+
+  // 创建订单
+  const { error: orderError } = await supabase
+    .from('shop_orders')
+    .insert({
+      bot_token: botToken,
+      order_no: orderNo,
+      product_id: product.id,
+      product_name: product.name,
+      amount: finalPrice,
+      currency: product.currency,
+      payment_method: 'pending',
+      telegram_user_id: chatId,
+      telegram_username: username,
+      status: 'pending'
+    });
+
+  if (orderError) {
+    console.error('[TG Shop] Order creation failed:', orderError);
+    return { handled: true, message: '❌ 订单创建失败，请稍后再试' };
+  }
+
+  // 构建支付信息
+  let paymentMethods = [];
+  if (shopConfig.accept_usdt || shopConfig.accept_trx) {
+    const cryptoLines = [];
+    if (shopConfig.accept_usdt) cryptoLines.push(`• USDT(TRC20): ${finalPrice} USDT`);
+    if (shopConfig.accept_trx) cryptoLines.push(`• TRX: ${finalPrice} TRX`);
+    paymentMethods.push(`💎 虚拟货币:\n${cryptoLines.join('\n')}\n收款地址:\n\`${shopConfig.wallet_address}\``);
+  }
+  if (shopConfig.enable_alipay) {
+    paymentMethods.push(`💳 支付宝: 请发送 /pay_alipay_${orderNo} 获取付款码`);
+  }
+  if (shopConfig.enable_wechat) {
+    paymentMethods.push(`💚 微信支付: 请发送 /pay_wechat_${orderNo} 获取付款码`);
+  }
+
+  const message = `🛒 **订单已创建**
+
+📦 商品: ${product.name}
+💰 金额: ${finalPrice} ${product.currency}
+📝 订单号: \`${orderNo}\`
+📊 库存: ${product.stock_content.length} 件
+
+────────────────
+${paymentMethods.join('\n\n')}
+────────────────
+
+⏰ 请在30分钟内完成支付
+✅ 支付成功后将自动发货到此对话`;
+
+  return { handled: true, message };
+}
+
+// 处理 /shop 命令 - 显示商品列表
+async function handleShopCommand(
+  supabase: any,
+  botToken: string
+): Promise<{ handled: boolean; message?: string }> {
+  // 获取商店配置
+  const { data: shopConfig } = await supabase
+    .from('shop_configs')
+    .select('*')
+    .eq('bot_token', botToken)
+    .maybeSingle();
+
+  if (!shopConfig) {
+    return { handled: true, message: '❌ 该机器人未配置商城功能' };
+  }
+
+  // 获取所有上架商品
+  const { data: products } = await supabase
+    .from('shop_products')
+    .select('*')
+    .eq('bot_token', botToken)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+
+  if (!products || products.length === 0) {
+    return { handled: true, message: '📦 暂无可购买的商品' };
+  }
+
+  const productLines = products.map((p: ShopProduct, idx: number) => {
+    const stock = p.stock_content?.length || 0;
+    const stockText = stock > 0 ? `(库存: ${stock})` : '(缺货)';
+    return `${idx + 1}. **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   ${p.description || ''}`;
+  });
+
+  const message = `🏪 **商城商品列表**
+
+${productLines.join('\n\n')}
+
+────────────────
+💡 购买方法: /buy <商品名>
+例如: /buy ${products[0].name}`;
+
+  return { handled: true, message };
+}
+
+// 处理 /order 命令 - 查询订单
+async function handleOrderCommand(
+  supabase: any,
+  botToken: string,
+  chatId: number,
+  text: string
+): Promise<{ handled: boolean; message?: string }> {
+  // 解析命令
+  const match = text.match(/^\/order\s*(.*)$/i);
+  const orderNo = match?.[1]?.trim();
+
+  if (orderNo) {
+    // 查询特定订单
+    const { data: order } = await supabase
+      .from('shop_orders')
+      .select('*')
+      .eq('bot_token', botToken)
+      .eq('order_no', orderNo)
+      .maybeSingle();
+
+    if (!order) {
+      return { handled: true, message: `❌ 未找到订单: ${orderNo}` };
+    }
+
+    const statusText = order.status === 'paid' ? '✅ 已支付' : '⏳ 待支付';
+    let message = `📋 **订单详情**
+
+订单号: \`${order.order_no}\`
+商品: ${order.product_name}
+金额: ${order.amount} ${order.currency}
+状态: ${statusText}
+创建时间: ${new Date(order.created_at).toLocaleString('zh-CN')}`;
+
+    if (order.status === 'paid' && order.delivery_content) {
+      message += `\n\n📦 **卡密:**\n\`${order.delivery_content}\``;
+    }
+
+    return { handled: true, message };
+  }
+
+  // 查询用户所有订单
+  const { data: orders } = await supabase
+    .from('shop_orders')
+    .select('*')
+    .eq('bot_token', botToken)
+    .eq('telegram_user_id', chatId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (!orders || orders.length === 0) {
+    return { handled: true, message: '📋 您暂无订单记录' };
+  }
+
+  const orderLines = orders.map((o: any) => {
+    const status = o.status === 'paid' ? '✅' : '⏳';
+    return `${status} \`${o.order_no}\` - ${o.product_name} - ${o.amount} ${o.currency}`;
+  });
+
+  const message = `📋 **您的订单** (最近10条)
+
+${orderLines.join('\n')}
+
+────────────────
+💡 查看详情: /order <订单号>`;
+
+  return { handled: true, message };
+}
+
 // 类型定义
 interface InlineButton {
   text: string;
