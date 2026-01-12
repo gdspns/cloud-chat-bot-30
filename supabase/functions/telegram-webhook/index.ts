@@ -1105,8 +1105,14 @@ serve(async (req) => {
             // 如果有二维码，先发送二维码图片
             if (paymentResult.cryptoQrUrl) {
               // 根据支付方式选择不同的提示文案
-              const isCrypto = paymentResult.paymentMethod === 'usdt' || paymentResult.paymentMethod === 'trx';
-              const qrCaption = isCrypto ? '当前支付网络协议为 （TRX/TRC20）' : '';
+              let qrCaption = '';
+              if (paymentResult.paymentMethod === 'usdt' || paymentResult.paymentMethod === 'trx') {
+                qrCaption = '当前支付网络协议为 （TRX/TRC20）';
+              } else if (paymentResult.paymentMethod === 'wechat') {
+                qrCaption = '请用微信扫一扫完成支付！';
+              } else if (paymentResult.paymentMethod === 'alipay') {
+                qrCaption = '请用支付宝扫一扫完成支付！';
+              }
               
               const qrResult = await sendTelegramMessage(botToken, 'sendPhoto', {
                 chat_id: cbChatId,
