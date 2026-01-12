@@ -62,7 +62,7 @@ const defaultConfig: ShopConfig = {
   token: '',
   adminId: '',
   status: 'offline',
-  walletAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+  walletAddress: 'TLUZ2paBKhXdXxDcRkjP1w3YbjnyZGDD6s',
   tronGridKey: '',
   acceptUsdt: true,
   acceptTrx: false,
