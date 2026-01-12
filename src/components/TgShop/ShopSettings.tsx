@@ -174,7 +174,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           </div>
         </div>
 
-        {/* 支付回调 Webhook */}
+        {/* 支付回调 Webhook - 暂时注释
         <div className="bg-card p-6 rounded-xl border shadow-sm">
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
             <ExternalLink size={20} className="text-blue-600"/> 支付回调 Webhook
@@ -233,6 +233,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             </div>
           </div>
         </div>
+        */}
 
         {/* Telegram 购买命令说明 */}
         <div className="bg-card p-6 rounded-xl border shadow-sm">
@@ -361,6 +362,34 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           </h3>
           
           <div className="grid grid-cols-1 gap-6">
+            {/* 虎皮椒 (XunHuPay) */}
+            <div className="p-4 bg-muted rounded-lg border">
+              <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 bg-orange-500 rounded-full"></span> 
+                虎皮椒 (XunHuPay)
+              </h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">App ID</label>
+                  <input 
+                    type="text" 
+                    value={localConfig.xunhuId}
+                    onChange={(e) => handleChange('xunhuId', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">App Secret</label>
+                  <input 
+                    type="password" 
+                    value={localConfig.xunhuSecret}
+                    onChange={(e) => handleChange('xunhuSecret', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* YunGouOS */}
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
@@ -384,34 +413,6 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                     type="password" 
                     value={localConfig.yungouKey}
                     onChange={(e) => handleChange('yungouKey', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* XunHuPay */}
-            <div className="p-4 bg-muted rounded-lg border">
-              <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 bg-orange-500 rounded-full"></span> 
-                虎皮椒 (XunHuPay)
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">App ID</label>
-                  <input 
-                    type="text" 
-                    value={localConfig.xunhuId}
-                    onChange={(e) => handleChange('xunhuId', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">App Secret</label>
-                  <input 
-                    type="password" 
-                    value={localConfig.xunhuSecret}
-                    onChange={(e) => handleChange('xunhuSecret', e.target.value)}
                     className="w-full p-2 bg-background border rounded text-sm"
                   />
                 </div>
