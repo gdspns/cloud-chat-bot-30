@@ -1385,6 +1385,160 @@ serve(async (req) => {
       }
     }
     
+    // 处理 /pay_alipay 或 /pay_wechat 命令 - 获取法币支付二维码
+    const payMatch = text.match(/^\/pay_(alipay|wechat)_(.+)$/i);
+    if (!keyboardHandled && payMatch) {
+      const payMethod = payMatch[1].toLowerCase() as 'alipay' | 'wechat';
+      const payOrderNo = payMatch[2];
+      
+      console.log(`[TG Shop] Fiat payment request: ${payMethod} for order ${payOrderNo}`);
+      
+      // 获取订单
+      const { data: payOrder, error: payOrderError } = await supabase
+        .from('shop_orders')
+        .select('*')
+        .eq('order_no', payOrderNo)
+        .eq('bot_token', botToken)
+        .maybeSingle();
+      
+      if (payOrderError || !payOrder) {
+        await sendTelegramMessage(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text: `❌ 订单不存在: ${payOrderNo}`,
+          parse_mode: 'Markdown'
+        });
+        keyboardHandled = true;
+      } else if (payOrder.status !== 'pending') {
+        await sendTelegramMessage(botToken, 'sendMessage', {
+          chat_id: chatId,
+          text: `❌ 订单已完成或已取消`,
+          parse_mode: 'Markdown'
+        });
+        keyboardHandled = true;
+      } else {
+        // 获取商店配置
+        const { data: payShopConfig } = await supabase
+          .from('shop_configs')
+          .select('*')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+        
+        if (!payShopConfig) {
+          await sendTelegramMessage(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ 商店配置错误`,
+            parse_mode: 'Markdown'
+          });
+          keyboardHandled = true;
+        } else {
+          // 确定使用哪个支付提供商
+          let provider = '';
+          if (payMethod === 'alipay') {
+            provider = payShopConfig.alipay_provider || 'xunhu';
+          } else {
+            provider = payShopConfig.wechat_provider || 'xunhu';
+          }
+          
+          // 检查提供商配置
+          if (provider === 'yungou' && (!payShopConfig.yungou_id || !payShopConfig.yungou_key)) {
+            await sendTelegramMessage(botToken, 'sendMessage', {
+              chat_id: chatId,
+              text: `❌ 云沟支付未配置，请联系管理员`,
+              parse_mode: 'Markdown'
+            });
+            keyboardHandled = true;
+          } else if (provider === 'xunhu' && (!payShopConfig.xunhu_id || !payShopConfig.xunhu_secret)) {
+            await sendTelegramMessage(botToken, 'sendMessage', {
+              chat_id: chatId,
+              text: `❌ 虎皮椒支付未配置，请联系管理员`,
+              parse_mode: 'Markdown'
+            });
+            keyboardHandled = true;
+          } else {
+            // 调用 create-payment 函数获取支付链接
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+            const notifyUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${encodeURIComponent(botToken)}&type=${provider}`;
+            
+            try {
+              const paymentRes = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+                },
+                body: JSON.stringify({
+                  bot_token: botToken,
+                  order_no: payOrderNo,
+                  product_name: payOrder.product_name,
+                  amount: payOrder.amount,
+                  payment_method: payMethod,
+                  provider: provider,
+                  notify_url: notifyUrl
+                })
+              });
+              
+              const paymentData = await paymentRes.json();
+              console.log('[TG Shop] Create payment response:', paymentData);
+              
+              if (paymentData.success && paymentData.qr_code) {
+                // 发送支付二维码
+                const paymentLabel = payMethod === 'alipay' ? '支付宝' : '微信';
+                const expireTime = new Date(payOrder.expires_at);
+                const chinaTime = new Date(expireTime.getTime() + 8 * 60 * 60 * 1000);
+                const expireTimeStr = `${chinaTime.getUTCHours().toString().padStart(2, '0')}:${chinaTime.getUTCMinutes().toString().padStart(2, '0')}`;
+                
+                const qrCaption = `💳 *${paymentLabel}支付*
+
+📦 商品: ${payOrder.product_name}
+📝 订单号: \`${payOrderNo}\`
+💰 金额: ¥${payOrder.amount}
+
+────────────────
+📱 请扫描上方二维码完成支付
+
+⏰ 支付截止: ${expireTimeStr} (30分钟)
+⚠️ 超时订单将自动取消
+✅ 支付成功后将自动发货到此对话`;
+                
+                const qrMsgResult = await sendTelegramMessage(botToken, 'sendPhoto', {
+                  chat_id: chatId,
+                  photo: paymentData.qr_code,
+                  caption: qrCaption,
+                  parse_mode: 'Markdown'
+                });
+                
+                // 保存二维码消息ID
+                if (qrMsgResult.ok && qrMsgResult.result?.message_id) {
+                  await supabase
+                    .from('shop_orders')
+                    .update({ telegram_qr_message_id: qrMsgResult.result.message_id })
+                    .eq('order_no', payOrderNo);
+                }
+                
+                keyboardHandled = true;
+                console.log('[TG Shop] Fiat payment QR sent successfully');
+              } else {
+                await sendTelegramMessage(botToken, 'sendMessage', {
+                  chat_id: chatId,
+                  text: `❌ 获取付款码失败: ${paymentData.error || '未知错误'}\n\n请稍后重试或联系管理员`,
+                  parse_mode: 'Markdown'
+                });
+                keyboardHandled = true;
+              }
+            } catch (payError) {
+              console.error('[TG Shop] Create payment error:', payError);
+              await sendTelegramMessage(botToken, 'sendMessage', {
+                chat_id: chatId,
+                text: `❌ 支付系统错误，请稍后重试`,
+                parse_mode: 'Markdown'
+              });
+              keyboardHandled = true;
+            }
+          }
+        }
+      }
+    }
+    
     // 处理 /start 命令
     if (!keyboardHandled && text === '/start') {
       // 欢迎语逻辑：
