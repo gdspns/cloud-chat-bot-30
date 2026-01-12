@@ -433,11 +433,50 @@ async function handlePaymentMethodCallback(
 📍 收款地址 (点击复制):
 \`${shopConfig.wallet_address}\``;
   } else {
-    paymentInfo = `💳 支付方式: ${paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
+    // 法币支付：直接生成付款二维码（虎皮椒/云沟），避免用户再手动输入 /pay_* 指令
+    const provider = paymentMethod === 'alipay'
+      ? (shopConfig.alipay_provider || 'xunhu')
+      : (shopConfig.wechat_provider || 'xunhu');
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const notifyUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${encodeURIComponent(botToken)}&type=${provider}`;
+
+    try {
+      const paymentRes = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        },
+        body: JSON.stringify({
+          bot_token: botToken,
+          order_no: orderNo,
+          product_name: order.product_name,
+          amount: finalAmount,
+          payment_method: paymentMethod,
+          provider,
+          notify_url: notifyUrl,
+        }),
+      });
+
+      const paymentData = await paymentRes.json();
+
+      if (paymentData?.success && paymentData?.qr_code) {
+        // 复用 cryptoQrUrl 的发送逻辑，在回调处理处会先发一张图
+        cryptoQrUrl = paymentData.qr_code;
+
+        paymentInfo = `💳 支付方式: ${paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
 
 💰 需支付: ¥${finalAmount}
 
-请发送 /pay_${paymentMethod}_${orderNo} 获取付款码`;
+📱 请扫描上方二维码完成支付`;
+      } else {
+        return { handled: true, message: `❌ 获取付款码失败: ${paymentData?.error || '未知错误'}` };
+      }
+    } catch (e) {
+      console.error('[TG Shop] create-payment error (callback):', e);
+      return { handled: true, message: '❌ 支付系统错误，请稍后重试' };
+    }
   }
 
   const message = `🛒 *订单支付详情*
