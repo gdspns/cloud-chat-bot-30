@@ -44,7 +44,9 @@ export const ChatWindow = ({
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        requestAnimationFrame(() => {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        });
       }
     }
   };
@@ -257,7 +259,7 @@ export const ChatWindow = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full md:h-auto overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* 头部 */}
       <div className="p-4 border-b flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -303,8 +305,8 @@ export const ChatWindow = ({
       </div>
 
       {/* 消息列表 */}
-      <div className="flex-1 flex justify-center overflow-hidden">
-        <ScrollArea ref={scrollAreaRef} className="p-4 h-[300px] w-full max-w-[400px]">
+      <div className="flex-1 flex justify-center overflow-hidden min-h-0">
+        <ScrollArea ref={scrollAreaRef} className="p-4 h-full min-h-[200px] max-h-[400px] w-full max-w-[400px]">
           {filteredMessages.map((message) => (
             <div
               key={message.id}
