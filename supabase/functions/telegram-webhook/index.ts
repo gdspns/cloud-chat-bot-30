@@ -311,7 +311,7 @@ async function handlePaymentMethodCallback(
   chatId: number,
   callbackData: string,
   messageId: number
-): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string; orderId?: string; paymentMethod?: string }> {
+): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string; orderId?: string; paymentMethod?: string; h5PayUrl?: string }> {
   // 解析回调: pay_<method>_<orderNo>
   const match = callbackData.match(/^pay_(usdt|trx|alipay|wechat|cancel)_(.+)$/i);
   if (!match) {
@@ -451,6 +451,9 @@ async function handlePaymentMethodCallback(
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const notifyUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${encodeURIComponent(botToken)}&type=${provider}`;
 
+    // 检查是否启用H5支付（仅支付宝）
+    const useH5 = paymentMethod === 'alipay' && shopConfig.xunhu_alipay_h5 === true;
+
     try {
       const paymentRes = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
         method: 'POST',
@@ -466,14 +469,43 @@ async function handlePaymentMethodCallback(
           payment_method: paymentMethod,
           provider,
           notify_url: notifyUrl,
+          use_h5: useH5,
         }),
       });
 
       const paymentData = await paymentRes.json();
 
-      if (paymentData?.success && paymentData?.qr_code) {
+      if (paymentData?.success && (paymentData?.qr_code || paymentData?.h5_url)) {
         // 复用 cryptoQrUrl 的发送逻辑，在回调处理处会先发一张图
-        cryptoQrUrl = paymentData.qr_code;
+        cryptoQrUrl = paymentData.qr_code || '';
+
+        if (useH5 && paymentData?.h5_url) {
+          // H5模式：显示引导信息
+          paymentInfo = `💳 支付方式: 支付宝 (H5)
+
+💰 需支付: ¥${finalAmount}
+
+📱 请点击下方"去支付"按钮，在浏览器中打开后唤起支付宝完成支付`;
+          
+          return { 
+            handled: true, 
+            message: `🛒 *订单支付详情*
+
+📦 商品: ${order.product_name}
+📝 订单号: \`${orderNo}\`
+
+────────────────
+${paymentInfo}
+────────────────
+
+⏰ 支付截止: ${expireTimeStr} (30分钟)
+⚠️ 超时订单将自动取消并删除
+✅ 支付成功后将自动发货到此对话`,
+            orderId: order.id, 
+            paymentMethod,
+            h5PayUrl: paymentData.h5_url
+          };
+        }
 
         paymentInfo = `💳 支付方式: ${paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
 
@@ -1124,12 +1156,23 @@ serve(async (req) => {
               }
             }
             
-            // 发送支付详情
-            const msgResult = await sendTelegramMessage(botToken, 'sendMessage', {
+            // 发送支付详情（如果有H5链接，添加内联按钮）
+            const sendMessageParams: any = {
               chat_id: cbChatId,
               text: paymentResult.message,
               parse_mode: 'Markdown'
-            });
+            };
+            
+            // H5支付模式：添加"去支付"按钮
+            if (paymentResult.h5PayUrl) {
+              sendMessageParams.reply_markup = {
+                inline_keyboard: [[
+                  { text: '💳 去支付', url: paymentResult.h5PayUrl }
+                ]]
+              };
+            }
+            
+            const msgResult = await sendTelegramMessage(botToken, 'sendMessage', sendMessageParams);
             
             // 保存消息ID以便超时后删除
             if (msgResult.ok && msgResult.result?.message_id && paymentResult.orderId) {

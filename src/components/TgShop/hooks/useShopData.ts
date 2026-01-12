@@ -52,6 +52,7 @@ interface DbConfig {
   xunhu_secret: string | null;
   xunhu_alipay_id: string | null;
   xunhu_alipay_secret: string | null;
+  xunhu_alipay_h5: boolean;
   enable_alipay: boolean;
   alipay_provider: string;
   enable_wechat: boolean;
@@ -77,6 +78,7 @@ const defaultConfig: ShopConfig = {
   xunhuSecret: '',
   xunhuAlipayId: '',
   xunhuAlipaySecret: '',
+  xunhuAlipayH5: false,
   enableAlipay: false,
   alipayProvider: 'xunhu',
   enableWechat: false,
@@ -148,6 +150,7 @@ function dbConfigToConfig(dbConfig: DbConfig): ShopConfig {
     xunhuSecret: dbConfig.xunhu_secret || '',
     xunhuAlipayId: dbConfig.xunhu_alipay_id || '',
     xunhuAlipaySecret: dbConfig.xunhu_alipay_secret || '',
+    xunhuAlipayH5: dbConfig.xunhu_alipay_h5 || false,
     enableAlipay: dbConfig.enable_alipay,
     alipayProvider: dbConfig.alipay_provider as 'yungou' | 'xunhu',
     enableWechat: dbConfig.enable_wechat,
@@ -173,6 +176,7 @@ function configToDbConfig(config: Partial<ShopConfig>, botToken: string): Partia
     xunhu_secret: config.xunhuSecret || null,
     xunhu_alipay_id: config.xunhuAlipayId || null,
     xunhu_alipay_secret: config.xunhuAlipaySecret || null,
+    xunhu_alipay_h5: config.xunhuAlipayH5,
     enable_alipay: config.enableAlipay,
     alipay_provider: config.alipayProvider,
     enable_wechat: config.enableWechat,
