@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { encode } from "https://deno.land/std@0.177.0/encoding/hex.ts"
+import { crypto as stdCrypto } from "https://deno.land/std@0.177.0/crypto/mod.ts"
+import { encode as hexEncode } from "https://deno.land/std@0.177.0/encoding/hex.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,12 +18,11 @@ interface PaymentRequest {
   return_url?: string
 }
 
-// MD5 签名
+// MD5 签名 - 使用 std/crypto 支持 MD5
 async function md5(str: string): Promise<string> {
   const data = new TextEncoder().encode(str)
-  const hashBuffer = await crypto.subtle.digest('MD5', data)
-  const hashArray = new Uint8Array(hashBuffer)
-  return new TextDecoder().decode(encode(hashArray))
+  const hashBuffer = await stdCrypto.subtle.digest('MD5', data)
+  return new TextDecoder().decode(hexEncode(new Uint8Array(hashBuffer)))
 }
 
 // YunGouOS 签名
