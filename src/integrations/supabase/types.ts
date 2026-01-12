@@ -375,6 +375,8 @@ export type Database = {
           wallet_address: string | null
           webhook_url: string | null
           wechat_provider: string | null
+          xunhu_alipay_id: string | null
+          xunhu_alipay_secret: string | null
           xunhu_id: string | null
           xunhu_secret: string | null
           yungou_id: string | null
@@ -397,6 +399,8 @@ export type Database = {
           wallet_address?: string | null
           webhook_url?: string | null
           wechat_provider?: string | null
+          xunhu_alipay_id?: string | null
+          xunhu_alipay_secret?: string | null
           xunhu_id?: string | null
           xunhu_secret?: string | null
           yungou_id?: string | null
@@ -419,6 +423,8 @@ export type Database = {
           wallet_address?: string | null
           webhook_url?: string | null
           wechat_provider?: string | null
+          xunhu_alipay_id?: string | null
+          xunhu_alipay_secret?: string | null
           xunhu_id?: string | null
           xunhu_secret?: string | null
           yungou_id?: string | null

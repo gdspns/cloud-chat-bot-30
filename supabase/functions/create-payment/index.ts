@@ -240,21 +240,32 @@ Deno.serve(async (req) => {
       }
 
     } else if (provider === 'xunhu') {
-      // 虎皮椒支付
-      if (!config.xunhu_id || !config.xunhu_secret) {
+      // 虎皮椒支付 - 根据支付方式使用不同的配置
+      let xunhuAppId: string | null = null
+      let xunhuAppSecret: string | null = null
+      
+      if (payment_method === 'alipay') {
+        // 支付宝使用独立配置
+        xunhuAppId = config.xunhu_alipay_id || config.xunhu_id
+        xunhuAppSecret = config.xunhu_alipay_secret || config.xunhu_secret
+      } else {
+        // 微信使用原配置
+        xunhuAppId = config.xunhu_id
+        xunhuAppSecret = config.xunhu_secret
+      }
+      
+      if (!xunhuAppId || !xunhuAppSecret) {
         return new Response(
-          JSON.stringify({ success: false, error: 'XunHuPay credentials not configured' }),
+          JSON.stringify({ success: false, error: `XunHuPay ${payment_method === 'alipay' ? '支付宝' : '微信'}配置未设置` }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      const apiUrl = payment_method === 'alipay' 
-        ? 'https://api.xunhupay.com/payment/do.html'
-        : 'https://api.xunhupay.com/payment/do.html'
+      const apiUrl = 'https://api.xunhupay.com/payment/do.html'
       
       const params: Record<string, string> = {
         version: '1.1',
-        appid: config.xunhu_id,
+        appid: xunhuAppId,
         trade_order_id: order_no,
         total_fee: amount.toFixed(2),
         title: product_name,
@@ -268,7 +279,7 @@ Deno.serve(async (req) => {
         params.return_url = return_url
       }
       
-      params.hash = await signXunHu(params, config.xunhu_secret)
+      params.hash = await signXunHu(params, xunhuAppSecret)
 
       const formData = new URLSearchParams(params)
       const res = await fetch(apiUrl, {
