@@ -443,12 +443,12 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   </div>
                   {localConfig.enableAlipay && (
                     <select 
-                      value={localConfig.alipayProvider} 
+                      value={localConfig.alipayProvider || 'xunhu'} 
                       onChange={(e) => handleChange('alipayProvider', e.target.value as 'yungou' | 'xunhu')}
                       className="w-full text-xs p-1 border rounded bg-background"
                     >
-                      <option value="yungou">使用 YunGouOS</option>
                       <option value="xunhu">使用 虎皮椒</option>
+                      <option value="yungou">使用 YunGouOS</option>
                     </select>
                   )}
                 </div>
@@ -473,12 +473,12 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   </div>
                   {localConfig.enableWechat && (
                     <select 
-                      value={localConfig.wechatProvider} 
+                      value={localConfig.wechatProvider || 'xunhu'} 
                       onChange={(e) => handleChange('wechatProvider', e.target.value as 'yungou' | 'xunhu')}
                       className="w-full text-xs p-1 border rounded bg-background"
                     >
-                      <option value="yungou">使用 YunGouOS</option>
                       <option value="xunhu">使用 虎皮椒</option>
+                      <option value="yungou">使用 YunGouOS</option>
                     </select>
                   )}
                 </div>
