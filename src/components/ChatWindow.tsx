@@ -166,7 +166,7 @@ export const ChatWindow = ({
       <div className="flex-1 flex items-center justify-center bg-muted/20">
         <div className="text-center">
           <Bot className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-          <h3 className="text-lg font-medium text-muted-foreground">欢迎使用 Telegram 机器人管理平台</h3>
+          <h3 className="text-lg font-medium text-muted-foreground">欢迎使用 TG 机器人管理平台</h3>
           <p className="text-sm text-muted-foreground mt-2">
             点击左侧"添加机器人"按钮开始试用
           </p>
