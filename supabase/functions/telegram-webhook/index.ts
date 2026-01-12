@@ -29,12 +29,20 @@ interface ShopConfig {
   admin_id: string | null;
 }
 
-// 生成随机小数防撞单 (0.010-0.099，三位小数)
+// 生成随机小数防撞单 - 加密货币 (0.010-0.099，三位小数)
 function generateRandomDecimal(price: number, enabled: boolean): number {
   if (!enabled) return price;
   // 生成 10-99 的随机数，代表 0.010-0.099
   const randomMills = Math.floor(Math.random() * 90) + 10; // 10-99
   return Math.round((price + randomMills / 1000) * 1000) / 1000;
+}
+
+// 生成随机小数防撞单 - 法币CNY (0.01-0.09，两位小数)
+function generateRandomDecimalCny(price: number, enabled: boolean): number {
+  if (!enabled) return price;
+  // 生成 1-9 的随机数，代表 0.01-0.09
+  const randomCents = Math.floor(Math.random() * 9) + 1; // 1-9
+  return Math.round((price + randomCents / 100) * 100) / 100;
 }
 
 // 从币安获取TRX/USDT实时汇率
@@ -404,8 +412,8 @@ async function handlePaymentMethodCallback(
       const cnyConversion = await convertUsdtToCny(trxConversion.usdtAmount);
       finalAmount = cnyConversion.cnyAmount;
     }
-    // 法币也加随机小数防撞单
-    finalAmount = generateRandomDecimal(finalAmount, shopConfig.random_decimals);
+    // 法币也加随机小数防撞单 (只到分位 0.01-0.09)
+    finalAmount = generateRandomDecimalCny(finalAmount, shopConfig.random_decimals);
     displayCurrency = 'CNY';
   }
 
