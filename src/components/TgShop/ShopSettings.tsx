@@ -366,11 +366,11 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span> 
-                虎皮椒 - 微信支付【官网：www.xunhupay.com】
+                虎皮椒 - 微信支付【推荐！注册申请门槛低！官网：www.xunhupay.com】
               </h4>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">微信 App ID</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">应用 App ID</label>
                   <input 
                     type="text" 
                     value={localConfig.xunhuId}
@@ -379,7 +379,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">微信 App Secret</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 App Secret</label>
                   <input 
                     type="password" 
                     value={localConfig.xunhuSecret}
@@ -394,7 +394,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 bg-blue-500 rounded-full"></span> 
-                虎皮椒 - 支付宝【官网：www.xunhupay.com】
+                虎皮椒 - 支付宝【推荐！注册申请门槛低！官网：www.xunhupay.com】
               </h4>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 bg-background rounded-lg border">
@@ -405,12 +405,12 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                     className="rounded"
                   />
                   <div>
-                    <div className="text-sm font-medium">启用 H5 支付</div>
-                    <div className="text-xs text-muted-foreground">开启后支付宝订单将显示"去支付"按钮，引导用户在浏览器中打开唤起支付宝APP</div>
+                    <div className="text-sm font-medium">启用 H5 支付【开通的个人支付不能用！营业执照注册的支付渠道显示支付宝H5的可用】</div>
+                    <div className="text-xs text-muted-foreground">开启后支付宝订单将显示"去支付"按钮，打开唤起支付宝APP付款</div>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">支付宝 App ID</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">应用 App ID</label>
                   <input 
                     type="text" 
                     value={localConfig.xunhuAlipayId}
@@ -419,7 +419,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">支付宝 App Secret</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 App Secret</label>
                   <input 
                     type="password" 
                     value={localConfig.xunhuAlipaySecret}
@@ -434,7 +434,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 bg-primary rounded-full"></span> 
-                YunGouOS (支持个人免签)【麻烦！有申请的可以联系我们调试接口】
+                YunGouOS (支持个人免签)【不推荐！注册申请麻烦！原来有申请的也可以联系我们调试接口】
               </h4>
               <div className="space-y-3">
                 <div>
