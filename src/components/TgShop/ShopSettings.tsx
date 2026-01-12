@@ -366,7 +366,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 bg-orange-500 rounded-full"></span> 
-                虎皮椒 (XunHuPay)【推荐:注册申请门槛低】
+                虎皮椒 (XunHuPay)【推荐:注册申请门槛低！官网：www.xunhupay.com】
               </h4>
               <div className="space-y-3">
                 <div>
