@@ -1107,7 +1107,7 @@ serve(async (req) => {
               const qrResult = await sendTelegramMessage(botToken, 'sendPhoto', {
                 chat_id: cbChatId,
                 photo: paymentResult.cryptoQrUrl,
-                caption: '当前支付区块网络协议为 （TRX/TRC20）'
+                caption: '当前支付网络协议为 （TRX/TRC20）'
               });
               if (qrResult.ok && qrResult.result?.message_id) {
                 qrMessageId = qrResult.result.message_id;
