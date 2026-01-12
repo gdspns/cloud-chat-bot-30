@@ -404,6 +404,8 @@ async function handlePaymentMethodCallback(
       const cnyConversion = await convertUsdtToCny(trxConversion.usdtAmount);
       finalAmount = cnyConversion.cnyAmount;
     }
+    // 法币也加随机小数防撞单
+    finalAmount = generateRandomDecimal(finalAmount, shopConfig.random_decimals);
     displayCurrency = 'CNY';
   }
 
