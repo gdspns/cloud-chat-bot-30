@@ -440,7 +440,7 @@ async function handlePaymentMethodCallback(
 
 💰 需支付: ${finalAmount} ${currencyLabel}
 
-📍 收款地址 (点击复制):
+📍 网络收款地址 (点击复制):
 \`${shopConfig.wallet_address}\``;
   } else {
     // 法币支付：直接生成付款二维码（虎皮椒/云沟），避免用户再手动输入 /pay_* 指令
@@ -506,7 +506,7 @@ ${paymentInfo}
 例：金额10.12TRX+手续费1TRX=11.12TRX
 tokenpocket（简称TP）
 直接付金额10.12TRX（手续费扣余额）
-总到账需要金额${finalAmount}${displayCurrency}（自己计算）
+币安充TRX提现到你的TP钱包
 付错额度不会发货联系人工客服处理
 ✅ 支付成功后将自动发货到此对话`;
 
@@ -1107,7 +1107,7 @@ serve(async (req) => {
               const qrResult = await sendTelegramMessage(botToken, 'sendPhoto', {
                 chat_id: cbChatId,
                 photo: paymentResult.cryptoQrUrl,
-                caption: '📍 扫码获取收款地址'
+                caption: '当前支付区块网络协议为 （TRX/TRC20）'
               });
               if (qrResult.ok && qrResult.result?.message_id) {
                 qrMessageId = qrResult.result.message_id;
