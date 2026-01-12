@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 // USDT TRC20 合约地址
-const USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
+const USDT_CONTRACT = 'TLUZ2paBKhXdXxDcRkjP1w3YbjnyZGDD6s'
 
 interface TronTransaction {
   transaction_id: string
