@@ -301,7 +301,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">TronGrid API Key</label>
+              <label className="block text-sm font-medium text-foreground mb-1">TronGrid API Key【请看TG商城里面的配置说明】</label>
               <input 
                 type="password" 
                 value={localConfig.tronGridKey}
@@ -366,7 +366,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 bg-orange-500 rounded-full"></span> 
-                虎皮椒 (XunHuPay)
+                虎皮椒 (XunHuPay)【推荐:注册申请门槛低】
               </h4>
               <div className="space-y-3">
                 <div>
@@ -394,7 +394,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 bg-primary rounded-full"></span> 
-                YunGouOS (支持个人免签)
+                YunGouOS (支持个人免签)【麻烦！有申请的可以联系我们调试接口】
               </h4>
               <div className="space-y-3">
                 <div>
