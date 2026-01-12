@@ -41,6 +41,8 @@ export interface ShopConfig {
   yungouKey: string;
   xunhuId: string;
   xunhuSecret: string;
+  xunhuAlipayId: string;
+  xunhuAlipaySecret: string;
   enableAlipay: boolean;
   alipayProvider: 'yungou' | 'xunhu';
   enableWechat: boolean;

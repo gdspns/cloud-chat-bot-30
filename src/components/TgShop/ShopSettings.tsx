@@ -362,15 +362,15 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           </h3>
           
           <div className="grid grid-cols-1 gap-6">
-            {/* 虎皮椒 (XunHuPay) */}
+            {/* 虎皮椒 (XunHuPay) - 微信 */}
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 bg-orange-500 rounded-full"></span> 
-                虎皮椒 (XunHuPay)【推荐:注册申请门槛低！官网：www.xunhupay.com】
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span> 
+                虎皮椒 - 微信支付【官网：www.xunhupay.com】
               </h4>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">应用App ID</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">微信 App ID</label>
                   <input 
                     type="text" 
                     value={localConfig.xunhuId}
@@ -379,11 +379,39 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">密钥App Secret</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">微信 App Secret</label>
                   <input 
                     type="password" 
                     value={localConfig.xunhuSecret}
                     onChange={(e) => handleChange('xunhuSecret', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 虎皮椒 (XunHuPay) - 支付宝 */}
+            <div className="p-4 bg-muted rounded-lg border">
+              <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 bg-blue-500 rounded-full"></span> 
+                虎皮椒 - 支付宝【官网：www.xunhupay.com】
+              </h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">支付宝 App ID</label>
+                  <input 
+                    type="text" 
+                    value={localConfig.xunhuAlipayId}
+                    onChange={(e) => handleChange('xunhuAlipayId', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">支付宝 App Secret</label>
+                  <input 
+                    type="password" 
+                    value={localConfig.xunhuAlipaySecret}
+                    onChange={(e) => handleChange('xunhuAlipaySecret', e.target.value)}
                     className="w-full p-2 bg-background border rounded text-sm"
                   />
                 </div>
