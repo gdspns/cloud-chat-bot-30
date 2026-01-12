@@ -14,6 +14,7 @@ interface PaymentRequest {
   provider: 'yungou' | 'xunhu'
   notify_url: string
   return_url?: string
+  use_h5?: boolean
 }
 
 // MD5(32位小写hex) - 纯JS实现，避免 Edge Runtime 对 crypto.subtle.digest('MD5') 的不支持
@@ -167,7 +168,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const body: PaymentRequest = await req.json()
-    const { bot_token, order_no, product_name, amount, payment_method, provider, notify_url, return_url } = body
+    const { bot_token, order_no, product_name, amount, payment_method, provider, notify_url, return_url, use_h5 } = body
 
     if (!bot_token || !order_no || !amount || !payment_method || !provider) {
       return new Response(
@@ -192,6 +193,7 @@ Deno.serve(async (req) => {
 
     let payUrl = ''
     let qrCode = ''
+    let h5Url = ''
 
     if (provider === 'yungou') {
       // YunGouOS 支付
@@ -275,6 +277,12 @@ Deno.serve(async (req) => {
         type: payment_method === 'alipay' ? 'alipay' : 'wechat'
       }
       
+      // H5模式设置wap_url参数
+      if (use_h5 && payment_method === 'alipay') {
+        params.wap_url = 'https://m.alipay.com'
+        params.wap_name = '支付宝支付'
+      }
+      
       if (return_url) {
         params.return_url = return_url
       }
@@ -294,6 +302,11 @@ Deno.serve(async (req) => {
       if (data.errcode === 0 && data.url) {
         payUrl = data.url
         qrCode = data.url_qrcode || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payUrl)}`
+        
+        // H5模式返回支付链接供用户跳转
+        if (use_h5 && payment_method === 'alipay') {
+          h5Url = data.url
+        }
       } else {
         return new Response(
           JSON.stringify({ success: false, error: data.errmsg || 'XunHuPay API error' }),
@@ -307,6 +320,7 @@ Deno.serve(async (req) => {
         success: true, 
         pay_url: payUrl,
         qr_code: qrCode,
+        h5_url: h5Url || undefined,
         order_no: order_no
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

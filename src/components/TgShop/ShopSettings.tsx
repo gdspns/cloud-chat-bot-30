@@ -397,6 +397,18 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 虎皮椒 - 支付宝【官网：www.xunhupay.com】
               </h4>
               <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-background rounded-lg border">
+                  <input 
+                    type="checkbox"
+                    checked={localConfig.xunhuAlipayH5}
+                    onChange={(e) => handleChange('xunhuAlipayH5', e.target.checked)}
+                    className="rounded"
+                  />
+                  <div>
+                    <div className="text-sm font-medium">启用 H5 支付</div>
+                    <div className="text-xs text-muted-foreground">开启后支付宝订单将显示"去支付"按钮，引导用户在浏览器中打开唤起支付宝APP</div>
+                  </div>
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">支付宝 App ID</label>
                   <input 
