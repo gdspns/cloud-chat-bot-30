@@ -311,7 +311,7 @@ async function handlePaymentMethodCallback(
   chatId: number,
   callbackData: string,
   messageId: number
-): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string; orderId?: string }> {
+): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string; orderId?: string; paymentMethod?: string }> {
   // 解析回调: pay_<method>_<orderNo>
   const match = callbackData.match(/^pay_(usdt|trx|alipay|wechat|cancel)_(.+)$/i);
   if (!match) {
@@ -510,7 +510,7 @@ tokenpocket（简称TP）
 付错额度不会发货联系人工客服处理
 ✅ 支付成功后将自动发货到此对话`;
 
-  return { handled: true, message, cryptoQrUrl, orderId: order.id };
+  return { handled: true, message, cryptoQrUrl, orderId: order.id, paymentMethod };
 }
 
 // 处理 /shop 命令 - 显示商品列表
@@ -1102,12 +1102,16 @@ serve(async (req) => {
           if (paymentResult.message) {
             let qrMessageId: number | null = null;
             
-            // 如果有加密货币二维码，先发送二维码图片
+            // 如果有二维码，先发送二维码图片
             if (paymentResult.cryptoQrUrl) {
+              // 根据支付方式选择不同的提示文案
+              const isCrypto = paymentResult.paymentMethod === 'usdt' || paymentResult.paymentMethod === 'trx';
+              const qrCaption = isCrypto ? '当前支付网络协议为 （TRX/TRC20）' : '';
+              
               const qrResult = await sendTelegramMessage(botToken, 'sendPhoto', {
                 chat_id: cbChatId,
                 photo: paymentResult.cryptoQrUrl,
-                caption: '当前支付网络协议为 （TRX/TRC20）'
+                caption: qrCaption || undefined
               });
               if (qrResult.ok && qrResult.result?.message_id) {
                 qrMessageId = qrResult.result.message_id;
