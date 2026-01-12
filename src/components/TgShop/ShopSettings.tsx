@@ -370,7 +370,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               </h4>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">App ID</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">应用App ID</label>
                   <input 
                     type="text" 
                     value={localConfig.xunhuId}
@@ -379,7 +379,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">App Secret</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">密钥App Secret</label>
                   <input 
                     type="password" 
                     value={localConfig.xunhuSecret}
