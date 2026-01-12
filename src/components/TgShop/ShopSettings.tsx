@@ -301,7 +301,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">TronGrid API Key【请看TG商城里面的配置说明】</label>
+              <label className="block text-sm font-medium text-foreground mb-1">TronGrid API Key【请看TG商城下面的配置说明】</label>
               <input 
                 type="password" 
                 value={localConfig.tronGridKey}
