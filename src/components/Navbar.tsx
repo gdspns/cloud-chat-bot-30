@@ -19,7 +19,7 @@ export const Navbar = () => {
       <div className="container mx-auto px-4 h-14 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 font-bold text-lg">
           <Bot className="h-6 w-6 text-primary" />
-          <span>TG机器人管理</span>
+          <span>Bot管理</span>
         </Link>
         
         {/* 居中导航项 */}
