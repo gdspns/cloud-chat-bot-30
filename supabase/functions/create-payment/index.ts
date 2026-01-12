@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { crypto as stdCrypto } from "https://deno.land/std@0.177.0/crypto/mod.ts"
-import { encode as hexEncode } from "https://deno.land/std@0.177.0/encoding/hex.ts"
+import * as md5Module from 'https://esm.sh/js-md5@0.8.3'
+
+const md5Fn: (input: string) => string = ((md5Module as any).default ?? (md5Module as any).md5 ?? md5Module) as any
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,18 +19,16 @@ interface PaymentRequest {
   return_url?: string
 }
 
-// MD5 签名 - 使用 std/crypto 支持 MD5
-async function md5(str: string): Promise<string> {
-  const data = new TextEncoder().encode(str)
-  const hashBuffer = await stdCrypto.subtle.digest('MD5', data)
-  return new TextDecoder().decode(hexEncode(new Uint8Array(hashBuffer)))
+// MD5 签名 - Edge Runtime 不支持 crypto.subtle 的 MD5，这里使用纯 JS 实现
+async function md5Hex(str: string): Promise<string> {
+  return md5Fn(str)
 }
 
 // YunGouOS 签名
 async function signYunGou(params: Record<string, string>, key: string): Promise<string> {
   const sorted = Object.keys(params).sort()
   const signStr = sorted.map(k => `${k}=${params[k]}`).join('&') + '&key=' + key
-  const hash = await md5(signStr)
+  const hash = await md5Hex(signStr)
   return hash.toUpperCase()
 }
 
@@ -37,7 +36,7 @@ async function signYunGou(params: Record<string, string>, key: string): Promise<
 async function signXunHu(params: Record<string, string>, secret: string): Promise<string> {
   const sorted = Object.keys(params).filter(k => params[k]).sort()
   const signStr = sorted.map(k => `${k}=${params[k]}`).join('&') + secret
-  return await md5(signStr)
+  return await md5Hex(signStr)
 }
 
 Deno.serve(async (req) => {
