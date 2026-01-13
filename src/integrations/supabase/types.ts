@@ -366,6 +366,7 @@ export type Database = {
           bot_token: string
           connection_mode: string | null
           created_at: string
+          custom_commands: Json | null
           enable_alipay: boolean | null
           enable_wechat: boolean | null
           id: string
@@ -391,6 +392,7 @@ export type Database = {
           bot_token: string
           connection_mode?: string | null
           created_at?: string
+          custom_commands?: Json | null
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
           id?: string
@@ -416,6 +418,7 @@ export type Database = {
           bot_token?: string
           connection_mode?: string | null
           created_at?: string
+          custom_commands?: Json | null
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
           id?: string
@@ -445,7 +448,11 @@ export type Database = {
           delivery_content: string | null
           expires_at: string | null
           id: string
+          locked_rate_cny_usd: number | null
+          locked_rate_trx_usdt: number | null
           order_no: string
+          original_amount: number | null
+          original_currency: string | null
           payment_method: string
           product_id: string | null
           product_name: string
@@ -467,7 +474,11 @@ export type Database = {
           delivery_content?: string | null
           expires_at?: string | null
           id?: string
+          locked_rate_cny_usd?: number | null
+          locked_rate_trx_usdt?: number | null
           order_no: string
+          original_amount?: number | null
+          original_currency?: string | null
           payment_method: string
           product_id?: string | null
           product_name: string
@@ -489,7 +500,11 @@ export type Database = {
           delivery_content?: string | null
           expires_at?: string | null
           id?: string
+          locked_rate_cny_usd?: number | null
+          locked_rate_trx_usdt?: number | null
           order_no?: string
+          original_amount?: number | null
+          original_currency?: string | null
           payment_method?: string
           product_id?: string | null
           product_name?: string
