@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink } from "lucide-react";
+import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink, Plus, X } from "lucide-react";
 import { ShopConfig } from "./types";
 
 interface ShopSettingsProps {
@@ -241,37 +241,163 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <Bot size={20} className="text-purple-600"/> Telegram 购买命令
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
-            用户在 Telegram 中与您的机器人对话时，可以使用以下命令直接购买商品：
+            用户在 Telegram 中与您的机器人对话时，可以使用以下命令直接购买商品。您可以添加自定义中文指令别名（模糊匹配，只需匹配2个中文字符）：
           </p>
           
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* /shop 命令 */}
             <div className="p-3 bg-muted rounded-lg border">
-              <div className="flex justify-between items-center mb-1">
-                <code className="text-sm font-bold text-primary">/shop</code>
-                <span className="text-xs text-muted-foreground">查看商品列表</span>
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <code className="text-sm font-bold text-primary">/shop</code>
+                  <span className="text-xs text-muted-foreground">查看商品列表</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const newCommands = { ...localConfig.customCommands };
+                    newCommands.shop = [...(newCommands.shop || []), ''];
+                    handleChange('customCommands', newCommands);
+                  }}
+                  className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                >
+                  <Plus size={12}/> 添加别名
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">显示所有上架商品及价格</p>
+              <p className="text-xs text-muted-foreground mb-2">显示所有上架商品及价格</p>
+              {localConfig.customCommands?.shop?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {localConfig.customCommands.shop.map((cmd, idx) => (
+                    <div key={idx} className="flex items-center gap-1 bg-background px-2 py-1 rounded border">
+                      <input
+                        type="text"
+                        value={cmd}
+                        onChange={(e) => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.shop[idx] = e.target.value;
+                          handleChange('customCommands', newCommands);
+                        }}
+                        placeholder="例如: 商城"
+                        className="w-16 text-xs bg-transparent outline-none"
+                      />
+                      <button
+                        onClick={() => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.shop = newCommands.shop.filter((_, i) => i !== idx);
+                          handleChange('customCommands', newCommands);
+                        }}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X size={12}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             
+            {/* /buy 命令 */}
             <div className="p-3 bg-muted rounded-lg border">
-              <div className="flex justify-between items-center mb-1">
-                <code className="text-sm font-bold text-primary">/buy &lt;商品名&gt;</code>
-                <span className="text-xs text-muted-foreground">购买商品</span>
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <code className="text-sm font-bold text-primary">/buy &lt;商品名&gt;</code>
+                  <span className="text-xs text-muted-foreground">购买商品</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const newCommands = { ...localConfig.customCommands };
+                    newCommands.buy = [...(newCommands.buy || []), ''];
+                    handleChange('customCommands', newCommands);
+                  }}
+                  className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                >
+                  <Plus size={12}/> 添加别名
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">例如: <code>/buy VIP会员</code> - 创建订单并显示付款信息</p>
+              <p className="text-xs text-muted-foreground mb-2">例如: <code>/buy VIP会员</code> 或 <code>购买 VIP会员</code></p>
+              {localConfig.customCommands?.buy?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {localConfig.customCommands.buy.map((cmd, idx) => (
+                    <div key={idx} className="flex items-center gap-1 bg-background px-2 py-1 rounded border">
+                      <input
+                        type="text"
+                        value={cmd}
+                        onChange={(e) => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.buy[idx] = e.target.value;
+                          handleChange('customCommands', newCommands);
+                        }}
+                        placeholder="例如: 购买"
+                        className="w-16 text-xs bg-transparent outline-none"
+                      />
+                      <button
+                        onClick={() => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.buy = newCommands.buy.filter((_, i) => i !== idx);
+                          handleChange('customCommands', newCommands);
+                        }}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X size={12}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             
+            {/* /order 命令 */}
             <div className="p-3 bg-muted rounded-lg border">
-              <div className="flex justify-between items-center mb-1">
-                <code className="text-sm font-bold text-primary">/order</code>
-                <span className="text-xs text-muted-foreground">查看我的订单</span>
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <code className="text-sm font-bold text-primary">/order</code>
+                  <span className="text-xs text-muted-foreground">查看我的订单</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const newCommands = { ...localConfig.customCommands };
+                    newCommands.order = [...(newCommands.order || []), ''];
+                    handleChange('customCommands', newCommands);
+                  }}
+                  className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                >
+                  <Plus size={12}/> 添加别名
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">查看订单历史及状态，支持 <code>/order 订单号</code> 查询特定订单</p>
+              <p className="text-xs text-muted-foreground mb-2">查看已付款订单，支持 <code>/order 订单号</code> 查询特定订单</p>
+              {localConfig.customCommands?.order?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {localConfig.customCommands.order.map((cmd, idx) => (
+                    <div key={idx} className="flex items-center gap-1 bg-background px-2 py-1 rounded border">
+                      <input
+                        type="text"
+                        value={cmd}
+                        onChange={(e) => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.order[idx] = e.target.value;
+                          handleChange('customCommands', newCommands);
+                        }}
+                        placeholder="例如: 订单"
+                        className="w-16 text-xs bg-transparent outline-none"
+                      />
+                      <button
+                        onClick={() => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.order = newCommands.order.filter((_, i) => i !== idx);
+                          handleChange('customCommands', newCommands);
+                        }}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X size={12}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           
           <p className="text-xs text-green-600 bg-green-500/10 p-2 rounded mt-4">
-            ✅ 这些命令已自动集成到您的 Telegram 机器人，用户可直接使用。支付成功后系统将自动发送卡密。
+            ✅ 这些命令已自动集成到您的 Telegram 机器人。自定义中文指令支持模糊匹配（匹配2个字符即可触发）。
           </p>
         </div>
 

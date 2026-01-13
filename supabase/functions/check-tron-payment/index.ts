@@ -29,6 +29,10 @@ interface ShopOrder {
   telegram_user_id: number | null
   telegram_username: string | null
   created_at: string
+  locked_rate_trx_usdt: number | null
+  locked_rate_cny_usd: number | null
+  original_amount: number | null
+  original_currency: string | null
 }
 
 // 从币安获取CNY/USD汇率
@@ -55,46 +59,18 @@ async function getTrxUsdtRate(): Promise<number> {
   }
 }
 
-// 将订单金额转换为预期的链上金额 (USDT或TRX)
+// 将订单金额转换为预期的链上金额 (USDT或TRX) - 优先使用锁定汇率
 async function getExpectedCryptoAmount(order: ShopOrder, paymentCurrency: 'USDT' | 'TRX'): Promise<number> {
-  let usdtAmount = order.amount;
-  
-  // 根据商品原始货币，先转换为USDT等值
-  if (order.currency === 'CNY') {
-    const cnyRate = await getCnyUsdtRate();
-    usdtAmount = Math.round((order.amount / cnyRate) * 1000) / 1000;
-    console.log(`[Check Tron] CNY ${order.amount} -> USDT ${usdtAmount}`);
-  } else if (order.currency === 'TRX') {
-    // TRX定价，转换为USDT等值
-    const trxRate = await getTrxUsdtRate();
-    if (trxRate > 0) {
-      usdtAmount = Math.round((order.amount * trxRate) * 1000) / 1000;
-      console.log(`[Check Tron] TRX ${order.amount} -> USDT ${usdtAmount}`);
-    } else {
-      console.log(`[Check Tron] Cannot get TRX rate for TRX-priced order`);
-      return 0;
-    }
-  }
-  // 如果是USDT定价，usdtAmount = order.amount，无需转换
-  
-  // 如果链上支付的是TRX，将USDT等值转换为TRX数量
-  if (paymentCurrency === 'TRX') {
-    // 如果商品本身就是TRX定价，直接返回原始金额
-    if (order.currency === 'TRX') {
-      console.log(`[Check Tron] TRX-priced order, expected TRX: ${order.amount}`);
-      return order.amount;
-    }
-    // 否则需要将USDT等值转换为TRX
-    const trxRate = await getTrxUsdtRate();
-    if (trxRate > 0) {
-      const trxAmount = Math.round((usdtAmount / trxRate) * 1000) / 1000;
-      console.log(`[Check Tron] USDT ${usdtAmount} -> TRX ${trxAmount}`);
-      return trxAmount;
-    }
-    return 0; // 无法获取汇率
+  // 如果订单已经是目标货币，直接返回
+  if (order.currency === paymentCurrency) {
+    console.log(`[Check Tron] Order already in ${paymentCurrency}, amount: ${order.amount}`);
+    return order.amount;
   }
   
-  return usdtAmount;
+  // 订单金额已经在选择支付方式时转换并锁定了汇率
+  // 此时 order.amount 就是最终的支付金额
+  console.log(`[Check Tron] Using final order amount: ${order.amount} ${order.currency}`);
+  return order.amount;
 }
 
 // 获取 TRC20 转账记录 (USDT)

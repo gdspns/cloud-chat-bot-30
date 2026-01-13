@@ -48,6 +48,11 @@ export interface ShopConfig {
   alipayProvider: 'yungou' | 'xunhu';
   enableWechat: boolean;
   wechatProvider: 'yungou' | 'xunhu';
+  customCommands: {
+    shop: string[];
+    buy: string[];
+    order: string[];
+  };
 }
 
 export type ShopTab = 'settings' | 'products' | 'orders' | 'simulator';

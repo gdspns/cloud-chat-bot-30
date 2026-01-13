@@ -27,6 +27,8 @@ interface ShopConfig {
   enable_wechat: boolean;
   random_decimals: boolean;
   admin_id: string | null;
+  xunhu_alipay_h5: boolean | null;
+  custom_commands: { shop: string[]; buy: string[]; order: string[] } | null;
 }
 
 // 生成随机小数防撞单 - 加密货币 (0.010-0.099，三位小数)
@@ -368,16 +370,22 @@ async function handlePaymentMethodCallback(
   let displayCurrency = order.currency;
   let cryptoQrUrl = '';
   
+  // 获取当前汇率用于锁定
+  let lockedRateTrxUsdt: number | null = null;
+  let lockedRateCnyUsd: number | null = null;
+  
   // 对于虚拟货币支付，需要转换金额并添加随机小数
   if (paymentMethod === 'usdt' || paymentMethod === 'trx') {
-    // 先转换为对应货币金额
+    // 先转换为对应货币金额并锁定汇率
     if (paymentMethod === 'usdt') {
       if (order.currency === 'CNY') {
         const conversion = await convertCnyToUsdt(order.amount);
         finalAmount = conversion.usdtAmount;
+        lockedRateCnyUsd = conversion.rate;
       } else if (order.currency === 'TRX') {
         const conversion = await convertTrxToUsdt(order.amount);
         finalAmount = conversion.usdtAmount;
+        lockedRateTrxUsdt = conversion.rate;
       }
       // 如果是USDT定价，finalAmount = order.amount
       displayCurrency = 'USDT';
@@ -385,11 +393,14 @@ async function handlePaymentMethodCallback(
       // TRX
       if (order.currency === 'CNY') {
         const cnyConversion = await convertCnyToUsdt(order.amount);
+        lockedRateCnyUsd = cnyConversion.rate;
         const trxConversion = await convertUsdtToTrx(cnyConversion.usdtAmount);
         finalAmount = trxConversion.trxAmount;
+        lockedRateTrxUsdt = trxConversion.rate;
       } else if (order.currency === 'USDT') {
         const conversion = await convertUsdtToTrx(order.amount);
         finalAmount = conversion.trxAmount;
+        lockedRateTrxUsdt = conversion.rate;
       }
       // 如果是TRX定价，finalAmount = order.amount
       displayCurrency = 'TRX';
@@ -407,23 +418,30 @@ async function handlePaymentMethodCallback(
     if (order.currency === 'USDT') {
       const conversion = await convertUsdtToCny(order.amount);
       finalAmount = conversion.cnyAmount;
+      lockedRateCnyUsd = conversion.rate;
     } else if (order.currency === 'TRX') {
       const trxConversion = await convertTrxToUsdt(order.amount);
+      lockedRateTrxUsdt = trxConversion.rate;
       const cnyConversion = await convertUsdtToCny(trxConversion.usdtAmount);
       finalAmount = cnyConversion.cnyAmount;
+      lockedRateCnyUsd = cnyConversion.rate;
     }
     // 法币也加随机小数防撞单 (只到分位 0.01-0.09)
     finalAmount = generateRandomDecimalCny(finalAmount, shopConfig.random_decimals);
     displayCurrency = 'CNY';
   }
 
-  // 更新订单的支付方式和最终金额
+  // 更新订单的支付方式、最终金额和锁定汇率
   await supabase
     .from('shop_orders')
     .update({ 
       payment_method: paymentMethod,
       amount: finalAmount,
-      currency: displayCurrency
+      currency: displayCurrency,
+      original_amount: order.amount,
+      original_currency: order.currency,
+      locked_rate_trx_usdt: lockedRateTrxUsdt,
+      locked_rate_cny_usd: lockedRateCnyUsd
     })
     .eq('order_no', orderNo);
 
@@ -590,70 +608,84 @@ ${productLines.join('\n\n')}
   return { handled: true, message };
 }
 
-// 处理 /order 命令 - 查询订单
+// 格式化时间为中国24小时制
+function formatChinaTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  // 转换为北京时间 (UTC+8)
+  const chinaTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const year = chinaTime.getUTCFullYear();
+  const month = (chinaTime.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = chinaTime.getUTCDate().toString().padStart(2, '0');
+  const hours = chinaTime.getUTCHours().toString().padStart(2, '0');
+  const minutes = chinaTime.getUTCMinutes().toString().padStart(2, '0');
+  const seconds = chinaTime.getUTCSeconds().toString().padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// 处理 /order 命令 - 查询订单（只显示已付款订单）
 async function handleOrderCommand(
   supabase: any,
   botToken: string,
   chatId: number,
   text: string
 ): Promise<{ handled: boolean; message?: string }> {
-  // 解析命令
-  const match = text.match(/^\/order\s*(.*)$/i);
+  // 解析命令 - 支持 /order 或自定义命令
+  const match = text.match(/^(?:\/order|订单|查询|我的订单)\s*(.*)$/i);
   const orderNo = match?.[1]?.trim();
 
   if (orderNo) {
-    // 查询特定订单
+    // 查询特定订单（只允许查询已付款订单）
     const { data: order } = await supabase
       .from('shop_orders')
       .select('*')
       .eq('bot_token', botToken)
       .eq('order_no', orderNo)
+      .eq('status', 'paid')
       .maybeSingle();
 
     if (!order) {
-      return { handled: true, message: `❌ 未找到订单: ${orderNo}` };
+      return { handled: true, message: `❌ 未找到已付款订单: ${orderNo}` };
     }
 
-    const statusText = order.status === 'paid' ? '✅ 已支付' : '⏳ 待支付';
     let message = `📋 **订单详情**
 
 订单号: \`${order.order_no}\`
 商品: ${order.product_name}
 金额: ${order.amount} ${order.currency}
-状态: ${statusText}
-创建时间: ${new Date(order.created_at).toLocaleString('zh-CN')}`;
+状态: ✅ 已支付
+创建时间: ${formatChinaTime(order.created_at)}`;
 
-    if (order.status === 'paid' && order.delivery_content) {
+    if (order.delivery_content) {
       message += `\n\n📦 **卡密:**\n\`${order.delivery_content}\``;
     }
 
     return { handled: true, message };
   }
 
-  // 查询用户所有订单
+  // 查询用户所有已付款订单
   const { data: orders } = await supabase
     .from('shop_orders')
     .select('*')
     .eq('bot_token', botToken)
     .eq('telegram_user_id', chatId)
+    .eq('status', 'paid')
     .order('created_at', { ascending: false })
     .limit(10);
 
   if (!orders || orders.length === 0) {
-    return { handled: true, message: '📋 您暂无订单记录' };
+    return { handled: true, message: '📋 您暂无已购买的订单' };
   }
 
   const orderLines = orders.map((o: any) => {
-    const status = o.status === 'paid' ? '✅' : '⏳';
-    return `${status} \`/order ${o.order_no}\` - ${o.product_name} - ${o.amount} ${o.currency}`;
+    return `✅ \`/order ${o.order_no}\` - ${o.product_name} - ${o.amount} ${o.currency}`;
   });
 
-  const message = `📋 **您的订单** (最近10条)
+  const message = `📋 **您的已购订单** (最近10条)
 
 ${orderLines.join('\n')}
 
 ────────────────
-💡 点击上面订单号可复制粘贴发送查询`;
+💡 点击上面订单号可复制粘贴发送查询详情`;
 
   return { handled: true, message };
 }
@@ -1427,8 +1459,33 @@ serve(async (req) => {
     }
     
     // ========== TG商城命令处理 ==========
-    // 处理 /shop 命令
-    if (!keyboardHandled && text.toLowerCase() === '/shop') {
+    // 获取自定义命令配置
+    const { data: shopConfigData } = await supabase
+      .from('shop_configs')
+      .select('custom_commands')
+      .eq('bot_token', botToken)
+      .maybeSingle();
+    
+    const customCommands = shopConfigData?.custom_commands || { shop: [], buy: [], order: [] };
+    
+    // 中文模糊匹配函数 - 匹配2个字符即触发
+    const fuzzyMatchChinese = (text: string, keywords: string[]): boolean => {
+      if (!keywords || keywords.length === 0) return false;
+      const textLower = text.toLowerCase().trim();
+      return keywords.some((keyword: string) => {
+        if (!keyword || keyword.length < 2) return false;
+        // 检查文本中是否包含关键词的任意2个连续字符
+        for (let i = 0; i <= keyword.length - 2; i++) {
+          const twoChars = keyword.substring(i, i + 2);
+          if (textLower.includes(twoChars)) return true;
+        }
+        return false;
+      });
+    };
+    
+    // 处理 /shop 命令或自定义中文命令
+    const isShopCommand = text.toLowerCase() === '/shop' || fuzzyMatchChinese(text, customCommands.shop);
+    if (!keyboardHandled && isShopCommand) {
       const shopResult = await handleShopCommand(supabase, botToken);
       if (shopResult.handled && shopResult.message) {
         await sendTelegramMessage(botToken, 'sendMessage', {
@@ -1441,14 +1498,29 @@ serve(async (req) => {
       }
     }
     
-    // 处理 /buy 命令
-    if (!keyboardHandled && text.toLowerCase().startsWith('/buy')) {
+    // 处理 /buy 命令或自定义中文命令
+    // 对于自定义命令，格式为 "购买 商品名" 或 "下单 商品名"
+    let buyCommandText = text;
+    const isBuyEnglishCommand = text.toLowerCase().startsWith('/buy');
+    const isBuyChineseCommand = fuzzyMatchChinese(text.split(/\s+/)[0] || '', customCommands.buy);
+    
+    if (!keyboardHandled && (isBuyEnglishCommand || isBuyChineseCommand)) {
+      // 如果是中文命令，转换为 /buy 格式以便处理
+      if (isBuyChineseCommand && !isBuyEnglishCommand) {
+        const parts = text.split(/\s+/);
+        if (parts.length > 1) {
+          buyCommandText = '/buy ' + parts.slice(1).join(' ');
+        } else {
+          buyCommandText = '/buy';
+        }
+      }
+      
       const buyResult = await handleBuyCommand(
         supabase, 
         botToken, 
         chatId, 
         fromUser.username || null,
-        text
+        buyCommandText
       );
       if (buyResult.handled && buyResult.message) {
         // 发送订单详情，带支付方式选择按钮
@@ -1473,9 +1545,23 @@ serve(async (req) => {
       }
     }
     
-    // 处理 /order 命令
-    if (!keyboardHandled && text.toLowerCase().startsWith('/order')) {
-      const orderResult = await handleOrderCommand(supabase, botToken, chatId, text);
+    // 处理 /order 命令或自定义中文命令
+    let orderCommandText = text;
+    const isOrderEnglishCommand = text.toLowerCase().startsWith('/order');
+    const isOrderChineseCommand = fuzzyMatchChinese(text.split(/\s+/)[0] || '', customCommands.order);
+    
+    if (!keyboardHandled && (isOrderEnglishCommand || isOrderChineseCommand)) {
+      // 如果是中文命令，转换为 /order 格式
+      if (isOrderChineseCommand && !isOrderEnglishCommand) {
+        const parts = text.split(/\s+/);
+        if (parts.length > 1) {
+          orderCommandText = '/order ' + parts.slice(1).join(' ');
+        } else {
+          orderCommandText = '/order';
+        }
+      }
+      
+      const orderResult = await handleOrderCommand(supabase, botToken, chatId, orderCommandText);
       if (orderResult.handled && orderResult.message) {
         await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,

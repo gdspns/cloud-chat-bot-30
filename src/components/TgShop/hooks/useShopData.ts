@@ -57,6 +57,7 @@ interface DbConfig {
   alipay_provider: string;
   enable_wechat: boolean;
   wechat_provider: string;
+  custom_commands: { shop: string[]; buy: string[]; order: string[] } | null;
   created_at: string;
   updated_at: string;
 }
@@ -82,7 +83,8 @@ const defaultConfig: ShopConfig = {
   enableAlipay: false,
   alipayProvider: 'xunhu',
   enableWechat: false,
-  wechatProvider: 'xunhu'
+  wechatProvider: 'xunhu',
+  customCommands: { shop: [], buy: [], order: [] }
 };
 
 // 转换数据库产品到前端格式
@@ -154,7 +156,8 @@ function dbConfigToConfig(dbConfig: DbConfig): ShopConfig {
     enableAlipay: dbConfig.enable_alipay,
     alipayProvider: dbConfig.alipay_provider as 'yungou' | 'xunhu',
     enableWechat: dbConfig.enable_wechat,
-    wechatProvider: dbConfig.wechat_provider as 'yungou' | 'xunhu'
+    wechatProvider: dbConfig.wechat_provider as 'yungou' | 'xunhu',
+    customCommands: dbConfig.custom_commands || { shop: [], buy: [], order: [] }
   };
 }
 
@@ -180,7 +183,8 @@ function configToDbConfig(config: Partial<ShopConfig>, botToken: string): Partia
     enable_alipay: config.enableAlipay,
     alipay_provider: config.alipayProvider,
     enable_wechat: config.enableWechat,
-    wechat_provider: config.wechatProvider
+    wechat_provider: config.wechatProvider,
+    custom_commands: config.customCommands || null
   };
 }
 
