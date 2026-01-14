@@ -103,7 +103,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
   };
 
   return (
-    <div className="p-8 max-w-3xl mx-auto overflow-y-auto h-full pb-20">
+    <div className="p-8 max-w-6xl mx-auto overflow-y-auto h-full pb-20">
       <h2 className="text-2xl font-bold text-foreground mb-6">商城配置</h2>
       
       <div className="space-y-6">
@@ -235,14 +235,16 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
         </div>
         */}
 
-        {/* Telegram 购买命令说明 */}
-        <div className="bg-card p-6 rounded-xl border shadow-sm">
-          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
-            <Bot size={20} className="text-purple-600"/> Telegram 购买命令
-          </h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            用户在 Telegram 中与您的机器人对话时，可以使用以下命令直接购买商品。您可以添加自定义中文指令别名（模糊匹配，只需匹配2个中文字符）：
-          </p>
+        {/* Telegram 购买命令 + 支付说明并排 */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Telegram 购买命令说明 */}
+          <div className="bg-card p-6 rounded-xl border shadow-sm">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+              <Bot size={20} className="text-purple-600"/> Telegram 购买命令
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              用户在 Telegram 中与您的机器人对话时，可以使用以下命令直接购买商品。您可以添加自定义中文指令别名（模糊匹配，只需匹配2个中文字符）：
+            </p>
           
           <div className="space-y-4">
             {/* /shop 命令 */}
@@ -396,28 +398,29 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             </div>
           </div>
           
-          <p className="text-xs text-green-600 bg-green-500/10 p-2 rounded mt-4">
-            ✅ 这些命令已自动集成到您的 Telegram 机器人。自定义中文指令支持模糊匹配（匹配2个字符即可触发）。
-          </p>
-        </div>
+            <p className="text-xs text-green-600 bg-green-500/10 p-2 rounded mt-4">
+              ✅ 这些命令已自动集成到您的 Telegram 机器人。自定义中文指令支持模糊匹配（匹配2个字符即可触发）。
+            </p>
+          </div>
 
-        {/* 支付说明自定义 */}
-        <div className="bg-card p-6 rounded-xl border shadow-sm">
-          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
-            <CreditCard size={20} className="text-blue-600"/> 订单支付说明
-          </h3>
-          <p className="text-sm text-muted-foreground mb-3">
-            自定义订单支付详情页面显示的提示信息（在"支付截止时间"下方显示）：
-          </p>
-          <textarea
-            value={localConfig.paymentNotice || ''}
-            onChange={(e) => handleChange('paymentNotice', e.target.value)}
-            className="w-full p-3 bg-background border rounded font-mono text-sm min-h-[200px]"
-            placeholder="请输入支付说明..."
-          />
-          <p className="text-xs text-muted-foreground mt-2">
-            💡 支持 emoji 表情符号，修改后保存即可在 Telegram 订单支付详情中生效
-          </p>
+          {/* 支付说明自定义 */}
+          <div className="bg-card p-6 rounded-xl border shadow-sm">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+              <CreditCard size={20} className="text-blue-600"/> 订单支付说明
+            </h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              自定义订单支付详情页面显示的提示信息（在"支付截止时间"下方显示）：
+            </p>
+            <textarea
+              value={localConfig.paymentNotice || ''}
+              onChange={(e) => handleChange('paymentNotice', e.target.value)}
+              className="w-full p-3 bg-background border rounded font-mono text-sm min-h-[200px]"
+              placeholder="请输入支付说明..."
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              💡 支持 emoji 表情符号，修改后保存即可在 Telegram 订单支付详情中生效
+            </p>
+          </div>
         </div>
 
         {/* 虚拟货币设置 */}
@@ -427,61 +430,65 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           </h3>
           
           <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">USDT/TRX 收款地址</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={localConfig.walletAddress}
-                  onChange={(e) => handleChange('walletAddress', e.target.value)}
-                  className="flex-1 p-2 bg-background border rounded font-mono text-sm"
-                />
-                <button 
-                  onClick={handleCopyAddress}
-                  className="px-3 py-2 border rounded bg-muted hover:bg-muted/80 transition-colors"
+            {/* 钱包地址和API Key + USDT/TRX选项并排 */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+              <div className="xl:col-span-2 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">USDT/TRX 收款地址</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={localConfig.walletAddress}
+                      onChange={(e) => handleChange('walletAddress', e.target.value)}
+                      className="flex-1 p-2 bg-background border rounded font-mono text-sm"
+                    />
+                    <button 
+                      onClick={handleCopyAddress}
+                      className="px-3 py-2 border rounded bg-muted hover:bg-muted/80 transition-colors"
+                    >
+                      {copied ? <Check size={16} className="text-green-500"/> : <Copy size={16}/>}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">TronGrid API Key【请看TG商城下面的配置说明】</label>
+                  <input 
+                    type="password" 
+                    value={localConfig.tronGridKey}
+                    onChange={(e) => handleChange('tronGridKey', e.target.value)}
+                    className="w-full p-2 bg-background border rounded font-mono text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* USDT/TRX 接收选项 */}
+              <div className="space-y-3">
+                <div 
+                  className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                    localConfig.acceptUsdt ? 'bg-green-500/10 border-green-500' : 'bg-muted border-border'
+                  }`} 
+                  onClick={() => handleChange('acceptUsdt', !localConfig.acceptUsdt)}
                 >
-                  {copied ? <Check size={16} className="text-green-500"/> : <Copy size={16}/>}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">TronGrid API Key【请看TG商城下面的配置说明】</label>
-              <input 
-                type="password" 
-                value={localConfig.tronGridKey}
-                onChange={(e) => handleChange('tronGridKey', e.target.value)}
-                className="w-full p-2 bg-background border rounded font-mono text-sm"
-              />
-            </div>
-
-            <div className="border-t my-2"></div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div 
-                className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                  localConfig.acceptUsdt ? 'bg-green-500/10 border-green-500' : 'bg-muted border-border'
-                }`} 
-                onClick={() => handleChange('acceptUsdt', !localConfig.acceptUsdt)}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Coins size={18} className={localConfig.acceptUsdt ? 'text-green-600' : 'text-muted-foreground'}/>
-                  <span className="font-bold text-sm">接收 USDT</span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Coins size={18} className={localConfig.acceptUsdt ? 'text-green-600' : 'text-muted-foreground'}/>
+                    <span className="font-bold text-sm">接收 USDT</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">稳定币，推荐</p>
                 </div>
-                <p className="text-xs text-muted-foreground">稳定币，推荐</p>
-              </div>
-              
-              <div 
-                className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                  localConfig.acceptTrx ? 'bg-primary/10 border-primary' : 'bg-muted border-border'
-                }`} 
-                onClick={() => handleChange('acceptTrx', !localConfig.acceptTrx)}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Coins size={18} className={localConfig.acceptTrx ? 'text-primary' : 'text-muted-foreground'}/>
-                  <span className="font-bold text-sm">接收 TRX</span>
+                
+                <div 
+                  className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                    localConfig.acceptTrx ? 'bg-primary/10 border-primary' : 'bg-muted border-border'
+                  }`} 
+                  onClick={() => handleChange('acceptTrx', !localConfig.acceptTrx)}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Coins size={18} className={localConfig.acceptTrx ? 'text-primary' : 'text-muted-foreground'}/>
+                    <span className="font-bold text-sm">接收 TRX</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">波场原生代币</p>
                 </div>
-                <p className="text-xs text-muted-foreground">波场原生代币</p>
               </div>
             </div>
 
@@ -506,171 +513,181 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <Wallet size={20} className="text-purple-600"/> 法币支付设置 (CNY)
           </h3>
           
-          <div className="grid grid-cols-1 gap-6">
-            {/* 虎皮椒 (XunHuPay) - 微信 */}
-            <div className="p-4 bg-muted rounded-lg border">
-              <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span> 
-                虎皮椒 - 微信支付【推荐！注册申请门槛低！官网：www.xunhupay.com】
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">应用 App ID</label>
-                  <input 
-                    type="text" 
-                    value={localConfig.xunhuId}
-                    onChange={(e) => handleChange('xunhuId', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 App Secret</label>
-                  <input 
-                    type="password" 
-                    value={localConfig.xunhuSecret}
-                    onChange={(e) => handleChange('xunhuSecret', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 虎皮椒 (XunHuPay) - 支付宝 */}
-            <div className="p-4 bg-muted rounded-lg border">
-              <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 bg-blue-500 rounded-full"></span> 
-                虎皮椒 - 支付宝【推荐！注册申请门槛低！官网：www.xunhupay.com】
-              </h4>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-background rounded-lg border">
-                  <input 
-                    type="checkbox"
-                    checked={localConfig.xunhuAlipayH5}
-                    onChange={(e) => handleChange('xunhuAlipayH5', e.target.checked)}
-                    className="rounded"
-                  />
+          <div className="space-y-6">
+            {/* 虎皮椒微信和支付宝并排 */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              {/* 虎皮椒 (XunHuPay) - 微信 */}
+              <div className="p-4 bg-muted rounded-lg border">
+                <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span> 
+                  虎皮椒 - 微信支付【推荐！】
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">官网：www.xunhupay.com</p>
+                <div className="space-y-3">
                   <div>
-                    <div className="text-sm font-medium">启用 H5 支付【开通的个人支付不能用！营业执照注册的支付渠道显示支付宝H5的可用】</div>
-                    <div className="text-xs text-muted-foreground">开启后支付宝订单将显示"去支付"按钮，打开唤起支付宝APP付款</div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">应用 App ID</label>
+                    <input 
+                      type="text" 
+                      value={localConfig.xunhuId}
+                      onChange={(e) => handleChange('xunhuId', e.target.value)}
+                      className="w-full p-2 bg-background border rounded text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 App Secret</label>
+                    <input 
+                      type="password" 
+                      value={localConfig.xunhuSecret}
+                      onChange={(e) => handleChange('xunhuSecret', e.target.value)}
+                      className="w-full p-2 bg-background border rounded text-sm"
+                    />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">应用 App ID</label>
-                  <input 
-                    type="text" 
-                    value={localConfig.xunhuAlipayId}
-                    onChange={(e) => handleChange('xunhuAlipayId', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 App Secret</label>
-                  <input 
-                    type="password" 
-                    value={localConfig.xunhuAlipaySecret}
-                    onChange={(e) => handleChange('xunhuAlipaySecret', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                  />
+              </div>
+
+              {/* 虎皮椒 (XunHuPay) - 支付宝 */}
+              <div className="p-4 bg-muted rounded-lg border">
+                <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span> 
+                  虎皮椒 - 支付宝【推荐！】
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">官网：www.xunhupay.com</p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-2 bg-background rounded-lg border">
+                    <input 
+                      type="checkbox"
+                      checked={localConfig.xunhuAlipayH5}
+                      onChange={(e) => handleChange('xunhuAlipayH5', e.target.checked)}
+                      className="rounded shrink-0"
+                    />
+                    <div>
+                      <div className="text-xs font-medium">启用 H5 支付</div>
+                      <div className="text-[10px] text-muted-foreground">营业执照注册的支付渠道可用</div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">应用 App ID</label>
+                    <input 
+                      type="text" 
+                      value={localConfig.xunhuAlipayId}
+                      onChange={(e) => handleChange('xunhuAlipayId', e.target.value)}
+                      className="w-full p-2 bg-background border rounded text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 App Secret</label>
+                    <input 
+                      type="password" 
+                      value={localConfig.xunhuAlipaySecret}
+                      onChange={(e) => handleChange('xunhuAlipaySecret', e.target.value)}
+                      className="w-full p-2 bg-background border rounded text-sm"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* YunGouOS */}
-            <div className="p-4 bg-muted rounded-lg border">
-              <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full"></span> 
-                YunGouOS (支持个人免签)【不推荐！注册申请麻烦！原来有申请的也可以联系我们调试接口】
-              </h4>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">商户号 (Merchant ID)</label>
-                  <input 
-                    type="text" 
-                    value={localConfig.yungouId}
-                    onChange={(e) => handleChange('yungouId', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                    placeholder="例如: 1234567890"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 (Key)</label>
-                  <input 
-                    type="password" 
-                    value={localConfig.yungouKey}
-                    onChange={(e) => handleChange('yungouKey', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                  />
+            {/* YunGouOS 微信和支付宝并排 */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              {/* YunGouOS - 微信 */}
+              <div className="p-4 bg-muted rounded-lg border">
+                <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-primary rounded-full"></span> 
+                  YunGouOS - 微信/支付宝
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">支持个人免签，注册较麻烦</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">商户号 (Merchant ID)</label>
+                    <input 
+                      type="text" 
+                      value={localConfig.yungouId}
+                      onChange={(e) => handleChange('yungouId', e.target.value)}
+                      className="w-full p-2 bg-background border rounded text-sm"
+                      placeholder="例如: 1234567890"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 (Key)</label>
+                    <input 
+                      type="password" 
+                      value={localConfig.yungouKey}
+                      onChange={(e) => handleChange('yungouKey', e.target.value)}
+                      className="w-full p-2 bg-background border rounded text-sm"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* 支付渠道开关 */}
-            <div className="border-t pt-4">
-              <label className="block text-sm font-bold text-foreground mb-3">启用支付渠道</label>
-              <div className="grid grid-cols-2 gap-4">
-                <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
-                  localConfig.enableAlipay ? 'bg-blue-500/10 border-blue-500' : 'bg-card border-border'
-                }`}>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                      <div className="w-6 h-6 bg-blue-500 text-white rounded flex items-center justify-center text-xs">支</div> 支付宝
+              {/* 支付渠道开关 */}
+              <div className="p-4 bg-muted rounded-lg border">
+                <h4 className="font-bold text-sm text-foreground mb-3">启用支付渠道</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
+                    localConfig.enableAlipay ? 'bg-blue-500/10 border-blue-500' : 'bg-card border-border'
+                  }`}>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                        <div className="w-5 h-5 bg-blue-500 text-white rounded flex items-center justify-center text-[10px]">支</div> 支付宝
+                      </div>
+                      <button 
+                        onClick={() => handleChange('enableAlipay', !localConfig.enableAlipay)}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          localConfig.enableAlipay ? 'bg-blue-600' : 'bg-muted'
+                        }`}
+                      >
+                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          localConfig.enableAlipay ? 'translate-x-4' : 'translate-x-0'
+                        }`} />
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => handleChange('enableAlipay', !localConfig.enableAlipay)}
-                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        localConfig.enableAlipay ? 'bg-blue-600' : 'bg-muted'
-                      }`}
-                    >
-                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        localConfig.enableAlipay ? 'translate-x-4' : 'translate-x-0'
-                      }`} />
-                    </button>
+                    {localConfig.enableAlipay && (
+                      <select 
+                        value={localConfig.alipayProvider || 'xunhu'} 
+                        onChange={(e) => handleChange('alipayProvider', e.target.value as 'yungou' | 'xunhu')}
+                        className="w-full text-xs p-1 border rounded bg-background"
+                      >
+                        <option value="xunhu">使用 虎皮椒</option>
+                        <option value="yungou">使用 YunGouOS</option>
+                      </select>
+                    )}
                   </div>
-                  {localConfig.enableAlipay && (
-                    <select 
-                      value={localConfig.alipayProvider || 'xunhu'} 
-                      onChange={(e) => handleChange('alipayProvider', e.target.value as 'yungou' | 'xunhu')}
-                      className="w-full text-xs p-1 border rounded bg-background"
-                    >
-                      <option value="xunhu">使用 虎皮椒</option>
-                      <option value="yungou">使用 YunGouOS</option>
-                    </select>
-                  )}
-                </div>
 
-                <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
-                  localConfig.enableWechat ? 'bg-green-500/10 border-green-500' : 'bg-card border-border'
-                }`}>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                      <div className="w-6 h-6 bg-green-500 text-white rounded flex items-center justify-center text-xs">微</div> 微信支付
+                  <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
+                    localConfig.enableWechat ? 'bg-green-500/10 border-green-500' : 'bg-card border-border'
+                  }`}>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                        <div className="w-5 h-5 bg-green-500 text-white rounded flex items-center justify-center text-[10px]">微</div> 微信
+                      </div>
+                      <button 
+                        onClick={() => handleChange('enableWechat', !localConfig.enableWechat)}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          localConfig.enableWechat ? 'bg-green-600' : 'bg-muted'
+                        }`}
+                      >
+                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          localConfig.enableWechat ? 'translate-x-4' : 'translate-x-0'
+                        }`} />
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => handleChange('enableWechat', !localConfig.enableWechat)}
-                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        localConfig.enableWechat ? 'bg-green-600' : 'bg-muted'
-                      }`}
-                    >
-                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        localConfig.enableWechat ? 'translate-x-4' : 'translate-x-0'
-                      }`} />
-                    </button>
+                    {localConfig.enableWechat && (
+                      <select 
+                        value={localConfig.wechatProvider || 'xunhu'} 
+                        onChange={(e) => handleChange('wechatProvider', e.target.value as 'yungou' | 'xunhu')}
+                        className="w-full text-xs p-1 border rounded bg-background"
+                      >
+                        <option value="xunhu">使用 虎皮椒</option>
+                        <option value="yungou">使用 YunGouOS</option>
+                      </select>
+                    )}
                   </div>
-                  {localConfig.enableWechat && (
-                    <select 
-                      value={localConfig.wechatProvider || 'xunhu'} 
-                      onChange={(e) => handleChange('wechatProvider', e.target.value as 'yungou' | 'xunhu')}
-                      className="w-full text-xs p-1 border rounded bg-background"
-                    >
-                      <option value="xunhu">使用 虎皮椒</option>
-                      <option value="yungou">使用 YunGouOS</option>
-                    </select>
-                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
+
 
         <button 
           onClick={handleSaveClick}
