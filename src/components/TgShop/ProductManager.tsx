@@ -117,12 +117,12 @@ export function ProductManager({
 
   return (
     <div className="flex flex-col xl:flex-row h-full">
-      {/* 编辑区域 - 在大屏幕上左边显示 */}
-      <div className="flex-1 bg-muted/50 p-8 overflow-y-auto order-2 xl:order-1">
-        <div className="max-w-2xl mx-auto bg-card rounded-xl shadow-sm border overflow-hidden">
-          <div className="p-6 border-b flex justify-between items-center">
+      {/* 新建商品区域 - 左半边 */}
+      <div className="flex-1 xl:w-1/2 bg-card p-6 overflow-y-auto order-2 xl:order-1 xl:border-r border-border">
+        <div className="h-full">
+          <div className="p-4 border-b flex justify-between items-center bg-muted rounded-t-lg">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-foreground">
+              <h2 className="font-semibold text-foreground">
                 {editingId ? '编辑商品' : '新建商品'}
               </h2>
               {isSyncing && (
@@ -143,34 +143,34 @@ export function ProductManager({
             )}
           </div>
           
-          <div className="p-6 space-y-5">
+          <div className="p-4 space-y-4 bg-card rounded-b-lg border border-t-0">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">商品名称</label>
               <input 
                 type="text" 
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className="w-full p-4 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary outline-none text-lg"
+                className="w-full p-3 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary outline-none"
               />
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-foreground mb-1">价格</label>
                 <input 
                   type="number" 
                   value={formData.price}
                   onChange={(e) => setFormData({...formData, price: Number(e.target.value)})}
-                  className="w-full p-4 border rounded outline-none bg-background text-foreground text-2xl font-bold placeholder:text-muted-foreground"
+                  className="w-full p-3 border rounded outline-none bg-background text-foreground text-xl font-bold placeholder:text-muted-foreground"
                   placeholder="0.00"
                 />
               </div>
-              <div className="w-32">
+              <div className="w-28">
                 <label className="block text-sm font-medium text-foreground mb-1">货币</label>
                 <select 
                   value={formData.currency}
                   onChange={(e) => setFormData({...formData, currency: e.target.value as Product['currency']})}
-                  className="w-full p-4 border rounded bg-background text-foreground outline-none text-lg h-full"
+                  className="w-full p-3 border rounded bg-background text-foreground outline-none h-[46px]"
                 >
                   <option>USDT</option>
                   <option>TRX</option>
@@ -184,12 +184,12 @@ export function ProductManager({
                 触发关键词 <span className="text-xs text-muted-foreground font-normal">(英文逗号分隔)</span>
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-3.5 text-muted-foreground" size={18} />
+                <Search className="absolute left-3 top-3 text-muted-foreground" size={16} />
                 <input 
                   type="text" 
                   value={formData.keywords}
                   onChange={(e) => setFormData({...formData, keywords: e.target.value})}
-                  className="w-full pl-10 p-3 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full pl-9 p-2.5 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none text-sm"
                   placeholder="用户输入这些词会自动弹出该商品"
                 />
               </div>
@@ -198,40 +198,40 @@ export function ProductManager({
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">商品描述</label>
               <textarea 
-                rows={4}
+                rows={3}
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 className="w-full p-2 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none font-mono text-sm"
               />
             </div>
 
-            <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
+            <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
               <label className="block text-sm font-medium text-foreground mb-1 flex justify-between">
                 <span>虚拟卡密库存 (一行一个)</span>
                 <span className="text-primary font-bold">{formData.stockCount} 个可用</span>
               </label>
               <textarea 
-                rows={5}
+                rows={4}
                 value={formData.stockContent}
                 onChange={(e) => setFormData({...formData, stockContent: e.target.value})}
                 className="w-full p-2 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none font-mono text-xs"
                 placeholder="user:pass&#10;code-1234&#10;https://gift.link"
               />
-              <p className="text-xs text-muted-foreground mt-2">系统会自动按行分割，付款成功后自动取出一行发给用户。</p>
+              <p className="text-xs text-muted-foreground mt-1">系统会自动按行分割，付款成功后自动取出一行发给用户。</p>
             </div>
 
             <button 
               onClick={handleSave}
               disabled={isSaving || isSyncing}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-lg shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2.5 rounded-lg shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50"
             >
               {isSaving ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" /> 保存中...
+                  <Loader2 size={16} className="animate-spin" /> 保存中...
                 </>
               ) : (
                 <>
-                  <Cloud size={18} /> 保存并同步到云端
+                  <Cloud size={16} /> 保存并同步到云端
                 </>
               )}
             </button>
@@ -239,38 +239,39 @@ export function ProductManager({
         </div>
       </div>
 
-      {/* 商品列表侧边栏 - 在大屏幕上右边显示 */}
-      <div className="w-full xl:w-[280px] bg-card border-t xl:border-t-0 xl:border-l flex flex-col shrink-0 order-1 xl:order-2 max-h-[200px] xl:max-h-none">
+      {/* 商品列表区域 - 右半边 */}
+      <div className="flex-1 xl:w-1/2 bg-card flex flex-col order-1 xl:order-2 max-h-[200px] xl:max-h-none">
         <div className="p-4 border-b flex justify-between items-center bg-muted sticky top-0 z-10">
-          <h2 className="font-semibold text-foreground text-sm">商品列表</h2>
+          <h2 className="font-semibold text-foreground">商品列表</h2>
           <button 
             onClick={handleNew} 
-            className="p-1 hover:bg-primary/10 text-primary rounded"
+            className="p-1.5 hover:bg-primary/10 text-primary rounded flex items-center gap-1 text-sm"
           >
-            <Plus size={18} />
+            <Plus size={16} />
+            <span>新建</span>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-4">
           {products.length === 0 && (
-            <div className="p-4 text-sm text-muted-foreground text-center">暂无商品</div>
+            <div className="p-4 text-sm text-muted-foreground text-center border rounded-lg bg-muted/50">暂无商品</div>
           )}
-          <div className="grid grid-cols-2 xl:grid-cols-1">
+          <div className="grid grid-cols-2 xl:grid-cols-2 gap-3">
             {products.map(p => (
               <div 
                 key={p.id} 
                 onClick={() => setEditingId(p.id)}
-                className={`p-4 border-b xl:border-r-0 border-r cursor-pointer hover:bg-muted transition-colors ${
-                  editingId === p.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''
+                className={`p-4 border rounded-lg cursor-pointer hover:bg-muted transition-colors ${
+                  editingId === p.id ? 'bg-primary/5 border-primary ring-1 ring-primary' : 'bg-background'
                 }`}
               >
                 <div className="font-medium text-foreground truncate text-sm">{p.name}</div>
-                <div className="flex justify-between mt-1 text-xs">
+                <div className="flex justify-between mt-2 text-xs">
                   <span className="text-muted-foreground">库存: {p.stockCount || 0}</span>
                   <span className="font-bold text-primary">{p.price} {p.currency}</span>
                 </div>
-                <div className="mt-1 flex flex-wrap gap-1">
+                <div className="mt-2 flex flex-wrap gap-1">
                   {p.keywordsList?.slice(0, 3).map(k => (
-                    <span key={k} className="bg-muted px-1 rounded text-[10px] text-muted-foreground">{k}</span>
+                    <span key={k} className="bg-muted px-1.5 py-0.5 rounded text-[10px] text-muted-foreground">{k}</span>
                   ))}
                 </div>
               </div>
