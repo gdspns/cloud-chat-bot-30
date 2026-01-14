@@ -208,7 +208,7 @@ async function handleBuyCommand(
       const stockText = stock > 0 ? `(库存: ${stock})` : '(缺货)';
       // 使用商品ID（移除横杆使链接连贯）
       const shortId = p.id.replace(/-/g, '');
-      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n👉 /buy\\_${shortId}`;
+      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n点击购买👉 /buy\\_${shortId}`;
     });
     
     return {
@@ -672,7 +672,8 @@ async function handleShopCommand(
   const productLines = products.map((p: ShopProduct, idx: number) => {
     const stock = p.stock_content?.length || 0;
     const stockText = stock > 0 ? `(库存: ${stock})` : '(缺货)';
-    return `${idx + 1}. **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   ${p.description || ''}`;
+    const shortId = p.id.replace(/-/g, '');
+    return `${idx + 1}. **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   ${p.description || ''}\n   点击购买👉 /buy\\_${shortId}`;
   });
 
   const message = `🏪 **商城商品列表**
@@ -680,8 +681,7 @@ async function handleShopCommand(
 ${productLines.join('\n\n')}
 
 ────────────────
-💡 购买方法: /buy <商品名>
-例如: /buy ${products[0].name}`;
+💡 点击上方指令直接购买对应商品`;
 
   return { handled: true, message };
 }
