@@ -16,6 +16,7 @@ interface ShopProduct {
   stock_content: string[] | null;
   is_active: boolean;
   keywords: string[] | null;
+  category: string | null;
 }
 
 interface ShopConfig {
@@ -647,11 +648,12 @@ ${paymentNotice}`;
   return { handled: true, message, cryptoQrUrl, orderId: order.id, paymentMethod };
 }
 
-// 处理 /shop 命令 - 显示商品列表
+// 处理 /shop 命令 - 显示商品分类列表（点击分类展开/隐藏）
 async function handleShopCommand(
   supabase: any,
-  botToken: string
-): Promise<{ handled: boolean; message?: string }> {
+  botToken: string,
+  expandedCategory?: string
+): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any }> {
   // 获取商店配置
   const { data: shopConfig } = await supabase
     .from('shop_configs')
@@ -675,21 +677,55 @@ async function handleShopCommand(
     return { handled: true, message: '📦 暂无可购买的商品' };
   }
 
-  const productLines = products.map((p: ShopProduct, idx: number) => {
-    const stock = p.stock_content?.length || 0;
-    const stockText = stock > 0 ? `(库存: ${stock})` : '(缺货)';
-    const shortId = p.id.replace(/-/g, '');
-    return `${idx + 1}. **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   ${p.description || ''}\n   点击购买👉 /buy\\_${shortId}`;
-  });
+  // 按分类分组商品
+  const categoryMap: Record<string, ShopProduct[]> = {};
+  for (const p of products) {
+    const category = p.category || '默认分类';
+    if (!categoryMap[category]) {
+      categoryMap[category] = [];
+    }
+    categoryMap[category].push(p);
+  }
 
-  const message = `🏪 **商城商品列表**
+  const categories = Object.keys(categoryMap);
+  
+  // 如果指定了展开的分类，显示该分类下的商品
+  if (expandedCategory && categoryMap[expandedCategory]) {
+    const categoryProducts = categoryMap[expandedCategory];
+    const productLines = categoryProducts.map((p: ShopProduct) => {
+      const stock = p.stock_content?.length || 0;
+      const stockText = stock > 0 ? `(库存: ${stock})` : '(缺货)';
+      const shortId = p.id.replace(/-/g, '');
+      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   ${p.description || ''}\n   点击购买👉 /buy\\_${shortId}`;
+    });
+
+    // 构建返回按钮
+    const inlineButtons: any[][] = [[{ text: '🔙 返回分类列表', callback_data: 'shop_back' }]];
+
+    const message = `🏪 **${expandedCategory}** (${categoryProducts.length}件商品)
 
 ${productLines.join('\n\n')}
 
 ────────────────
 💡 点击上方指令直接购买对应商品`;
 
-  return { handled: true, message };
+    return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons } };
+  }
+
+  // 默认显示分类列表（每个分类一个按钮）
+  const inlineButtons: any[][] = categories.map(cat => {
+    const count = categoryMap[cat].length;
+    return [{ text: `📂 ${cat} (${count}件)`, callback_data: `shop_cat_${encodeURIComponent(cat)}` }];
+  });
+
+  const message = `🏪 **商城商品分类**
+
+共 ${products.length} 件商品，${categories.length} 个分类
+
+────────────────
+💡 点击下方分类查看商品`;
+
+  return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons } };
 }
 
 // 格式化时间为中国24小时制
@@ -1309,6 +1345,33 @@ serve(async (req) => {
         }
       }
       
+      // 处理商城分类回调（展开分类或返回列表）
+      if (callbackData.startsWith('shop_cat_') || callbackData === 'shop_back') {
+        console.log(`[TG Shop] Category callback: ${callbackData}`);
+        
+        let expandedCategory: string | undefined;
+        if (callbackData.startsWith('shop_cat_')) {
+          expandedCategory = decodeURIComponent(callbackData.replace('shop_cat_', ''));
+        }
+        
+        const shopResult = await handleShopCommand(supabase, botToken, expandedCategory);
+        
+        if (shopResult.handled && shopResult.message) {
+          // 编辑原消息，更新内容
+          await sendTelegramMessage(botToken, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbMessageId,
+            text: shopResult.message,
+            parse_mode: 'Markdown',
+            reply_markup: shopResult.inlineKeyboard
+          });
+        }
+        
+        return new Response(JSON.stringify({ ok: true, shop_category_handled: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       // 其他回调走原有自动回复逻辑
       const handled = await handleCallbackQuery(botToken, body.callback_query, autoReplyRules);
       console.log(`Callback query handled: ${handled}`);
@@ -1575,7 +1638,8 @@ serve(async (req) => {
         await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
           text: shopResult.message,
-          parse_mode: 'Markdown'
+          parse_mode: 'Markdown',
+          reply_markup: shopResult.inlineKeyboard
         });
         keyboardHandled = true;
         console.log('[TG Shop] /shop command handled');
