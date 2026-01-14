@@ -592,8 +592,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               {/* YunGouOS - 微信 */}
               <div className="p-4 bg-muted rounded-lg border">
                 <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full"></span> 
-                  YunGouOS - 微信/支付宝
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span> 
+                  YunGouOS - 微信支付
                 </h4>
                 <p className="text-xs text-muted-foreground mb-3">支持个人免签，注册较麻烦</p>
                 <div className="space-y-3">
@@ -601,8 +601,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                     <label className="block text-xs font-medium text-muted-foreground mb-1">商户号 (Merchant ID)</label>
                     <input 
                       type="text" 
-                      value={localConfig.yungouId}
-                      onChange={(e) => handleChange('yungouId', e.target.value)}
+                      value={localConfig.yungouWechatId}
+                      onChange={(e) => handleChange('yungouWechatId', e.target.value)}
                       className="w-full p-2 bg-background border rounded text-sm"
                       placeholder="例如: 1234567890"
                     />
@@ -611,77 +611,119 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                     <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 (Key)</label>
                     <input 
                       type="password" 
-                      value={localConfig.yungouKey}
-                      onChange={(e) => handleChange('yungouKey', e.target.value)}
+                      value={localConfig.yungouWechatKey}
+                      onChange={(e) => handleChange('yungouWechatKey', e.target.value)}
                       className="w-full p-2 bg-background border rounded text-sm"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* 支付渠道开关 */}
+              {/* YunGouOS - 支付宝 */}
               <div className="p-4 bg-muted rounded-lg border">
-                <h4 className="font-bold text-sm text-foreground mb-3">启用支付渠道</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
-                    localConfig.enableAlipay ? 'bg-blue-500/10 border-blue-500' : 'bg-card border-border'
-                  }`}>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                        <div className="w-5 h-5 bg-blue-500 text-white rounded flex items-center justify-center text-[10px]">支</div> 支付宝
-                      </div>
-                      <button 
-                        onClick={() => handleChange('enableAlipay', !localConfig.enableAlipay)}
-                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          localConfig.enableAlipay ? 'bg-blue-600' : 'bg-muted'
-                        }`}
-                      >
-                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          localConfig.enableAlipay ? 'translate-x-4' : 'translate-x-0'
-                        }`} />
-                      </button>
+                <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span> 
+                  YunGouOS - 支付宝
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">支持个人免签，注册较麻烦</p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-2 bg-background rounded-lg border">
+                    <input 
+                      type="checkbox"
+                      checked={localConfig.yungouAlipayH5}
+                      onChange={(e) => handleChange('yungouAlipayH5', e.target.checked)}
+                      className="rounded shrink-0"
+                    />
+                    <div>
+                      <div className="text-xs font-medium">启用 H5 支付</div>
+                      <div className="text-[10px] text-muted-foreground">营业执照注册的支付渠道可用</div>
                     </div>
-                    {localConfig.enableAlipay && (
-                      <select 
-                        value={localConfig.alipayProvider || 'xunhu'} 
-                        onChange={(e) => handleChange('alipayProvider', e.target.value as 'yungou' | 'xunhu')}
-                        className="w-full text-xs p-1 border rounded bg-background"
-                      >
-                        <option value="xunhu">使用 虎皮椒</option>
-                        <option value="yungou">使用 YunGouOS</option>
-                      </select>
-                    )}
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">商户号 (Merchant ID)</label>
+                    <input 
+                      type="text" 
+                      value={localConfig.yungouAlipayId}
+                      onChange={(e) => handleChange('yungouAlipayId', e.target.value)}
+                      className="w-full p-2 bg-background border rounded text-sm"
+                      placeholder="例如: 1234567890"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 (Key)</label>
+                    <input 
+                      type="password" 
+                      value={localConfig.yungouAlipayKey}
+                      onChange={(e) => handleChange('yungouAlipayKey', e.target.value)}
+                      className="w-full p-2 bg-background border rounded text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                  <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
-                    localConfig.enableWechat ? 'bg-green-500/10 border-green-500' : 'bg-card border-border'
-                  }`}>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                        <div className="w-5 h-5 bg-green-500 text-white rounded flex items-center justify-center text-[10px]">微</div> 微信
-                      </div>
-                      <button 
-                        onClick={() => handleChange('enableWechat', !localConfig.enableWechat)}
-                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          localConfig.enableWechat ? 'bg-green-600' : 'bg-muted'
-                        }`}
-                      >
-                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          localConfig.enableWechat ? 'translate-x-4' : 'translate-x-0'
-                        }`} />
-                      </button>
+            {/* 支付渠道开关 */}
+            <div className="p-4 bg-muted rounded-lg border">
+              <h4 className="font-bold text-sm text-foreground mb-3">启用支付渠道</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
+                  localConfig.enableAlipay ? 'bg-blue-500/10 border-blue-500' : 'bg-card border-border'
+                }`}>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                      <div className="w-5 h-5 bg-blue-500 text-white rounded flex items-center justify-center text-[10px]">支</div> 支付宝
                     </div>
-                    {localConfig.enableWechat && (
-                      <select 
-                        value={localConfig.wechatProvider || 'xunhu'} 
-                        onChange={(e) => handleChange('wechatProvider', e.target.value as 'yungou' | 'xunhu')}
-                        className="w-full text-xs p-1 border rounded bg-background"
-                      >
-                        <option value="xunhu">使用 虎皮椒</option>
-                        <option value="yungou">使用 YunGouOS</option>
-                      </select>
-                    )}
+                    <button 
+                      onClick={() => handleChange('enableAlipay', !localConfig.enableAlipay)}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        localConfig.enableAlipay ? 'bg-blue-600' : 'bg-muted'
+                      }`}
+                    >
+                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        localConfig.enableAlipay ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                    </button>
                   </div>
+                  {localConfig.enableAlipay && (
+                    <select 
+                      value={localConfig.alipayProvider || 'xunhu'} 
+                      onChange={(e) => handleChange('alipayProvider', e.target.value as 'yungou' | 'xunhu')}
+                      className="w-full text-xs p-1 border rounded bg-background"
+                    >
+                      <option value="xunhu">使用 虎皮椒</option>
+                      <option value="yungou">使用 YunGouOS</option>
+                    </select>
+                  )}
+                </div>
+
+                <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
+                  localConfig.enableWechat ? 'bg-green-500/10 border-green-500' : 'bg-card border-border'
+                }`}>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                      <div className="w-5 h-5 bg-green-500 text-white rounded flex items-center justify-center text-[10px]">微</div> 微信
+                    </div>
+                    <button 
+                      onClick={() => handleChange('enableWechat', !localConfig.enableWechat)}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        localConfig.enableWechat ? 'bg-green-600' : 'bg-muted'
+                      }`}
+                    >
+                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        localConfig.enableWechat ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+                  {localConfig.enableWechat && (
+                    <select 
+                      value={localConfig.wechatProvider || 'xunhu'} 
+                      onChange={(e) => handleChange('wechatProvider', e.target.value as 'yungou' | 'xunhu')}
+                      className="w-full text-xs p-1 border rounded bg-background"
+                    >
+                      <option value="xunhu">使用 虎皮椒</option>
+                      <option value="yungou">使用 YunGouOS</option>
+                    </select>
+                  )}
                 </div>
               </div>
             </div>

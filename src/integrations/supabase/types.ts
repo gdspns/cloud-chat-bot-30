@@ -382,8 +382,13 @@ export type Database = {
           xunhu_alipay_secret: string | null
           xunhu_id: string | null
           xunhu_secret: string | null
+          yungou_alipay_h5: boolean | null
+          yungou_alipay_id: string | null
+          yungou_alipay_key: string | null
           yungou_id: string | null
           yungou_key: string | null
+          yungou_wechat_id: string | null
+          yungou_wechat_key: string | null
         }
         Insert: {
           accept_trx?: boolean | null
@@ -409,8 +414,13 @@ export type Database = {
           xunhu_alipay_secret?: string | null
           xunhu_id?: string | null
           xunhu_secret?: string | null
+          yungou_alipay_h5?: boolean | null
+          yungou_alipay_id?: string | null
+          yungou_alipay_key?: string | null
           yungou_id?: string | null
           yungou_key?: string | null
+          yungou_wechat_id?: string | null
+          yungou_wechat_key?: string | null
         }
         Update: {
           accept_trx?: boolean | null
@@ -436,8 +446,13 @@ export type Database = {
           xunhu_alipay_secret?: string | null
           xunhu_id?: string | null
           xunhu_secret?: string | null
+          yungou_alipay_h5?: boolean | null
+          yungou_alipay_id?: string | null
+          yungou_alipay_key?: string | null
           yungou_id?: string | null
           yungou_key?: string | null
+          yungou_wechat_id?: string | null
+          yungou_wechat_key?: string | null
         }
         Relationships: []
       }
