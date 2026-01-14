@@ -143,12 +143,14 @@ async function handleBuyCommand(
   username: string | null,
   text: string
 ): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any; orderId?: string }> {
-  // 解析命令: /buy <商品名或关键词> 或 /buy_<productId>
-  const directBuyMatch = text.match(/^\/buy_([a-f0-9-]+)$/i);
+  // 解析命令: /buy <商品名或关键词> 或 /buy_<productId>（无横杆格式）
+  const directBuyMatch = text.match(/^\/buy_([a-f0-9]{32})$/i);
   
-  // 如果是直接购买命令 /buy_<productId>
+  // 如果是直接购买命令 /buy_<productId>（无横杆格式）
   if (directBuyMatch) {
-    const productId = directBuyMatch[1];
+    // 将无横杆的ID还原为UUID格式
+    const rawId = directBuyMatch[1];
+    const productId = `${rawId.slice(0,8)}-${rawId.slice(8,12)}-${rawId.slice(12,16)}-${rawId.slice(16,20)}-${rawId.slice(20)}`;
     return await createOrderForProduct(supabase, botToken, chatId, username, productId);
   }
   
@@ -204,8 +206,9 @@ async function handleBuyCommand(
     const productLines = matchedProducts.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
       const stockText = stock > 0 ? `(库存: ${stock})` : '(缺货)';
-      // 使用商品ID作为唯一标识
-      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   👉 点击购买: /buy\\_${p.id}`;
+      // 使用商品ID（移除横杆使链接连贯）
+      const shortId = p.id.replace(/-/g, '');
+      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n👉 /buy\\_${shortId}`;
     });
     
     return {
