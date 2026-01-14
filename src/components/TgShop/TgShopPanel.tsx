@@ -1,12 +1,11 @@
 import React, { useState } from "react";
-import { Settings, Package, ShoppingCart, Terminal, Activity, Cloud, CloudOff, RefreshCw, Tag } from "lucide-react";
+import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag } from "lucide-react";
 import { ShopTab } from "./types";
 import { ShopNavButton } from "./ShopNavButton";
 import { ProductManager } from "./ProductManager";
 import { CategoryManager } from "./CategoryManager";
 import { OrderManager } from "./OrderManager";
 import { ShopSettings } from "./ShopSettings";
-import { BotSimulator } from "./BotSimulator";
 import { useShopData } from "./hooks/useShopData";
 
 interface TgShopPanelProps {
@@ -115,12 +114,6 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
               active={activeTab === 'orders'} 
               onClick={() => setActiveTab('orders')} 
             />
-            <ShopNavButton 
-              icon={<Terminal size={16}/>} 
-              label="Bot 模拟器" 
-              active={activeTab === 'simulator'} 
-              onClick={() => setActiveTab('simulator')} 
-            />
           </nav>
         </div>
 
@@ -210,17 +203,6 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 onRefresh={refreshData}
                 onClearOrders={handleClearOrders}
                 isLoading={isLoading}
-              />
-            )}
-            {activeTab === 'simulator' && (
-              <BotSimulator 
-                products={products} 
-                orders={orders}
-                setOrders={setOrders}
-                onAddOrder={addOrder}
-                onUpdateOrderStatus={updateOrderStatus}
-                config={config} 
-                showToast={showToast} 
               />
             )}
           </div>
