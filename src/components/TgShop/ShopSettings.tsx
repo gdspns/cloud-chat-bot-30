@@ -327,7 +327,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               <Bot size={20} className="text-purple-600"/> Telegram 购买命令
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              用户在 Telegram 中与您的机器人对话时，可以使用以下命令直接购买商品。您可以添加自定义中文指令别名（模糊匹配，只需匹配2个中文字符）：
+              用户在 Telegram 中与您的机器人对话时，可以使用以下命令直接购买商品。支持自定义中文指令别名（只要匹配到2个中文字符就会发送）：
             </p>
           
           <div className="space-y-4">
