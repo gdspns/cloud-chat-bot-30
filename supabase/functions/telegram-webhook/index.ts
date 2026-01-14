@@ -143,7 +143,15 @@ async function handleBuyCommand(
   username: string | null,
   text: string
 ): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any; orderId?: string }> {
-  // 解析命令: /buy <商品名或关键词>
+  // 解析命令: /buy <商品名或关键词> 或 /buy_<productId>
+  const directBuyMatch = text.match(/^\/buy_([a-f0-9-]+)$/i);
+  
+  // 如果是直接购买命令 /buy_<productId>
+  if (directBuyMatch) {
+    const productId = directBuyMatch[1];
+    return await createOrderForProduct(supabase, botToken, chatId, username, productId);
+  }
+  
   const match = text.match(/^\/buy\s+(.+)$/i);
   if (!match) {
     return { 
@@ -176,19 +184,86 @@ async function handleBuyCommand(
     return { handled: true, message: '❌ 暂无可购买的商品' };
   }
 
-  // 模糊匹配商品
-  const product = products.find((p: ShopProduct) => {
+  // 模糊匹配所有商品
+  const matchedProducts = products.filter((p: ShopProduct) => {
     const nameMatch = p.name.toLowerCase().includes(keyword);
     const keywordMatch = p.keywords?.some((k: string) => k.toLowerCase().includes(keyword));
     return nameMatch || keywordMatch;
   });
 
-  if (!product) {
+  if (matchedProducts.length === 0) {
     const productList = products.map((p: ShopProduct) => `• ${p.name} - ${p.price} ${p.currency}`).join('\n');
     return { 
       handled: true, 
       message: `❌ 未找到匹配商品: "${keyword}"\n\n📦 可用商品:\n${productList}\n\n使用 /buy <商品名> 购买` 
     };
+  }
+
+  // 如果匹配到多个商品，显示商品列表供用户选择
+  if (matchedProducts.length > 1) {
+    const productLines = matchedProducts.map((p: ShopProduct) => {
+      const stock = p.stock_content?.length || 0;
+      const stockText = stock > 0 ? `(库存: ${stock})` : '(缺货)';
+      // 使用商品ID作为唯一标识
+      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   👉 点击购买: /buy\\_${p.id}`;
+    });
+    
+    return {
+      handled: true,
+      message: `🔍 找到 ${matchedProducts.length} 个匹配 "${keyword}" 的商品:\n\n${productLines.join('\n\n')}\n\n────────────────\n💡 点击上方指令直接购买对应商品`
+    };
+  }
+
+  // 只匹配到一个商品，直接创建订单
+  const product = matchedProducts[0];
+  return await createOrderForProduct(supabase, botToken, chatId, username, product.id, product, shopConfig);
+}
+
+// 为指定商品创建订单
+async function createOrderForProduct(
+  supabase: any,
+  botToken: string,
+  chatId: number,
+  username: string | null,
+  productId: string,
+  preloadedProduct?: ShopProduct,
+  preloadedShopConfig?: ShopConfig
+): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any; orderId?: string }> {
+  // 获取商店配置（如果没有预加载）
+  let shopConfig = preloadedShopConfig;
+  if (!shopConfig) {
+    const { data: configData } = await supabase
+      .from('shop_configs')
+      .select('*')
+      .eq('bot_token', botToken)
+      .maybeSingle();
+
+    if (!configData) {
+      return { handled: true, message: '❌ 该机器人未配置商城功能' };
+    }
+    shopConfig = configData;
+  }
+
+  // 获取商品（如果没有预加载）
+  let product: ShopProduct | null = preloadedProduct || null;
+  if (!product) {
+    const { data: productData } = await supabase
+      .from('shop_products')
+      .select('*')
+      .eq('id', productId)
+      .eq('bot_token', botToken)
+      .eq('is_active', true)
+      .maybeSingle();
+    
+    if (!productData) {
+      return { handled: true, message: '❌ 商品不存在或已下架' };
+    }
+    product = productData as ShopProduct;
+  }
+
+  // TypeScript guard - 此时 product 必定存在
+  if (!product) {
+    return { handled: true, message: '❌ 商品不存在' };
   }
 
   // 检查库存
@@ -258,17 +333,17 @@ async function handleBuyCommand(
   const paymentButtons: any[][] = [];
   
   // 虚拟货币支付选项
-  if (shopConfig.accept_usdt) {
+  if (shopConfig!.accept_usdt) {
     paymentButtons.push([{ text: `💎 USDT(TRC20) ≈${usdtAmount} USDT`, callback_data: `pay_usdt_${orderNo}` }]);
   }
-  if (shopConfig.accept_trx) {
+  if (shopConfig!.accept_trx) {
     paymentButtons.push([{ text: `💎 TRX ≈${trxAmount} TRX`, callback_data: `pay_trx_${orderNo}` }]);
   }
   // 法币支付选项
-  if (shopConfig.enable_alipay) {
+  if (shopConfig!.enable_alipay) {
     paymentButtons.push([{ text: `💳 支付宝 ¥${cnyAmount}`, callback_data: `pay_alipay_${orderNo}` }]);
   }
-  if (shopConfig.enable_wechat) {
+  if (shopConfig!.enable_wechat) {
     paymentButtons.push([{ text: `💚 微信支付 ¥${cnyAmount}`, callback_data: `pay_wechat_${orderNo}` }]);
   }
   
