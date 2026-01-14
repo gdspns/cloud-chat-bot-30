@@ -116,11 +116,30 @@ serve(async (req) => {
 
     console.log(`[Cleanup] Completed: ${cancelledOrders} orders cancelled, ${deletedMessages} messages deleted`);
 
+    // ========== 清理7天以上的待付款/已取消订单 ==========
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: oldOrders, error: oldOrdersError } = await supabase
+      .from('shop_orders')
+      .delete()
+      .in('status', ['pending', 'cancelled'])
+      .lt('created_at', oneWeekAgo)
+      .select('id');
+    
+    const deletedOrdersCount = oldOrders?.length || 0;
+    
+    if (oldOrdersError) {
+      console.error('[Cleanup] Error deleting old orders:', oldOrdersError);
+    } else {
+      console.log(`[Cleanup] Deleted ${deletedOrdersCount} old pending/cancelled orders (older than 7 days)`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         cancelled: cancelledOrders,
         messagesDeleted: deletedMessages,
+        deletedOldOrders: deletedOrdersCount,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
