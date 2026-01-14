@@ -48,6 +48,11 @@ interface DbConfig {
   webhook_url: string | null;
   yungou_id: string | null;
   yungou_key: string | null;
+  yungou_wechat_id: string | null;
+  yungou_wechat_key: string | null;
+  yungou_alipay_id: string | null;
+  yungou_alipay_key: string | null;
+  yungou_alipay_h5: boolean | null;
   xunhu_id: string | null;
   xunhu_secret: string | null;
   xunhu_alipay_id: string | null;
@@ -87,6 +92,11 @@ const defaultConfig: ShopConfig = {
   webhookUrl: '',
   yungouId: '',
   yungouKey: '',
+  yungouWechatId: '',
+  yungouWechatKey: '',
+  yungouAlipayId: '',
+  yungouAlipayKey: '',
+  yungouAlipayH5: false,
   xunhuId: '',
   xunhuSecret: '',
   xunhuAlipayId: '',
@@ -161,6 +171,11 @@ function dbConfigToConfig(dbConfig: DbConfig): ShopConfig {
     webhookUrl: dbConfig.webhook_url || '',
     yungouId: dbConfig.yungou_id || '',
     yungouKey: dbConfig.yungou_key || '',
+    yungouWechatId: dbConfig.yungou_wechat_id || '',
+    yungouWechatKey: dbConfig.yungou_wechat_key || '',
+    yungouAlipayId: dbConfig.yungou_alipay_id || '',
+    yungouAlipayKey: dbConfig.yungou_alipay_key || '',
+    yungouAlipayH5: dbConfig.yungou_alipay_h5 || false,
     xunhuId: dbConfig.xunhu_id || '',
     xunhuSecret: dbConfig.xunhu_secret || '',
     xunhuAlipayId: dbConfig.xunhu_alipay_id || '',
@@ -189,6 +204,11 @@ function configToDbConfig(config: Partial<ShopConfig>, botToken: string): Partia
     webhook_url: config.webhookUrl || null,
     yungou_id: config.yungouId || null,
     yungou_key: config.yungouKey || null,
+    yungou_wechat_id: config.yungouWechatId || null,
+    yungou_wechat_key: config.yungouWechatKey || null,
+    yungou_alipay_id: config.yungouAlipayId || null,
+    yungou_alipay_key: config.yungouAlipayKey || null,
+    yungou_alipay_h5: config.yungouAlipayH5,
     xunhu_id: config.xunhuId || null,
     xunhu_secret: config.xunhuSecret || null,
     xunhu_alipay_id: config.xunhuAlipayId || null,

@@ -39,6 +39,11 @@ export interface ShopConfig {
   webhookUrl: string;
   yungouId: string;
   yungouKey: string;
+  yungouWechatId: string;
+  yungouWechatKey: string;
+  yungouAlipayId: string;
+  yungouAlipayKey: string;
+  yungouAlipayH5: boolean;
   xunhuId: string;
   xunhuSecret: string;
   xunhuAlipayId: string;
