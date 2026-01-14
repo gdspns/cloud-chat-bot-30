@@ -12,6 +12,7 @@ interface DbProduct {
   stock_content: string[];
   description: string | null;
   is_active: boolean;
+  category: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -123,6 +124,7 @@ function dbProductToProduct(dbProduct: DbProduct): Product {
     stockCount: dbProduct.stock_content?.length || 0,
     description: dbProduct.description || '',
     type: 'auto',
+    category: dbProduct.category || '默认分类',
     createdAt: dbProduct.created_at,
     updatedAt: dbProduct.updated_at
   };
@@ -138,6 +140,7 @@ function productToDbProduct(product: Partial<Product>, botToken: string): Partia
     keywords: product.keywordsList || product.keywords?.split(',').map(k => k.trim().toLowerCase()) || [],
     stock_content: product.stockContent?.split('\n').filter(l => l.trim()) || [],
     description: product.description || null,
+    category: product.category || '默认分类',
     is_active: true
   };
 }
