@@ -593,7 +593,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               <div className="p-4 bg-muted rounded-lg border">
                 <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span> 
-                  YunGouOS - 微信支付【不推荐！注册申请麻烦！有注册的联系我们修改接口】
+                  YunGouOS - 微信支付【不推荐！申请麻烦！有注册的联系我们修改接口】
                 </h4>
                 <p className="text-xs text-muted-foreground mb-3">官网：www.yungouos.com</p>
                 <div className="space-y-3">
@@ -623,7 +623,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               <div className="p-4 bg-muted rounded-lg border">
                 <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span> 
-                  YunGouOS - 支付宝【不推荐！注册申请麻烦！原本有注册的联系我们修改接口】
+                  YunGouOS - 支付宝【不推荐！申请麻烦！有注册的联系我们修改接口】
                 </h4>
                 <p className="text-xs text-muted-foreground mb-3">官网：www.yungouos.com</p>
                 <div className="space-y-3">
