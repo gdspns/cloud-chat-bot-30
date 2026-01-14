@@ -748,7 +748,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
 
             {/* 支付渠道开关 */}
             <div className="p-4 bg-muted rounded-lg border">
-              <h4 className="font-bold text-sm text-foreground mb-3">启用支付渠道</h4>
+              <h4 className="font-bold text-sm text-foreground mb-3">启用支付渠道【开启按钮的时候点下方选择接口的收款平台】</h4>
               <div className="grid grid-cols-2 gap-3">
                 <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
                   localConfig.enableAlipay ? 'bg-blue-500/10 border-blue-500' : 'bg-card border-border'
