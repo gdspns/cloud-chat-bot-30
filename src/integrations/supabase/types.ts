@@ -370,6 +370,7 @@ export type Database = {
           enable_alipay: boolean | null
           enable_wechat: boolean | null
           id: string
+          payment_notice: string | null
           random_decimals: boolean | null
           tron_grid_key: string | null
           updated_at: string
@@ -396,6 +397,7 @@ export type Database = {
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
           id?: string
+          payment_notice?: string | null
           random_decimals?: boolean | null
           tron_grid_key?: string | null
           updated_at?: string
@@ -422,6 +424,7 @@ export type Database = {
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
           id?: string
+          payment_notice?: string | null
           random_decimals?: boolean | null
           tron_grid_key?: string | null
           updated_at?: string

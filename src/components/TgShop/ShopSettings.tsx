@@ -401,6 +401,25 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           </p>
         </div>
 
+        {/* 支付说明自定义 */}
+        <div className="bg-card p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+            <CreditCard size={20} className="text-blue-600"/> 订单支付说明
+          </h3>
+          <p className="text-sm text-muted-foreground mb-3">
+            自定义订单支付详情页面显示的提示信息（在"支付截止时间"下方显示）：
+          </p>
+          <textarea
+            value={localConfig.paymentNotice || ''}
+            onChange={(e) => handleChange('paymentNotice', e.target.value)}
+            className="w-full p-3 bg-background border rounded font-mono text-sm min-h-[200px]"
+            placeholder="请输入支付说明..."
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            💡 支持 emoji 表情符号，修改后保存即可在 Telegram 订单支付详情中生效
+          </p>
+        </div>
+
         {/* 虚拟货币设置 */}
         <div className="bg-card p-6 rounded-xl border shadow-sm">
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
