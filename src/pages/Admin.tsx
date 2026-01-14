@@ -45,7 +45,7 @@ interface ActivationCode {
   used_by_bot_id: string | null;
   created_at: string;
   validity_days?: number;
-  feature_type?: 'chat' | 'keyboard' | 'both';
+  feature_type?: 'chat' | 'keyboard' | 'shop' | 'both' | 'chat_shop' | 'keyboard_shop' | 'all';
 }
 
 interface Message {
@@ -89,6 +89,7 @@ export const Admin = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [codeFeatureChat, setCodeFeatureChat] = useState(true);
   const [codeFeatureKeyboard, setCodeFeatureKeyboard] = useState(true);
+  const [codeFeatureShop, setCodeFeatureShop] = useState(false);
   
   // 聊天监控相关
   const [allMessages, setAllMessages] = useState<Message[]>([]);
@@ -591,7 +592,7 @@ export const Admin = () => {
       return;
     }
 
-    if (!codeFeatureChat && !codeFeatureKeyboard) {
+    if (!codeFeatureChat && !codeFeatureKeyboard && !codeFeatureShop) {
       toast({
         title: "错误",
         description: "请至少选择一个功能分组",
@@ -600,14 +601,25 @@ export const Admin = () => {
       return;
     }
 
-    // 确定 feature_type
-    let featureType: 'chat' | 'keyboard' | 'both';
-    if (codeFeatureChat && codeFeatureKeyboard) {
-      featureType = 'both';
-    } else if (codeFeatureChat) {
-      featureType = 'chat';
+    // 确定 feature_type (支持多种组合)
+    let featureType: string;
+    const features = [];
+    if (codeFeatureChat) features.push('chat');
+    if (codeFeatureKeyboard) features.push('keyboard');
+    if (codeFeatureShop) features.push('shop');
+    
+    if (features.length === 3) {
+      featureType = 'all';
+    } else if (features.length === 2) {
+      if (features.includes('chat') && features.includes('keyboard')) {
+        featureType = 'both';
+      } else if (features.includes('chat') && features.includes('shop')) {
+        featureType = 'chat_shop';
+      } else {
+        featureType = 'keyboard_shop';
+      }
     } else {
-      featureType = 'keyboard';
+      featureType = features[0];
     }
 
     setIsGenerating(true);
@@ -1833,10 +1845,28 @@ export const Admin = () => {
                     />
                     <label htmlFor="feature-keyboard" className="text-sm">菜单键盘</label>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {codeFeatureChat && codeFeatureKeyboard ? '将生成: 二合一激活码' : 
-                     codeFeatureChat ? '将生成: 双向聊天激活码' : 
-                     codeFeatureKeyboard ? '将生成: 菜单键盘激活码' : '请选择功能'}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="feature-shop"
+                      checked={codeFeatureShop}
+                      onChange={(e) => setCodeFeatureShop(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="feature-shop" className="text-sm">TG商城</label>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted rounded">
+                    {(() => {
+                      const selected = [];
+                      if (codeFeatureChat) selected.push('双向聊天');
+                      if (codeFeatureKeyboard) selected.push('菜单键盘');
+                      if (codeFeatureShop) selected.push('TG商城');
+                      
+                      if (selected.length === 0) return '⚠️ 请至少选择一个功能';
+                      if (selected.length === 3) return '✅ 将生成: 三合一激活码 (在任意系统输入即可激活全部功能)';
+                      if (selected.length === 2) return `✅ 将生成: ${selected.join('+')} 激活码 (在任一系统输入即可激活两个功能)`;
+                      return `✅ 将生成: ${selected[0]}激活码`;
+                    })()}
                   </div>
                 </div>
               </div>
@@ -1889,10 +1919,29 @@ export const Admin = () => {
                 <TableBody>
                   {allCodes.map(code => {
                     const status = getCodeStatus(code);
-                    const featureLabel = code.feature_type === 'chat' ? '双向聊天' : 
-                                        code.feature_type === 'keyboard' ? '菜单键盘' : '二合一';
-                    const featureColor = code.feature_type === 'chat' ? 'bg-blue-500' : 
-                                        code.feature_type === 'keyboard' ? 'bg-green-500' : 'bg-purple-500';
+                    const featureLabel = (() => {
+                      switch (code.feature_type) {
+                        case 'chat': return '双向聊天';
+                        case 'keyboard': return '菜单键盘';
+                        case 'shop': return 'TG商城';
+                        case 'both': return '聊天+键盘';
+                        case 'chat_shop': return '聊天+商城';
+                        case 'keyboard_shop': return '键盘+商城';
+                        case 'all': return '三合一';
+                        default: return '二合一';
+                      }
+                    })();
+                    const featureColor = (() => {
+                      switch (code.feature_type) {
+                        case 'chat': return 'bg-blue-500';
+                        case 'keyboard': return 'bg-green-500';
+                        case 'shop': return 'bg-orange-500';
+                        case 'all': return 'bg-gradient-to-r from-blue-500 via-green-500 to-orange-500';
+                        case 'chat_shop': return 'bg-gradient-to-r from-blue-500 to-orange-500';
+                        case 'keyboard_shop': return 'bg-gradient-to-r from-green-500 to-orange-500';
+                        default: return 'bg-purple-500';
+                      }
+                    })();
                     return (
                       <TableRow key={code.id}>
                         <TableCell className="font-mono">{code.code}</TableCell>

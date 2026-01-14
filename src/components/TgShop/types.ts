@@ -60,6 +60,10 @@ export interface ShopConfig {
     order: string[];
   };
   paymentNotice: string;
+  // 激活相关字段
+  activationCode?: string;
+  shopExpireAt?: string | null;
+  shopTrialStartedAt?: string | null;
 }
 
 export type ShopTab = 'settings' | 'products' | 'categories' | 'orders';

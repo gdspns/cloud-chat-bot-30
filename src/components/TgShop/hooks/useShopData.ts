@@ -65,6 +65,8 @@ interface DbConfig {
   wechat_provider: string;
   custom_commands: { shop: string[]; buy: string[]; order: string[] } | null;
   payment_notice: string | null;
+  shop_expire_at: string | null;
+  shop_trial_started_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -189,7 +191,9 @@ function dbConfigToConfig(dbConfig: DbConfig): ShopConfig {
     enableWechat: dbConfig.enable_wechat,
     wechatProvider: dbConfig.wechat_provider as 'yungou' | 'xunhu',
     customCommands: dbConfig.custom_commands || { shop: [], buy: [], order: [] },
-    paymentNotice: dbConfig.payment_notice || defaultPaymentNotice
+    paymentNotice: dbConfig.payment_notice || defaultPaymentNotice,
+    shopExpireAt: dbConfig.shop_expire_at,
+    shopTrialStartedAt: dbConfig.shop_trial_started_at
   };
 }
 
@@ -258,7 +262,8 @@ export function useShopData(botToken?: string) {
       }
 
       if (configRes.data) {
-        setConfig(dbConfigToConfig(configRes.data as DbConfig));
+        const rawData = configRes.data as unknown as DbConfig;
+        setConfig(dbConfigToConfig(rawData));
       } else {
         // 使用默认配置但设置 token
         setConfig({ ...defaultConfig, token: botToken });

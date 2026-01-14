@@ -416,9 +416,15 @@ serve(async (req) => {
         const updatePayload: any = {};
         let newChatExpireAt: Date | null = null;
         let newKeyboardExpireAt: Date | null = null;
+        let newShopExpireAt: Date | null = null;
 
-        // 计算双向聊天有效期 (feature_type = 'chat' 或 'both')
-        if (featureType === 'chat' || featureType === 'both') {
+        // 判断各功能是否需要激活
+        const shouldActivateChat = ['chat', 'both', 'chat_shop', 'all'].includes(featureType);
+        const shouldActivateKeyboard = ['keyboard', 'both', 'keyboard_shop', 'all'].includes(featureType);
+        const shouldActivateShop = ['shop', 'chat_shop', 'keyboard_shop', 'all'].includes(featureType);
+
+        // 计算双向聊天有效期
+        if (shouldActivateChat) {
           if (currentBot.expire_at && new Date(currentBot.expire_at) > new Date()) {
             newChatExpireAt = new Date(currentBot.expire_at);
             newChatExpireAt.setDate(newChatExpireAt.getDate() + validityDays);
@@ -435,9 +441,8 @@ serve(async (req) => {
           updatePayload.app_enabled = true;
         }
 
-        // 计算键盘菜单有效期 (feature_type = 'keyboard' 或 'both')
-        // 从 keyboard_configs 表获取当前键盘有效期（独立存储）
-        if (featureType === 'keyboard' || featureType === 'both') {
+        // 计算键盘菜单有效期
+        if (shouldActivateKeyboard) {
           const { data: keyboardConfig } = await supabase
             .from('keyboard_configs')
             .select('keyboard_expire_at')
@@ -453,11 +458,39 @@ serve(async (req) => {
           }
           newKeyboardExpireAt.setHours(23, 59, 59, 999);
 
-          // 更新 keyboard_configs 表（独立存储键盘有效期）
+          // 更新 keyboard_configs 表
           await supabase.from('keyboard_configs').upsert(
             {
               bot_token: actualBotToken,
               keyboard_expire_at: newKeyboardExpireAt.toISOString(),
+              updated_at: new Date().toISOString(),
+            } as any,
+            { onConflict: 'bot_token' }
+          );
+        }
+
+        // 计算 TG商城有效期
+        if (shouldActivateShop) {
+          const { data: shopConfig } = await supabase
+            .from('shop_configs')
+            .select('shop_expire_at')
+            .eq('bot_token', actualBotToken)
+            .maybeSingle();
+
+          if (shopConfig?.shop_expire_at && new Date(shopConfig.shop_expire_at) > new Date()) {
+            newShopExpireAt = new Date(shopConfig.shop_expire_at);
+            newShopExpireAt.setDate(newShopExpireAt.getDate() + validityDays);
+          } else {
+            newShopExpireAt = new Date();
+            newShopExpireAt.setDate(newShopExpireAt.getDate() + validityDays);
+          }
+          newShopExpireAt.setHours(23, 59, 59, 999);
+
+          // 更新 shop_configs 表
+          await supabase.from('shop_configs').upsert(
+            {
+              bot_token: actualBotToken,
+              shop_expire_at: newShopExpireAt.toISOString(),
               updated_at: new Date().toISOString(),
             } as any,
             { onConflict: 'bot_token' }
@@ -514,7 +547,8 @@ serve(async (req) => {
         console.log('Bind code success:', { 
           featureType, 
           newChatExpireAt: newChatExpireAt?.toISOString(), 
-          newKeyboardExpireAt: newKeyboardExpireAt?.toISOString() 
+          newKeyboardExpireAt: newKeyboardExpireAt?.toISOString(),
+          newShopExpireAt: newShopExpireAt?.toISOString()
         });
 
         return new Response(JSON.stringify({ 
@@ -522,6 +556,7 @@ serve(async (req) => {
           featureType,
           newExpireAt: newChatExpireAt?.toISOString() || null,
           newKeyboardExpireAt: newKeyboardExpireAt?.toISOString() || null,
+          newShopExpireAt: newShopExpireAt?.toISOString() || null,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -665,6 +700,98 @@ serve(async (req) => {
           featureType,
           newExpireAt: newChatExpireAt?.toISOString() || null,
           newKeyboardExpireAt: newKeyboardExpireAt?.toISOString() || null,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // TG商城独立激活码绑定
+      case 'bind-shop-code': {
+        const code = params.code || params.activationCode;
+        const { botToken } = params;
+        
+        if (!botToken) {
+          return new Response(JSON.stringify({ ok: false, error: '缺少机器人 Token' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 查找激活码
+        const { data: codeData, error: codeError } = await supabase
+          .from('activation_codes')
+          .select('*')
+          .eq('code', code)
+          .maybeSingle();
+
+        if (codeError || !codeData) {
+          return new Response(JSON.stringify({ ok: false, error: '激活码不存在' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (codeData.is_used) {
+          return new Response(JSON.stringify({ ok: false, error: '激活码已被使用' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const validityDays = codeData.validity_days || 30;
+        const featureType = codeData.feature_type || 'shop';
+        
+        // 检查激活码是否支持商城功能
+        const supportsShop = ['shop', 'chat_shop', 'keyboard_shop', 'all'].includes(featureType);
+        if (!supportsShop) {
+          return new Response(JSON.stringify({ ok: false, error: '此激活码不支持 TG商城 功能' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 获取当前商城有效期
+        const { data: shopConfig } = await supabase
+          .from('shop_configs')
+          .select('shop_expire_at')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+
+        let newShopExpireAt: Date;
+        if (shopConfig?.shop_expire_at && new Date(shopConfig.shop_expire_at) > new Date()) {
+          newShopExpireAt = new Date(shopConfig.shop_expire_at);
+          newShopExpireAt.setDate(newShopExpireAt.getDate() + validityDays);
+        } else {
+          newShopExpireAt = new Date();
+          newShopExpireAt.setDate(newShopExpireAt.getDate() + validityDays);
+        }
+        newShopExpireAt.setHours(23, 59, 59, 999);
+
+        // 更新 shop_configs 表
+        await supabase.from('shop_configs').upsert(
+          {
+            bot_token: botToken,
+            shop_expire_at: newShopExpireAt.toISOString(),
+            updated_at: new Date().toISOString(),
+          } as any,
+          { onConflict: 'bot_token' }
+        );
+
+        // 标记激活码为已使用
+        await supabase
+          .from('activation_codes')
+          .update({
+            is_used: true,
+            expire_at: newShopExpireAt.toISOString(),
+          })
+          .eq('id', codeData.id);
+
+        console.log('Bind shop code success:', { featureType, newShopExpireAt: newShopExpireAt.toISOString() });
+
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          message: 'TG商城激活成功',
+          expireAt: newShopExpireAt.toISOString(),
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
