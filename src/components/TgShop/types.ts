@@ -62,4 +62,4 @@ export interface ShopConfig {
   paymentNotice: string;
 }
 
-export type ShopTab = 'settings' | 'products' | 'orders' | 'simulator';
+export type ShopTab = 'settings' | 'products' | 'categories' | 'orders' | 'simulator';
