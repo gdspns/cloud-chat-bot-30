@@ -372,6 +372,8 @@ export type Database = {
           id: string
           payment_notice: string | null
           random_decimals: boolean | null
+          shop_expire_at: string | null
+          shop_trial_started_at: string | null
           tron_grid_key: string | null
           updated_at: string
           wallet_address: string | null
@@ -404,6 +406,8 @@ export type Database = {
           id?: string
           payment_notice?: string | null
           random_decimals?: boolean | null
+          shop_expire_at?: string | null
+          shop_trial_started_at?: string | null
           tron_grid_key?: string | null
           updated_at?: string
           wallet_address?: string | null
@@ -436,6 +440,8 @@ export type Database = {
           id?: string
           payment_notice?: string | null
           random_decimals?: boolean | null
+          shop_expire_at?: string | null
+          shop_trial_started_at?: string | null
           tron_grid_key?: string | null
           updated_at?: string
           wallet_address?: string | null

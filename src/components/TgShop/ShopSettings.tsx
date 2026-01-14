@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink, Plus, X } from "lucide-react";
+import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink, Plus, X, Key } from "lucide-react";
 import { ShopConfig } from "./types";
 
 interface ShopSettingsProps {
@@ -146,31 +146,115 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-4 p-3 bg-muted rounded-lg border">
-            <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${localConfig.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></div>
-              <span className="text-sm font-medium text-foreground">
-                状态: {localConfig.status === 'online' ? '已连接 (Online)' : '未连接 (Offline)'}
-              </span>
+          {/* 状态与操作区域 - 使用边框分隔 */}
+          <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {/* 左侧：机器人状态 */}
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${localConfig.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></div>
+                  <span className="text-sm font-medium text-foreground">
+                    状态: {localConfig.status === 'online' ? '已连接 (Online)' : '未连接 (Offline)'}
+                  </span>
+                </div>
+                
+                {localConfig.status === 'online' ? (
+                  <button 
+                    onClick={handleDisconnect}
+                    className="flex items-center gap-2 text-destructive hover:text-destructive/80 text-xs font-bold border border-destructive/20 bg-background hover:bg-destructive/10 px-3 py-1.5 rounded transition-colors"
+                  >
+                    <Power size={12} /> 断开连接
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleVerifyConnection}
+                    disabled={isVerifying}
+                    className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-4 py-1.5 rounded transition-colors disabled:opacity-50"
+                  >
+                    {isVerifying ? <RefreshCw className="animate-spin" size={12}/> : <PlugZap size={12}/>}
+                    {isVerifying ? '验证中...' : '验证并连接'}
+                  </button>
+                )}
+              </div>
             </div>
-            
-            {localConfig.status === 'online' ? (
-              <button 
-                onClick={handleDisconnect}
-                className="flex items-center gap-2 text-destructive hover:text-destructive/80 text-xs font-bold border border-destructive/20 bg-background hover:bg-destructive/10 px-3 py-1.5 rounded transition-colors"
-              >
-                <Power size={12} /> 断开连接
-              </button>
-            ) : (
-              <button 
-                onClick={handleVerifyConnection}
-                disabled={isVerifying}
-                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-4 py-1.5 rounded transition-colors disabled:opacity-50"
-              >
-                {isVerifying ? <RefreshCw className="animate-spin" size={12}/> : <PlugZap size={12}/>}
-                {isVerifying ? '验证中...' : '验证并连接'}
-              </button>
-            )}
+
+            {/* 右侧：激活绑定 */}
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  value={localConfig.activationCode || ''}
+                  onChange={(e) => handleChange('activationCode', e.target.value)}
+                  placeholder="输入激活码绑定..."
+                  className="flex-1 p-2 bg-background border rounded font-mono text-xs focus:ring-2 focus:ring-primary outline-none"
+                />
+                <button 
+                  onClick={async () => {
+                    if (!localConfig.activationCode?.trim()) {
+                      showToast("error", "请输入激活码");
+                      return;
+                    }
+                    // 调用后端绑定激活码
+                    try {
+                      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-bot`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          action: 'bind-shop-code',
+                          botToken: botToken || localConfig.token,
+                          activationCode: localConfig.activationCode.trim()
+                        })
+                      });
+                      const data = await response.json();
+                      if (data.ok) {
+                        showToast("success", data.message || "激活码绑定成功");
+                        // 更新本地状态
+                        setLocalConfig(prev => ({
+                          ...prev,
+                          shopExpireAt: data.expireAt,
+                          activationCode: ''
+                        }));
+                        onSave({ shopExpireAt: data.expireAt });
+                      } else {
+                        showToast("error", data.error || "绑定失败");
+                      }
+                    } catch (error) {
+                      showToast("error", "绑定失败，请检查网络");
+                    }
+                  }}
+                  className="flex items-center gap-1 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-3 py-2 rounded transition-colors"
+                >
+                  <Key size={12} /> 绑定
+                </button>
+              </div>
+              {/* 状态提示 */}
+              <div className="mt-2 text-xs">
+                {localConfig.shopExpireAt ? (
+                  new Date(localConfig.shopExpireAt) > new Date() ? (
+                    <span className="text-green-600">
+                      ✅ 有效期至: {new Date(localConfig.shopExpireAt).toLocaleDateString('zh-CN')}
+                    </span>
+                  ) : (
+                    <span className="text-destructive">
+                      ❌ 已过期 ({new Date(localConfig.shopExpireAt).toLocaleDateString('zh-CN')}) - 请输入激活码续期
+                    </span>
+                  )
+                ) : localConfig.shopTrialStartedAt ? (
+                  (() => {
+                    const trialStart = new Date(localConfig.shopTrialStartedAt);
+                    const trialEnd = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
+                    const now = new Date();
+                    if (now > trialEnd) {
+                      return <span className="text-destructive">❌ 试用已过期 - 请输入激活码激活</span>;
+                    }
+                    const hoursLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60));
+                    return <span className="text-amber-600">⏳ 首次试用中 (剩余 {hoursLeft} 小时)</span>;
+                  })()
+                ) : (
+                  <span className="text-muted-foreground">💡 首次使用可免费试用24小时</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
