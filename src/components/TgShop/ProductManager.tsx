@@ -116,47 +116,9 @@ export function ProductManager({
   };
 
   return (
-    <div className="flex h-full">
-      {/* 商品列表侧边栏 */}
-      <div className="w-[180px] bg-card border-r flex flex-col shrink-0">
-        <div className="p-4 border-b flex justify-between items-center bg-muted sticky top-0 z-10">
-          <h2 className="font-semibold text-foreground text-sm">商品列表</h2>
-          <button 
-            onClick={handleNew} 
-            className="p-1 hover:bg-primary/10 text-primary rounded"
-          >
-            <Plus size={18} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {products.length === 0 && (
-            <div className="p-4 text-sm text-muted-foreground text-center">暂无商品</div>
-          )}
-          {products.map(p => (
-            <div 
-              key={p.id} 
-              onClick={() => setEditingId(p.id)}
-              className={`p-4 border-b cursor-pointer hover:bg-muted transition-colors ${
-                editingId === p.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''
-              }`}
-            >
-              <div className="font-medium text-foreground truncate text-sm">{p.name}</div>
-              <div className="flex justify-between mt-1 text-xs">
-                <span className="text-muted-foreground">库存: {p.stockCount || 0}</span>
-                <span className="font-bold text-primary">{p.price} {p.currency}</span>
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {p.keywordsList?.slice(0, 3).map(k => (
-                  <span key={k} className="bg-muted px-1 rounded text-[10px] text-muted-foreground">{k}</span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 编辑区域 */}
-      <div className="flex-1 bg-muted/50 p-8 overflow-y-auto min-w-[400px]">
+    <div className="flex flex-col xl:flex-row h-full">
+      {/* 编辑区域 - 在大屏幕上左边显示 */}
+      <div className="flex-1 bg-muted/50 p-8 overflow-y-auto order-2 xl:order-1">
         <div className="max-w-2xl mx-auto bg-card rounded-xl shadow-sm border overflow-hidden">
           <div className="p-6 border-b flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -273,6 +235,46 @@ export function ProductManager({
                 </>
               )}
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 商品列表侧边栏 - 在大屏幕上右边显示 */}
+      <div className="w-full xl:w-[280px] bg-card border-t xl:border-t-0 xl:border-l flex flex-col shrink-0 order-1 xl:order-2 max-h-[200px] xl:max-h-none">
+        <div className="p-4 border-b flex justify-between items-center bg-muted sticky top-0 z-10">
+          <h2 className="font-semibold text-foreground text-sm">商品列表</h2>
+          <button 
+            onClick={handleNew} 
+            className="p-1 hover:bg-primary/10 text-primary rounded"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {products.length === 0 && (
+            <div className="p-4 text-sm text-muted-foreground text-center">暂无商品</div>
+          )}
+          <div className="grid grid-cols-2 xl:grid-cols-1">
+            {products.map(p => (
+              <div 
+                key={p.id} 
+                onClick={() => setEditingId(p.id)}
+                className={`p-4 border-b xl:border-r-0 border-r cursor-pointer hover:bg-muted transition-colors ${
+                  editingId === p.id ? 'bg-primary/5 border-l-4 border-l-primary' : ''
+                }`}
+              >
+                <div className="font-medium text-foreground truncate text-sm">{p.name}</div>
+                <div className="flex justify-between mt-1 text-xs">
+                  <span className="text-muted-foreground">库存: {p.stockCount || 0}</span>
+                  <span className="font-bold text-primary">{p.price} {p.currency}</span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {p.keywordsList?.slice(0, 3).map(k => (
+                    <span key={k} className="bg-muted px-1 rounded text-[10px] text-muted-foreground">{k}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
