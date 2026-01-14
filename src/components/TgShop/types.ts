@@ -11,6 +11,7 @@ export interface Product {
   stockCount: number;
   description: string;
   type: 'auto' | 'manual';
+  category: string;
   createdAt?: string;
   updatedAt?: string;
 }

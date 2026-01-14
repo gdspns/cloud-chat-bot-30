@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Search, Cloud, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen } from "lucide-react";
 import { Product } from "./types";
 
 interface ProductManagerProps {
@@ -19,7 +19,8 @@ const defaultFormData: Omit<Product, 'id' | 'keywordsList'> = {
   stockContent: 'user:pass\nuser2:pass2',
   stockCount: 0,
   description: '✅ 4K HDR\n✅ 独享账号\n✅ 质保30天',
-  type: 'auto'
+  type: 'auto',
+  category: '默认分类'
 };
 
 export function ProductManager({ 
@@ -111,9 +112,27 @@ export function ProductManager({
       stockContent: '',
       stockCount: 0,
       description: '',
-      type: 'auto'
+      type: 'auto',
+      category: '默认分类'
     });
   };
+
+  // 获取所有分类
+  const categories = useMemo(() => {
+    const cats = new Set(products.map(p => p.category || '默认分类'));
+    return Array.from(cats);
+  }, [products]);
+
+  // 按分类分组商品
+  const productsByCategory = useMemo(() => {
+    const grouped: Record<string, Product[]> = {};
+    products.forEach(p => {
+      const cat = p.category || '默认分类';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(p);
+    });
+    return grouped;
+  }, [products]);
 
   return (
     <div className="flex flex-col xl:flex-row h-full">
@@ -152,6 +171,29 @@ export function ProductManager({
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
                 className="w-full p-3 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary outline-none"
               />
+            </div>
+
+            {/* 分类选择 */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-1">
+                <Tag size={14} /> 商品分类
+              </label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={formData.category}
+                  onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  className="flex-1 p-2.5 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none text-sm"
+                  placeholder="输入分类名称"
+                  list="category-list"
+                />
+                <datalist id="category-list">
+                  {categories.map(cat => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">输入现有分类或新建分类</p>
             </div>
 
             <div className="flex gap-3">
@@ -255,23 +297,43 @@ export function ProductManager({
           {products.length === 0 && (
             <div className="p-4 text-sm text-muted-foreground text-center border rounded-lg bg-muted/50">暂无商品</div>
           )}
-          <div className="grid grid-cols-2 xl:grid-cols-2 gap-3">
-            {products.map(p => (
-              <div 
-                key={p.id} 
-                onClick={() => setEditingId(p.id)}
-                className={`p-4 border rounded-lg cursor-pointer hover:bg-muted transition-colors ${
-                  editingId === p.id ? 'bg-primary/5 border-primary ring-1 ring-primary' : 'bg-background'
-                }`}
-              >
-                <div className="font-medium text-foreground truncate text-sm">{p.name}</div>
-                <div className="flex justify-between mt-2 text-xs">
-                  <span className="text-muted-foreground">库存: {p.stockCount || 0}</span>
-                  <span className="font-bold text-primary">{p.price} {p.currency}</span>
+          <div className="space-y-4">
+            {Object.entries(productsByCategory).map(([category, categoryProducts]) => (
+              <div key={category} className="border rounded-lg overflow-hidden">
+                <div className="bg-muted px-3 py-2 flex items-center gap-2 border-b">
+                  <FolderOpen size={14} className="text-primary" />
+                  <span className="font-medium text-sm text-foreground">{category}</span>
+                  <span className="text-xs text-muted-foreground">({categoryProducts.length})</span>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {p.keywordsList?.slice(0, 3).map(k => (
-                    <span key={k} className="bg-muted px-1.5 py-0.5 rounded text-[10px] text-muted-foreground">{k}</span>
+                <div className="grid grid-cols-1 gap-2 p-2">
+                  {categoryProducts.map(p => (
+                    <div 
+                      key={p.id} 
+                      onClick={() => setEditingId(p.id)}
+                      className={`p-3 border rounded-lg cursor-pointer hover:bg-muted transition-colors ${
+                        editingId === p.id ? 'bg-primary/5 border-primary ring-1 ring-primary' : 'bg-background'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-foreground truncate text-sm">{p.name}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <code className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded font-mono">
+                              /buy_{p.id.slice(0, 8)}
+                            </code>
+                            <span className="text-xs text-muted-foreground">库存: {p.stockCount || 0}</span>
+                          </div>
+                        </div>
+                        <span className="font-bold text-primary text-sm shrink-0 ml-2">{p.price} {p.currency}</span>
+                      </div>
+                      {p.keywordsList?.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {p.keywordsList.slice(0, 4).map(k => (
+                            <span key={k} className="bg-muted px-1.5 py-0.5 rounded text-[10px] text-muted-foreground">{k}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

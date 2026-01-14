@@ -548,6 +548,7 @@ export type Database = {
       shop_products: {
         Row: {
           bot_token: string
+          category: string | null
           created_at: string
           currency: string
           description: string | null
@@ -561,6 +562,7 @@ export type Database = {
         }
         Insert: {
           bot_token: string
+          category?: string | null
           created_at?: string
           currency?: string
           description?: string | null
@@ -574,6 +576,7 @@ export type Database = {
         }
         Update: {
           bot_token?: string
+          category?: string | null
           created_at?: string
           currency?: string
           description?: string | null
