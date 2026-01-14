@@ -29,6 +29,7 @@ interface ShopConfig {
   admin_id: string | null;
   xunhu_alipay_h5: boolean | null;
   custom_commands: { shop: string[]; buy: string[]; order: string[] } | null;
+  payment_notice: string | null;
 }
 
 // 生成随机小数防撞单 - 加密货币 (0.010-0.099，三位小数)
@@ -617,6 +618,20 @@ ${paymentInfo}
     }
   }
 
+  // 获取自定义支付说明
+  const defaultPaymentNotice = `⚠️ 超时订单将自动取消并删除
+⚠️付款转账精确到小数点后面数值
+⚠️虚拟货币转账不包含扣除的手续费
+下面举个例子👇币安
+例：金额10.12TRX+手续费1TRX=11.12TRX
+tokenpocket（简称TP）
+直接付金额10.12TRX（手续费扣余额）
+币安充TRX提现到你的TP钱包
+付错额度不会发货联系人工客服处理
+✅ 支付成功后将自动发货到此对话`;
+  
+  const paymentNotice = shopConfig.payment_notice || defaultPaymentNotice;
+
   const message = `🛒 *订单支付详情*
 
 📦 商品: ${order.product_name}
@@ -627,16 +642,7 @@ ${paymentInfo}
 ────────────────
 
 ⏰ 支付截止: ${expireTimeStr} (30分钟)
-⚠️ 超时订单将自动取消并删除
-⚠️付款转账精确到小数点后面数值
-⚠️虚拟货币转账不包含扣除的手续费
-下面举个例子👇币安
-例：金额10.12TRX+手续费1TRX=11.12TRX
-tokenpocket（简称TP）
-直接付金额10.12TRX（手续费扣余额）
-币安充TRX提现到你的TP钱包
-付错额度不会发货联系人工客服处理
-✅ 支付成功后将自动发货到此对话`;
+${paymentNotice}`;
 
   return { handled: true, message, cryptoQrUrl, orderId: order.id, paymentMethod };
 }

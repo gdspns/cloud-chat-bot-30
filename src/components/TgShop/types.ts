@@ -53,6 +53,7 @@ export interface ShopConfig {
     buy: string[];
     order: string[];
   };
+  paymentNotice: string;
 }
 
 export type ShopTab = 'settings' | 'products' | 'orders' | 'simulator';
