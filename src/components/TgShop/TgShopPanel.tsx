@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Settings, Package, ShoppingCart, Terminal, Activity, Cloud, CloudOff, RefreshCw } from "lucide-react";
+import { Settings, Package, ShoppingCart, Terminal, Activity, Cloud, CloudOff, RefreshCw, Tag } from "lucide-react";
 import { ShopTab } from "./types";
 import { ShopNavButton } from "./ShopNavButton";
 import { ProductManager } from "./ProductManager";
+import { CategoryManager } from "./CategoryManager";
 import { OrderManager } from "./OrderManager";
 import { ShopSettings } from "./ShopSettings";
 import { BotSimulator } from "./BotSimulator";
@@ -103,6 +104,12 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
               onClick={() => setActiveTab('products')} 
             />
             <ShopNavButton 
+              icon={<Tag size={16}/>} 
+              label="分类管理" 
+              active={activeTab === 'categories'} 
+              onClick={() => setActiveTab('categories')} 
+            />
+            <ShopNavButton 
               icon={<ShoppingCart size={16}/>} 
               label="订单中心" 
               active={activeTab === 'orders'} 
@@ -185,6 +192,14 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 onAddProduct={addProduct}
                 onUpdateProduct={updateProduct}
                 onDeleteProduct={deleteProduct}
+                showToast={showToast}
+                isSyncing={isSyncing}
+              />
+            )}
+            {activeTab === 'categories' && (
+              <CategoryManager 
+                products={products}
+                onUpdateProduct={updateProduct}
                 showToast={showToast}
                 isSyncing={isSyncing}
               />
