@@ -447,8 +447,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           )}
         </div>
 
-        {/* /shop 欢迎内容配置（已注销） */}
-       {/*<div className="bg-card p-6 rounded-xl border shadow-sm">
+        {/* /shop 欢迎内容配置 */}
+       <div className="bg-card p-6 rounded-xl border shadow-sm">
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
             <Bot size={20} className="text-purple-600"/> /shop 命令内容
           </h3>
@@ -503,13 +503,13 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 className="rounded"
               />
               <div className="text-sm font-medium">禁用链接预览</div>
-            </div>*/}
+            </div>
           </div>
         </div>
 
     
-        {/* /order 欢迎内容配置（已注销） */}
-       {/* <div className="bg-card p-6 rounded-xl border shadow-sm">
+        {/* /order 欢迎内容配置 */}
+       <div className="bg-card p-6 rounded-xl border shadow-sm">
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
             <CreditCard size={20} className="text-blue-600"/> /order 命令内容
           </h3>
@@ -564,7 +564,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 className="rounded"
               />
               <div className="text-sm font-medium">禁用链接预览</div>
-            </div> */}
+            </div>
           </div>
         </div>
 
