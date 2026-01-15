@@ -370,12 +370,33 @@ export type Database = {
           enable_alipay: boolean | null
           enable_wechat: boolean | null
           id: string
+          order_button_text: string | null
+          order_button_text_en: string | null
+          order_welcome_content: string | null
+          order_welcome_disable_preview: boolean | null
+          order_welcome_entities: Json | null
+          order_welcome_media_type: string | null
+          order_welcome_media_url: string | null
           payment_notice: string | null
           random_decimals: boolean | null
+          shop_button_text: string | null
+          shop_button_text_en: string | null
           shop_expire_at: string | null
           shop_trial_started_at: string | null
+          shop_welcome_content: string | null
+          shop_welcome_disable_preview: boolean | null
+          shop_welcome_entities: Json | null
+          shop_welcome_media_type: string | null
+          shop_welcome_media_url: string | null
+          start_disable_preview: boolean | null
+          start_enabled: boolean | null
+          start_message: string | null
+          start_message_entities: Json | null
+          start_message_media_type: string | null
+          start_message_media_url: string | null
           tron_grid_key: string | null
           updated_at: string
+          user_language_preferences: Json | null
           wallet_address: string | null
           webhook_url: string | null
           wechat_provider: string | null
@@ -404,12 +425,33 @@ export type Database = {
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
           id?: string
+          order_button_text?: string | null
+          order_button_text_en?: string | null
+          order_welcome_content?: string | null
+          order_welcome_disable_preview?: boolean | null
+          order_welcome_entities?: Json | null
+          order_welcome_media_type?: string | null
+          order_welcome_media_url?: string | null
           payment_notice?: string | null
           random_decimals?: boolean | null
+          shop_button_text?: string | null
+          shop_button_text_en?: string | null
           shop_expire_at?: string | null
           shop_trial_started_at?: string | null
+          shop_welcome_content?: string | null
+          shop_welcome_disable_preview?: boolean | null
+          shop_welcome_entities?: Json | null
+          shop_welcome_media_type?: string | null
+          shop_welcome_media_url?: string | null
+          start_disable_preview?: boolean | null
+          start_enabled?: boolean | null
+          start_message?: string | null
+          start_message_entities?: Json | null
+          start_message_media_type?: string | null
+          start_message_media_url?: string | null
           tron_grid_key?: string | null
           updated_at?: string
+          user_language_preferences?: Json | null
           wallet_address?: string | null
           webhook_url?: string | null
           wechat_provider?: string | null
@@ -438,12 +480,33 @@ export type Database = {
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
           id?: string
+          order_button_text?: string | null
+          order_button_text_en?: string | null
+          order_welcome_content?: string | null
+          order_welcome_disable_preview?: boolean | null
+          order_welcome_entities?: Json | null
+          order_welcome_media_type?: string | null
+          order_welcome_media_url?: string | null
           payment_notice?: string | null
           random_decimals?: boolean | null
+          shop_button_text?: string | null
+          shop_button_text_en?: string | null
           shop_expire_at?: string | null
           shop_trial_started_at?: string | null
+          shop_welcome_content?: string | null
+          shop_welcome_disable_preview?: boolean | null
+          shop_welcome_entities?: Json | null
+          shop_welcome_media_type?: string | null
+          shop_welcome_media_url?: string | null
+          start_disable_preview?: boolean | null
+          start_enabled?: boolean | null
+          start_message?: string | null
+          start_message_entities?: Json | null
+          start_message_media_type?: string | null
+          start_message_media_url?: string | null
           tron_grid_key?: string | null
           updated_at?: string
+          user_language_preferences?: Json | null
           wallet_address?: string | null
           webhook_url?: string | null
           wechat_provider?: string | null

@@ -67,6 +67,28 @@ interface DbConfig {
   payment_notice: string | null;
   shop_expire_at: string | null;
   shop_trial_started_at: string | null;
+  // 新增字段
+  start_enabled: boolean | null;
+  start_message: string | null;
+  start_message_media_url: string | null;
+  start_message_media_type: string | null;
+  start_message_entities: any[] | null;
+  start_disable_preview: boolean | null;
+  shop_button_text: string | null;
+  shop_button_text_en: string | null;
+  order_button_text: string | null;
+  order_button_text_en: string | null;
+  shop_welcome_content: string | null;
+  shop_welcome_media_url: string | null;
+  shop_welcome_media_type: string | null;
+  shop_welcome_entities: any[] | null;
+  shop_welcome_disable_preview: boolean | null;
+  order_welcome_content: string | null;
+  order_welcome_media_url: string | null;
+  order_welcome_media_type: string | null;
+  order_welcome_entities: any[] | null;
+  order_welcome_disable_preview: boolean | null;
+  user_language_preferences: Record<string, string> | null;
   created_at: string;
   updated_at: string;
 }
@@ -110,7 +132,29 @@ const defaultConfig: ShopConfig = {
   enableWechat: false,
   wechatProvider: 'xunhu',
   customCommands: { shop: [], buy: [], order: [] },
-  paymentNotice: defaultPaymentNotice
+  paymentNotice: defaultPaymentNotice,
+  // 新增默认值
+  startEnabled: false,
+  startMessage: '',
+  startMessageMediaUrl: '',
+  startMessageMediaType: 'text',
+  startMessageEntities: [],
+  startDisablePreview: false,
+  shopButtonText: '商城',
+  shopButtonTextEn: 'Shop',
+  orderButtonText: '我的订单',
+  orderButtonTextEn: 'My Orders',
+  shopWelcomeContent: '',
+  shopWelcomeMediaUrl: '',
+  shopWelcomeMediaType: 'text',
+  shopWelcomeEntities: [],
+  shopWelcomeDisablePreview: false,
+  orderWelcomeContent: '',
+  orderWelcomeMediaUrl: '',
+  orderWelcomeMediaType: 'text',
+  orderWelcomeEntities: [],
+  orderWelcomeDisablePreview: false,
+  userLanguagePreferences: {}
 };
 
 // 转换数据库产品到前端格式
@@ -193,7 +237,29 @@ function dbConfigToConfig(dbConfig: DbConfig): ShopConfig {
     customCommands: dbConfig.custom_commands || { shop: [], buy: [], order: [] },
     paymentNotice: dbConfig.payment_notice || defaultPaymentNotice,
     shopExpireAt: dbConfig.shop_expire_at,
-    shopTrialStartedAt: dbConfig.shop_trial_started_at
+    shopTrialStartedAt: dbConfig.shop_trial_started_at,
+    // 新增字段
+    startEnabled: dbConfig.start_enabled || false,
+    startMessage: dbConfig.start_message || '',
+    startMessageMediaUrl: dbConfig.start_message_media_url || '',
+    startMessageMediaType: (dbConfig.start_message_media_type as 'text' | 'photo' | 'video') || 'text',
+    startMessageEntities: dbConfig.start_message_entities || [],
+    startDisablePreview: dbConfig.start_disable_preview || false,
+    shopButtonText: dbConfig.shop_button_text || '商城',
+    shopButtonTextEn: dbConfig.shop_button_text_en || 'Shop',
+    orderButtonText: dbConfig.order_button_text || '我的订单',
+    orderButtonTextEn: dbConfig.order_button_text_en || 'My Orders',
+    shopWelcomeContent: dbConfig.shop_welcome_content || '',
+    shopWelcomeMediaUrl: dbConfig.shop_welcome_media_url || '',
+    shopWelcomeMediaType: (dbConfig.shop_welcome_media_type as 'text' | 'photo' | 'video') || 'text',
+    shopWelcomeEntities: dbConfig.shop_welcome_entities || [],
+    shopWelcomeDisablePreview: dbConfig.shop_welcome_disable_preview || false,
+    orderWelcomeContent: dbConfig.order_welcome_content || '',
+    orderWelcomeMediaUrl: dbConfig.order_welcome_media_url || '',
+    orderWelcomeMediaType: (dbConfig.order_welcome_media_type as 'text' | 'photo' | 'video') || 'text',
+    orderWelcomeEntities: dbConfig.order_welcome_entities || [],
+    orderWelcomeDisablePreview: dbConfig.order_welcome_disable_preview || false,
+    userLanguagePreferences: dbConfig.user_language_preferences || {}
   };
 }
 
@@ -226,7 +292,29 @@ function configToDbConfig(config: Partial<ShopConfig>, botToken: string): Partia
     enable_wechat: config.enableWechat,
     wechat_provider: config.wechatProvider,
     custom_commands: config.customCommands || null,
-    payment_notice: config.paymentNotice || null
+    payment_notice: config.paymentNotice || null,
+    // 新增字段
+    start_enabled: config.startEnabled ?? null,
+    start_message: config.startMessage || null,
+    start_message_media_url: config.startMessageMediaUrl || null,
+    start_message_media_type: config.startMessageMediaType || null,
+    start_message_entities: config.startMessageEntities || null,
+    start_disable_preview: config.startDisablePreview ?? null,
+    shop_button_text: config.shopButtonText || null,
+    shop_button_text_en: config.shopButtonTextEn || null,
+    order_button_text: config.orderButtonText || null,
+    order_button_text_en: config.orderButtonTextEn || null,
+    shop_welcome_content: config.shopWelcomeContent || null,
+    shop_welcome_media_url: config.shopWelcomeMediaUrl || null,
+    shop_welcome_media_type: config.shopWelcomeMediaType || null,
+    shop_welcome_entities: config.shopWelcomeEntities || null,
+    shop_welcome_disable_preview: config.shopWelcomeDisablePreview ?? null,
+    order_welcome_content: config.orderWelcomeContent || null,
+    order_welcome_media_url: config.orderWelcomeMediaUrl || null,
+    order_welcome_media_type: config.orderWelcomeMediaType || null,
+    order_welcome_entities: config.orderWelcomeEntities || null,
+    order_welcome_disable_preview: config.orderWelcomeDisablePreview ?? null,
+    user_language_preferences: config.userLanguagePreferences || null
   };
 }
 
