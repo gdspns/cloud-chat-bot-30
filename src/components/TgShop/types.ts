@@ -64,6 +64,32 @@ export interface ShopConfig {
   activationCode?: string;
   shopExpireAt?: string | null;
   shopTrialStartedAt?: string | null;
+  // /start 欢迎消息配置
+  startEnabled?: boolean;
+  startMessage?: string;
+  startMessageMediaUrl?: string;
+  startMessageMediaType?: 'text' | 'photo' | 'video';
+  startMessageEntities?: any[];
+  startDisablePreview?: boolean;
+  // 自定义按钮文字
+  shopButtonText?: string;
+  shopButtonTextEn?: string;
+  orderButtonText?: string;
+  orderButtonTextEn?: string;
+  // /shop 欢迎内容
+  shopWelcomeContent?: string;
+  shopWelcomeMediaUrl?: string;
+  shopWelcomeMediaType?: 'text' | 'photo' | 'video';
+  shopWelcomeEntities?: any[];
+  shopWelcomeDisablePreview?: boolean;
+  // /order 欢迎内容
+  orderWelcomeContent?: string;
+  orderWelcomeMediaUrl?: string;
+  orderWelcomeMediaType?: 'text' | 'photo' | 'video';
+  orderWelcomeEntities?: any[];
+  orderWelcomeDisablePreview?: boolean;
+  // 用户语言偏好
+  userLanguagePreferences?: Record<string, string>;
 }
 
 export type ShopTab = 'settings' | 'products' | 'categories' | 'orders';

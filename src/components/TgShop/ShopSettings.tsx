@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink, Plus, X, Key } from "lucide-react";
+import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink, Plus, X, Key, MessageCircle, Globe, Image, Video, Link, Type, Eye, EyeOff, Smile, Languages } from "lucide-react";
 import { ShopConfig } from "./types";
 
 interface ShopSettingsProps {
@@ -318,6 +318,254 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           </div>
         </div>
         */}
+
+        {/* /start 欢迎消息配置 */}
+        <div className="bg-card p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+            <MessageCircle size={20} className="text-green-600"/> 开始消息配置
+          </h3>
+          
+          {/* /start 开关 */}
+          <div className="flex items-center gap-3 p-3 bg-muted rounded-lg mb-4">
+            <input 
+              type="checkbox"
+              checked={localConfig.startEnabled || false}
+              onChange={(e) => handleChange('startEnabled', e.target.checked)}
+              className="rounded w-4 h-4"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium">/start 开始消息</div>
+              <div className="text-xs text-muted-foreground">开启后，用户在 Telegram 点"开始"时将显示欢迎消息和导航按钮</div>
+            </div>
+          </div>
+
+          {localConfig.startEnabled && (
+            <div className="space-y-4">
+              {/* 自定义按钮文字 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">/shop 按钮文字 (中文)</label>
+                  <input 
+                    type="text" 
+                    value={localConfig.shopButtonText || '商城'}
+                    onChange={(e) => handleChange('shopButtonText', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                    placeholder="商城"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">/shop 按钮文字 (英文)</label>
+                  <input 
+                    type="text" 
+                    value={localConfig.shopButtonTextEn || 'Shop'}
+                    onChange={(e) => handleChange('shopButtonTextEn', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                    placeholder="Shop"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">/order 按钮文字 (中文)</label>
+                  <input 
+                    type="text" 
+                    value={localConfig.orderButtonText || '我的订单'}
+                    onChange={(e) => handleChange('orderButtonText', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                    placeholder="我的订单"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">/order 按钮文字 (英文)</label>
+                  <input 
+                    type="text" 
+                    value={localConfig.orderButtonTextEn || 'My Orders'}
+                    onChange={(e) => handleChange('orderButtonTextEn', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                    placeholder="My Orders"
+                  />
+                </div>
+              </div>
+              
+              {/* 欢迎消息内容 */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">欢迎消息内容</label>
+                <textarea
+                  value={localConfig.startMessage || ''}
+                  onChange={(e) => handleChange('startMessage', e.target.value)}
+                  className="w-full p-3 bg-background border rounded text-sm min-h-[120px]"
+                  placeholder="👋 欢迎来到商城！&#10;&#10;请选择您需要的服务："
+                />
+              </div>
+              
+              {/* 媒体类型选择 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">消息类型</label>
+                  <select
+                    value={localConfig.startMessageMediaType || 'text'}
+                    onChange={(e) => handleChange('startMessageMediaType', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                  >
+                    <option value="text">纯文本</option>
+                    <option value="photo">图文消息</option>
+                    <option value="video">视频消息</option>
+                  </select>
+                </div>
+                {(localConfig.startMessageMediaType === 'photo' || localConfig.startMessageMediaType === 'video') && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      {localConfig.startMessageMediaType === 'photo' ? '图片 URL' : '视频 URL'}
+                    </label>
+                    <input 
+                      type="text" 
+                      value={localConfig.startMessageMediaUrl || ''}
+                      onChange={(e) => handleChange('startMessageMediaUrl', e.target.value)}
+                      className="w-full p-2 bg-background border rounded text-sm"
+                      placeholder={localConfig.startMessageMediaType === 'photo' ? 'https://example.com/image.jpg' : 'https://example.com/video.mp4'}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* 链接预览选项 */}
+              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                <input 
+                  type="checkbox"
+                  checked={localConfig.startDisablePreview || false}
+                  onChange={(e) => handleChange('startDisablePreview', e.target.checked)}
+                  className="rounded"
+                />
+                <div>
+                  <div className="text-sm font-medium">禁用链接预览</div>
+                  <div className="text-xs text-muted-foreground">关闭消息中 URL 链接的预览卡片</div>
+                </div>
+              </div>
+              
+              <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                💡 开始消息会显示三个按钮：[{localConfig.shopButtonText || '商城'}] [{localConfig.orderButtonText || '我的订单'}] [🌐 语言]。用户点击语言按钮可选择中文或英文，选择英文后所有消息自动转为英文。
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* /shop 欢迎内容配置 */}
+        <div className="bg-card p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+            <Bot size={20} className="text-purple-600"/> /shop 命令内容
+          </h3>
+          
+          <div className="space-y-4">
+            {/* 欢迎内容 */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">商城欢迎内容 (在商品列表前显示)</label>
+              <textarea
+                value={localConfig.shopWelcomeContent || ''}
+                onChange={(e) => handleChange('shopWelcomeContent', e.target.value)}
+                className="w-full p-3 bg-background border rounded text-sm min-h-[100px]"
+                placeholder="🛒 欢迎光临！请浏览以下商品："
+              />
+            </div>
+            
+            {/* 媒体类型 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">内容类型</label>
+                <select
+                  value={localConfig.shopWelcomeMediaType || 'text'}
+                  onChange={(e) => handleChange('shopWelcomeMediaType', e.target.value)}
+                  className="w-full p-2 bg-background border rounded text-sm"
+                >
+                  <option value="text">纯文本</option>
+                  <option value="photo">图文消息</option>
+                  <option value="video">视频消息</option>
+                </select>
+              </div>
+              {(localConfig.shopWelcomeMediaType === 'photo' || localConfig.shopWelcomeMediaType === 'video') && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {localConfig.shopWelcomeMediaType === 'photo' ? '图片 URL' : '视频 URL'}
+                  </label>
+                  <input 
+                    type="text" 
+                    value={localConfig.shopWelcomeMediaUrl || ''}
+                    onChange={(e) => handleChange('shopWelcomeMediaUrl', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                    placeholder="https://..."
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+              <input 
+                type="checkbox"
+                checked={localConfig.shopWelcomeDisablePreview || false}
+                onChange={(e) => handleChange('shopWelcomeDisablePreview', e.target.checked)}
+                className="rounded"
+              />
+              <div className="text-sm font-medium">禁用链接预览</div>
+            </div>
+          </div>
+        </div>
+
+        {/* /order 欢迎内容配置 */}
+        <div className="bg-card p-6 rounded-xl border shadow-sm">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
+            <CreditCard size={20} className="text-blue-600"/> /order 命令内容
+          </h3>
+          
+          <div className="space-y-4">
+            {/* 欢迎内容 */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">订单欢迎内容 (在订单列表前显示)</label>
+              <textarea
+                value={localConfig.orderWelcomeContent || ''}
+                onChange={(e) => handleChange('orderWelcomeContent', e.target.value)}
+                className="w-full p-3 bg-background border rounded text-sm min-h-[100px]"
+                placeholder="📋 以下是您的订单记录："
+              />
+            </div>
+            
+            {/* 媒体类型 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">内容类型</label>
+                <select
+                  value={localConfig.orderWelcomeMediaType || 'text'}
+                  onChange={(e) => handleChange('orderWelcomeMediaType', e.target.value)}
+                  className="w-full p-2 bg-background border rounded text-sm"
+                >
+                  <option value="text">纯文本</option>
+                  <option value="photo">图文消息</option>
+                  <option value="video">视频消息</option>
+                </select>
+              </div>
+              {(localConfig.orderWelcomeMediaType === 'photo' || localConfig.orderWelcomeMediaType === 'video') && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {localConfig.orderWelcomeMediaType === 'photo' ? '图片 URL' : '视频 URL'}
+                  </label>
+                  <input 
+                    type="text" 
+                    value={localConfig.orderWelcomeMediaUrl || ''}
+                    onChange={(e) => handleChange('orderWelcomeMediaUrl', e.target.value)}
+                    className="w-full p-2 bg-background border rounded text-sm"
+                    placeholder="https://..."
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+              <input 
+                type="checkbox"
+                checked={localConfig.orderWelcomeDisablePreview || false}
+                onChange={(e) => handleChange('orderWelcomeDisablePreview', e.target.checked)}
+                className="rounded"
+              />
+              <div className="text-sm font-medium">禁用链接预览</div>
+            </div>
+          </div>
+        </div>
 
         {/* Telegram 购买命令 + 支付说明并排 */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

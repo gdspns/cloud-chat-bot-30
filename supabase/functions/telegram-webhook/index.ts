@@ -31,6 +31,25 @@ interface ShopConfig {
   xunhu_alipay_h5: boolean | null;
   custom_commands: { shop: string[]; buy: string[]; order: string[] } | null;
   payment_notice: string | null;
+  // 新增字段
+  start_enabled: boolean | null;
+  start_message: string | null;
+  start_message_media_url: string | null;
+  start_message_media_type: string | null;
+  start_disable_preview: boolean | null;
+  shop_button_text: string | null;
+  shop_button_text_en: string | null;
+  order_button_text: string | null;
+  order_button_text_en: string | null;
+  shop_welcome_content: string | null;
+  shop_welcome_media_url: string | null;
+  shop_welcome_media_type: string | null;
+  shop_welcome_disable_preview: boolean | null;
+  order_welcome_content: string | null;
+  order_welcome_media_url: string | null;
+  order_welcome_media_type: string | null;
+  order_welcome_disable_preview: boolean | null;
+  user_language_preferences: Record<string, string> | null;
 }
 
 // 生成随机小数防撞单 - 加密货币 (0.010-0.099，三位小数)
@@ -1372,6 +1391,101 @@ serve(async (req) => {
         });
       }
       
+      // 处理TG商城语言切换回调
+      if (callbackData === 'shop_lang_zh' || callbackData === 'shop_lang_en') {
+        console.log(`[TG Shop] Language switch callback: ${callbackData}`);
+        
+        const newLang = callbackData === 'shop_lang_en' ? 'en' : 'zh';
+        
+        // 获取商城配置
+        const { data: shopConfigForLang } = await supabase
+          .from('shop_configs')
+          .select('*')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+        
+        if (shopConfigForLang) {
+          // 更新用户语言偏好
+          const langPrefs = shopConfigForLang.user_language_preferences || {};
+          langPrefs[cbChatId.toString()] = newLang;
+          
+          await supabase
+            .from('shop_configs')
+            .update({ user_language_preferences: langPrefs })
+            .eq('bot_token', botToken);
+          
+          // 重新发送开始消息
+          const shopBtnText = newLang === 'en' 
+            ? (shopConfigForLang.shop_button_text_en || 'Shop')
+            : (shopConfigForLang.shop_button_text || '商城');
+          const orderBtnText = newLang === 'en'
+            ? (shopConfigForLang.order_button_text_en || 'My Orders')
+            : (shopConfigForLang.order_button_text || '我的订单');
+          
+          // 更新原消息的按钮
+          const startButtons = [
+            [
+              { text: `🛒 ${shopBtnText}`, callback_data: 'shop_cmd_shop' },
+              { text: `📋 ${orderBtnText}`, callback_data: 'shop_cmd_order' }
+            ],
+            [
+              { text: '🌐 ' + (newLang === 'en' ? '中文' : 'English'), callback_data: newLang === 'en' ? 'shop_lang_zh' : 'shop_lang_en' }
+            ]
+          ];
+          
+          // 根据语言显示确认消息
+          const confirmMsg = newLang === 'en' 
+            ? '🌐 Language switched to English'
+            : '🌐 已切换为中文';
+          
+          await sendTelegramMessage(botToken, 'editMessageReplyMarkup', {
+            chat_id: cbChatId,
+            message_id: cbMessageId,
+            reply_markup: { inline_keyboard: startButtons }
+          });
+          
+          // 发送确认消息
+          await sendTelegramMessage(botToken, 'sendMessage', {
+            chat_id: cbChatId,
+            text: confirmMsg
+          });
+        }
+        
+        return new Response(JSON.stringify({ ok: true, shop_lang_handled: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // 处理TG商城命令回调 (从/start消息的按钮)
+      if (callbackData === 'shop_cmd_shop' || callbackData === 'shop_cmd_order') {
+        console.log(`[TG Shop] Command callback: ${callbackData}`);
+        
+        if (callbackData === 'shop_cmd_shop') {
+          const shopResult = await handleShopCommand(supabase, botToken);
+          if (shopResult.handled && shopResult.message) {
+            await sendTelegramMessage(botToken, 'sendMessage', {
+              chat_id: cbChatId,
+              text: shopResult.message,
+              parse_mode: 'Markdown',
+              reply_markup: shopResult.inlineKeyboard
+            });
+          }
+        } else {
+          const orderResult = await handleOrderCommand(supabase, botToken, cbChatId, '/order');
+          if (orderResult.handled && orderResult.message) {
+            await sendTelegramMessage(botToken, 'sendMessage', {
+              chat_id: cbChatId,
+              text: orderResult.message,
+              parse_mode: 'Markdown'
+            });
+          }
+        }
+        
+        return new Response(JSON.stringify({ ok: true, shop_cmd_handled: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       // 其他回调走原有自动回复逻辑
       const handled = await handleCallbackQuery(botToken, body.callback_query, autoReplyRules);
       console.log(`Callback query handled: ${handled}`);
@@ -1606,14 +1720,25 @@ serve(async (req) => {
     }
     
     // ========== TG商城命令处理 ==========
-    // 获取自定义命令配置
+    // 获取完整的商城配置
     const { data: shopConfigData } = await supabase
       .from('shop_configs')
-      .select('custom_commands')
+      .select('*')
       .eq('bot_token', botToken)
       .maybeSingle();
     
-    const customCommands = shopConfigData?.custom_commands || { shop: [], buy: [], order: [] };
+    const shopConfig = shopConfigData as ShopConfig | null;
+    const customCommands = shopConfig?.custom_commands || { shop: [], buy: [], order: [] };
+    
+    // 获取TG商城的用户语言偏好
+    let shopUserLanguagePreferences: Record<string, string> = shopConfig?.user_language_preferences || {};
+    let shopUserLanguage: 'zh' | 'en' = (shopUserLanguagePreferences[chatId.toString()] as 'zh' | 'en') || 'zh';
+    
+    // 处理TG商城的语言切换回调（从/start消息的语言按钮）
+    if (!keyboardHandled && (text === '🌐 English' || text === '🌐 中文 / English' || text === 'shop_lang_en' || text === 'shop_lang_zh')) {
+      // 这是通过消息文本触发的语言切换，但实际上我们应该在callback_query中处理
+      // 这里不处理，留给callback_query处理
+    }
     
     // 中文模糊匹配函数 - 匹配2个字符即触发
     const fuzzyMatchChinese = (text: string, keywords: string[]): boolean => {
@@ -1877,6 +2002,56 @@ serve(async (req) => {
     
     // 处理 /start 命令
     if (!keyboardHandled && text === '/start') {
+      // 检查TG商城是否启用了/start消息
+      if (shopConfig?.start_enabled) {
+        console.log('[TG Shop] Sending shop start message');
+        
+        const shopBtnText = shopUserLanguage === 'en' 
+          ? (shopConfig.shop_button_text_en || 'Shop')
+          : (shopConfig.shop_button_text || '商城');
+        const orderBtnText = shopUserLanguage === 'en'
+          ? (shopConfig.order_button_text_en || 'My Orders')
+          : (shopConfig.order_button_text || '我的订单');
+        
+        const startButtons = {
+          inline_keyboard: [
+            [
+              { text: `🛒 ${shopBtnText}`, callback_data: 'shop_cmd_shop' },
+              { text: `📋 ${orderBtnText}`, callback_data: 'shop_cmd_order' }
+            ],
+            [
+              { text: '🌐 ' + (shopUserLanguage === 'en' ? '中文' : 'English'), callback_data: shopUserLanguage === 'en' ? 'shop_lang_zh' : 'shop_lang_en' }
+            ]
+          ]
+        };
+        
+        const startMessage = shopConfig.start_message || (shopUserLanguage === 'en' ? '👋 Welcome! Please select a service:' : '👋 欢迎！请选择您需要的服务：');
+        
+        const msgParams: any = {
+          chat_id: chatId,
+          reply_markup: startButtons
+        };
+        
+        if (shopConfig.start_disable_preview) {
+          msgParams.disable_web_page_preview = true;
+        }
+        
+        if (shopConfig.start_message_media_type === 'photo' && shopConfig.start_message_media_url) {
+          msgParams.photo = shopConfig.start_message_media_url;
+          msgParams.caption = startMessage;
+          await sendTelegramMessage(botToken, 'sendPhoto', msgParams);
+        } else if (shopConfig.start_message_media_type === 'video' && shopConfig.start_message_media_url) {
+          msgParams.video = shopConfig.start_message_media_url;
+          msgParams.caption = startMessage;
+          await sendTelegramMessage(botToken, 'sendVideo', msgParams);
+        } else {
+          msgParams.text = startMessage;
+          await sendTelegramMessage(botToken, 'sendMessage', msgParams);
+        }
+        
+        keyboardHandled = true;
+      }
+      
       // 欢迎语逻辑：
       // 1. 同时有双向聊天和菜单键盘时 → 使用菜单键盘的/start自动回复
       // 2. 只有双向聊天时 → 使用双向聊天的欢迎语(activation.greeting_message)
