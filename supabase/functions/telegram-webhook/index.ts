@@ -1387,12 +1387,22 @@ serve(async (req) => {
       if (callbackData.startsWith('pay_')) {
         console.log(`[TG Shop] Payment method callback: ${callbackData}`);
         
+        // 获取用户语言偏好
+        const { data: payShopCfg } = await supabase
+          .from('shop_configs')
+          .select('user_language_preferences')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+        const payLangPrefs = payShopCfg?.user_language_preferences || {};
+        const payUserLang: 'zh' | 'en' = (payLangPrefs[cbChatId.toString()] as 'zh' | 'en') || 'zh';
+        
         const paymentResult = await handlePaymentMethodCallback(
           supabase,
           botToken,
           cbChatId,
           callbackData,
-          cbMessageId
+          cbMessageId,
+          payUserLang
         );
         
         if (paymentResult.handled) {
@@ -1473,7 +1483,16 @@ serve(async (req) => {
           expandedCategory = decodeURIComponent(callbackData.replace('shop_cat_', ''));
         }
         
-        const shopResult = await handleShopCommand(supabase, botToken, expandedCategory);
+        // 获取用户语言偏好
+        const { data: catShopCfg } = await supabase
+          .from('shop_configs')
+          .select('user_language_preferences')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+        const catLangPrefs = catShopCfg?.user_language_preferences || {};
+        const catUserLang: 'zh' | 'en' = (catLangPrefs[cbChatId.toString()] as 'zh' | 'en') || 'zh';
+        
+        const shopResult = await handleShopCommand(supabase, botToken, expandedCategory, catUserLang);
         
         if (shopResult.handled && shopResult.message) {
           // 编辑原消息，更新内容
@@ -1560,8 +1579,17 @@ serve(async (req) => {
       if (callbackData === 'shop_cmd_shop' || callbackData === 'shop_cmd_order') {
         console.log(`[TG Shop] Command callback: ${callbackData}`);
         
+        // 获取用户语言偏好
+        const { data: cmdShopCfg } = await supabase
+          .from('shop_configs')
+          .select('user_language_preferences')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+        const cmdLangPrefs = cmdShopCfg?.user_language_preferences || {};
+        const cmdUserLang: 'zh' | 'en' = (cmdLangPrefs[cbChatId.toString()] as 'zh' | 'en') || 'zh';
+        
         if (callbackData === 'shop_cmd_shop') {
-          const shopResult = await handleShopCommand(supabase, botToken);
+          const shopResult = await handleShopCommand(supabase, botToken, undefined, cmdUserLang);
           if (shopResult.handled && shopResult.message) {
             await sendTelegramMessage(botToken, 'sendMessage', {
               chat_id: cbChatId,
@@ -1571,7 +1599,7 @@ serve(async (req) => {
             });
           }
         } else {
-          const orderResult = await handleOrderCommand(supabase, botToken, cbChatId, '/order');
+          const orderResult = await handleOrderCommand(supabase, botToken, cbChatId, '/order', cmdUserLang);
           if (orderResult.handled && orderResult.message) {
             await sendTelegramMessage(botToken, 'sendMessage', {
               chat_id: cbChatId,
@@ -1858,7 +1886,7 @@ serve(async (req) => {
     // 处理 /shop 命令或自定义中文命令
     const isShopCommand = text.toLowerCase() === '/shop' || fuzzyMatchChinese(text, customCommands.shop);
     if (!keyboardHandled && isShopCommand) {
-      const shopResult = await handleShopCommand(supabase, botToken);
+      const shopResult = await handleShopCommand(supabase, botToken, undefined, shopUserLanguage);
       if (shopResult.handled && shopResult.message) {
         await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
@@ -1893,7 +1921,8 @@ serve(async (req) => {
         botToken, 
         chatId, 
         fromUser.username || null,
-        buyCommandText
+        buyCommandText,
+        shopUserLanguage
       );
       if (buyResult.handled && buyResult.message) {
         // 发送订单详情，带支付方式选择按钮
@@ -1934,7 +1963,7 @@ serve(async (req) => {
         }
       }
       
-      const orderResult = await handleOrderCommand(supabase, botToken, chatId, orderCommandText);
+      const orderResult = await handleOrderCommand(supabase, botToken, chatId, orderCommandText, shopUserLanguage);
       if (orderResult.handled && orderResult.message) {
         await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
