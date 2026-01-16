@@ -52,6 +52,99 @@ interface ShopConfig {
   user_language_preferences: Record<string, string> | null;
 }
 
+// ========== TG商城多语言翻译系统 ==========
+const shopI18n: Record<string, { zh: string; en: string }> = {
+  // 通用
+  'error_no_shop': { zh: '❌ 该机器人未配置商城功能', en: '❌ Shop not configured for this bot' },
+  'error_product_not_found': { zh: '❌ 商品不存在或已下架', en: '❌ Product not found or delisted' },
+  'error_no_stock': { zh: '暂无库存，请稍后再试', en: 'Out of stock, please try later' },
+  'error_order_not_found': { zh: '❌ 订单不存在或已过期', en: '❌ Order not found or expired' },
+  'error_order_completed': { zh: '❌ 订单已完成或已取消', en: '❌ Order completed or cancelled' },
+  'error_order_create_failed': { zh: '❌ 订单创建失败，请稍后再试', en: '❌ Order creation failed, please try later' },
+  'error_payment_failed': { zh: '❌ 支付系统错误，请稍后重试', en: '❌ Payment system error, please try again' },
+  'error_qr_failed': { zh: '❌ 获取付款码失败', en: '❌ Failed to get payment QR code' },
+  
+  // /shop 商城
+  'shop_no_products': { zh: '📦 暂无可购买的商品', en: '📦 No products available' },
+  'shop_categories_title': { zh: '🏪 **商城商品分类**', en: '🏪 **Shop Categories**' },
+  'shop_total_products': { zh: '共 {count} 件商品，{cats} 个分类', en: 'Total {count} products in {cats} categories' },
+  'shop_click_category': { zh: '💡 点击下方分类查看商品', en: '💡 Click a category below to view products' },
+  'shop_category_items': { zh: '📂 {name} ({count}件)', en: '📂 {name} ({count} items)' },
+  'shop_back_to_categories': { zh: '🔙 返回分类列表', en: '🔙 Back to categories' },
+  'shop_category_title': { zh: '🏪 **{name}** ({count}件商品)', en: '🏪 **{name}** ({count} products)' },
+  'shop_stock': { zh: '库存', en: 'Stock' },
+  'shop_out_of_stock': { zh: '缺货', en: 'Out of stock' },
+  'shop_click_to_buy': { zh: '点击购买👉', en: 'Buy now👉' },
+  'shop_buy_tip': { zh: '💡 点击上方指令直接购买对应商品', en: '💡 Click the command above to buy the product' },
+  
+  // /buy 购买
+  'buy_usage': { zh: '❌ 使用方法: /buy <商品名>\n\n例如: /buy VIP会员\n\n发送 /shop 查看所有商品', en: '❌ Usage: /buy <product name>\n\nExample: /buy VIP\n\nSend /shop to view all products' },
+  'buy_no_products': { zh: '❌ 暂无可购买的商品', en: '❌ No products available' },
+  'buy_not_found': { zh: '❌ 未找到匹配商品', en: '❌ No matching product found' },
+  'buy_available_products': { zh: '📦 可用商品', en: '📦 Available products' },
+  'buy_use_command': { zh: '使用 /buy <商品名> 购买', en: 'Use /buy <product name> to purchase' },
+  'buy_found_multiple': { zh: '🔍 找到 {count} 个匹配 "{keyword}" 的商品', en: '🔍 Found {count} products matching "{keyword}"' },
+  
+  // 订单
+  'order_created': { zh: '🛒 *订单已创建*', en: '🛒 *Order Created*' },
+  'order_product': { zh: '📦 商品', en: '📦 Product' },
+  'order_amount': { zh: '💰 金额', en: '💰 Amount' },
+  'order_no': { zh: '📝 订单号', en: '📝 Order No' },
+  'order_stock': { zh: '📊 库存', en: '📊 Stock' },
+  'order_items': { zh: '件', en: 'items' },
+  'order_select_payment': { zh: '💳 *请选择支付方式:*', en: '💳 *Please select payment method:*' },
+  'order_valid_time': { zh: '⏰ 订单有效期: 30分钟', en: '⏰ Valid for: 30 minutes' },
+  'order_timeout_warning': { zh: '⚠️ 超时订单将自动取消', en: '⚠️ Order will be cancelled if timeout' },
+  'order_cancelled': { zh: '✅ 订单已取消', en: '✅ Order cancelled' },
+  'order_cancel_btn': { zh: '❌ 取消订单', en: '❌ Cancel Order' },
+  
+  // 支付详情
+  'payment_details_title': { zh: '🛒 *订单支付详情*', en: '🛒 *Payment Details*' },
+  'payment_method': { zh: '💎 支付方式', en: '💎 Payment Method' },
+  'payment_amount': { zh: '💰 需支付', en: '💰 Amount to pay' },
+  'payment_address': { zh: '📍 网络收款地址 (点击复制)', en: '📍 Wallet address (click to copy)' },
+  'payment_scan_qr': { zh: '📱 请扫描上方二维码完成支付', en: '📱 Please scan the QR code above to pay' },
+  'payment_h5_tip': { zh: '📱 请点击下方"去支付"按钮，在浏览器中打开后唤起支付宝完成支付', en: '📱 Click the "Pay Now" button below to complete payment via Alipay' },
+  'payment_deadline': { zh: '⏰ 支付截止', en: '⏰ Payment deadline' },
+  'payment_30min': { zh: '30分钟', en: '30 minutes' },
+  'payment_auto_cancel': { zh: '⚠️ 超时订单将自动取消并删除', en: '⚠️ Order will be auto-cancelled if timeout' },
+  'payment_auto_deliver': { zh: '✅ 支付成功后将自动发货到此对话', en: '✅ Order will be delivered here after payment' },
+  'payment_alipay': { zh: '支付宝', en: 'Alipay' },
+  'payment_wechat': { zh: '微信支付', en: 'WeChat Pay' },
+  'payment_go_pay': { zh: '💳 去支付', en: '💳 Pay Now' },
+  
+  // /order 订单查询
+  'order_not_found': { zh: '❌ 未找到已付款订单', en: '❌ No paid order found' },
+  'order_details_title': { zh: '📋 **订单详情**', en: '📋 **Order Details**' },
+  'order_status_paid': { zh: '✅ 已支付', en: '✅ Paid' },
+  'order_created_at': { zh: '创建时间', en: 'Created at' },
+  'order_card_key': { zh: '📦 **卡密:**', en: '📦 **Card/Key:**' },
+  'order_no_history': { zh: '📋 您暂无已购买的订单', en: '📋 You have no purchased orders' },
+  'order_history_title': { zh: '📋 **您的已购订单** (最近10条)', en: '📋 **Your Purchased Orders** (Last 10)' },
+  'order_click_to_view': { zh: '💡 点击上面订单号可复制粘贴发送查询详情', en: '💡 Click order number above to copy and send for details' },
+  'order_status': { zh: '状态', en: 'Status' },
+  
+  // 语言切换
+  'lang_switched_zh': { zh: '🌐 已切换为中文', en: '🌐 Switched to Chinese' },
+  'lang_switched_en': { zh: '🌐 Language switched to English', en: '🌐 Language switched to English' },
+  
+  // 默认分类
+  'default_category': { zh: '默认分类', en: 'Default' },
+};
+
+// 获取翻译文本
+function t(key: string, lang: 'zh' | 'en', params?: Record<string, string | number>): string {
+  const item = shopI18n[key];
+  if (!item) return key;
+  let text = item[lang] || item.zh;
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => {
+      text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+    });
+  }
+  return text;
+}
+
 // 生成随机小数防撞单 - 加密货币 (0.010-0.099，三位小数)
 function generateRandomDecimal(price: number, enabled: boolean): number {
   if (!enabled) return price;
@@ -162,7 +255,8 @@ async function handleBuyCommand(
   botToken: string,
   chatId: number,
   username: string | null,
-  text: string
+  text: string,
+  lang: 'zh' | 'en' = 'zh'
 ): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any; orderId?: string }> {
   // 解析命令: /buy <商品名或关键词> 或 /buy_<productId>（无横杆格式）
   const directBuyMatch = text.match(/^\/buy_([a-f0-9]{32})$/i);
@@ -172,14 +266,14 @@ async function handleBuyCommand(
     // 将无横杆的ID还原为UUID格式
     const rawId = directBuyMatch[1];
     const productId = `${rawId.slice(0,8)}-${rawId.slice(8,12)}-${rawId.slice(12,16)}-${rawId.slice(16,20)}-${rawId.slice(20)}`;
-    return await createOrderForProduct(supabase, botToken, chatId, username, productId);
+    return await createOrderForProduct(supabase, botToken, chatId, username, productId, undefined, undefined, lang);
   }
   
   const match = text.match(/^\/buy\s+(.+)$/i);
   if (!match) {
     return { 
       handled: true, 
-      message: '❌ 使用方法: /buy <商品名>\n\n例如: /buy VIP会员\n\n发送 /shop 查看所有商品' 
+      message: t('buy_usage', lang)
     };
   }
 
@@ -193,7 +287,7 @@ async function handleBuyCommand(
     .maybeSingle();
 
   if (!shopConfig) {
-    return { handled: true, message: '❌ 该机器人未配置商城功能' };
+    return { handled: true, message: t('error_no_shop', lang) };
   }
 
   // 搜索商品 (按名称或关键词)
@@ -204,7 +298,7 @@ async function handleBuyCommand(
     .eq('is_active', true);
 
   if (!products || products.length === 0) {
-    return { handled: true, message: '❌ 暂无可购买的商品' };
+    return { handled: true, message: t('buy_no_products', lang) };
   }
 
   // 模糊匹配所有商品
@@ -218,29 +312,32 @@ async function handleBuyCommand(
     const productList = products.map((p: ShopProduct) => `• ${p.name} - ${p.price} ${p.currency}`).join('\n');
     return { 
       handled: true, 
-      message: `❌ 未找到匹配商品: "${keyword}"\n\n📦 可用商品:\n${productList}\n\n使用 /buy <商品名> 购买` 
+      message: `${t('buy_not_found', lang)}: "${keyword}"\n\n${t('buy_available_products', lang)}:\n${productList}\n\n${t('buy_use_command', lang)}` 
     };
   }
 
   // 如果匹配到多个商品，显示商品列表供用户选择
   if (matchedProducts.length > 1) {
+    const stockLabel = lang === 'en' ? 'Stock' : '库存';
+    const outOfStockLabel = lang === 'en' ? 'Out of stock' : '缺货';
+    const buyLabel = t('shop_click_to_buy', lang);
+    
     const productLines = matchedProducts.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
-      const stockText = stock > 0 ? `(库存: ${stock})` : '(缺货)';
-      // 使用商品ID（移除横杆使链接连贯）
+      const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, '');
-      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n点击购买👉 /buy\\_${shortId}`;
+      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
     });
     
     return {
       handled: true,
-      message: `🔍 找到 ${matchedProducts.length} 个匹配 "${keyword}" 的商品:\n\n${productLines.join('\n\n')}\n\n────────────────\n💡 点击上方指令直接购买对应商品`
+      message: `${t('buy_found_multiple', lang, { count: matchedProducts.length, keyword })}\n\n${productLines.join('\n\n')}\n\n────────────────\n${t('shop_buy_tip', lang)}`
     };
   }
 
   // 只匹配到一个商品，直接创建订单
   const product = matchedProducts[0];
-  return await createOrderForProduct(supabase, botToken, chatId, username, product.id, product, shopConfig);
+  return await createOrderForProduct(supabase, botToken, chatId, username, product.id, product, shopConfig, lang);
 }
 
 // 为指定商品创建订单
@@ -251,7 +348,8 @@ async function createOrderForProduct(
   username: string | null,
   productId: string,
   preloadedProduct?: ShopProduct,
-  preloadedShopConfig?: ShopConfig
+  preloadedShopConfig?: ShopConfig,
+  lang: 'zh' | 'en' = 'zh'
 ): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any; orderId?: string }> {
   // 获取商店配置（如果没有预加载）
   let shopConfig = preloadedShopConfig;
@@ -263,7 +361,7 @@ async function createOrderForProduct(
       .maybeSingle();
 
     if (!configData) {
-      return { handled: true, message: '❌ 该机器人未配置商城功能' };
+      return { handled: true, message: t('error_no_shop', lang) };
     }
     shopConfig = configData;
   }
@@ -280,19 +378,19 @@ async function createOrderForProduct(
       .maybeSingle();
     
     if (!productData) {
-      return { handled: true, message: '❌ 商品不存在或已下架' };
+      return { handled: true, message: t('error_product_not_found', lang) };
     }
     product = productData as ShopProduct;
   }
 
   // TypeScript guard - 此时 product 必定存在
   if (!product) {
-    return { handled: true, message: '❌ 商品不存在' };
+    return { handled: true, message: t('error_product_not_found', lang) };
   }
 
   // 检查库存
   if (!product.stock_content || product.stock_content.length === 0) {
-    return { handled: true, message: `❌ 商品 "${product.name}" 暂无库存，请稍后再试` };
+    return { handled: true, message: `❌ "${product.name}" ${t('error_no_stock', lang)}` };
   }
 
   // 生成订单
@@ -324,7 +422,7 @@ async function createOrderForProduct(
 
   if (orderError) {
     console.error('[TG Shop] Order creation failed:', orderError);
-    return { handled: true, message: '❌ 订单创建失败，请稍后再试' };
+    return { handled: true, message: t('error_order_create_failed', lang) };
   }
 
   // 计算各货币等值金额用于显示
@@ -365,14 +463,14 @@ async function createOrderForProduct(
   }
   // 法币支付选项
   if (shopConfig!.enable_alipay) {
-    paymentButtons.push([{ text: `💳 支付宝 ¥${cnyAmount}`, callback_data: `pay_alipay_${orderNo}` }]);
+    paymentButtons.push([{ text: `💳 ${t('payment_alipay', lang)} ¥${cnyAmount}`, callback_data: `pay_alipay_${orderNo}` }]);
   }
   if (shopConfig!.enable_wechat) {
-    paymentButtons.push([{ text: `💚 微信支付 ¥${cnyAmount}`, callback_data: `pay_wechat_${orderNo}` }]);
+    paymentButtons.push([{ text: `💚 ${t('payment_wechat', lang)} ¥${cnyAmount}`, callback_data: `pay_wechat_${orderNo}` }]);
   }
   
   // 取消按钮
-  paymentButtons.push([{ text: '❌ 取消订单', callback_data: `pay_cancel_${orderNo}` }]);
+  paymentButtons.push([{ text: t('order_cancel_btn', lang), callback_data: `pay_cancel_${orderNo}` }]);
 
   // 构建订单信息显示
   let amountDisplay = `${basePrice} ${product.currency}`;
@@ -384,18 +482,19 @@ async function createOrderForProduct(
     amountDisplay += ` (≈¥${cnyAmount} ≈${trxAmount} TRX)`;
   }
 
-  const message = `🛒 *订单已创建*
+  const itemsLabel = t('order_items', lang);
+  const message = `${t('order_created', lang)}
 
-📦 商品: ${product.name}
-💰 金额: ${amountDisplay}
-📝 订单号: \`${orderNo}\`
-📊 库存: ${product.stock_content.length} 件
+${t('order_product', lang)}: ${product.name}
+${t('order_amount', lang)}: ${amountDisplay}
+${t('order_no', lang)}: \`${orderNo}\`
+${t('order_stock', lang)}: ${product.stock_content.length} ${itemsLabel}
 
 ────────────────
-💳 *请选择支付方式:*
+${t('order_select_payment', lang)}
 
-⏰ 订单有效期: 30分钟
-⚠️ 超时订单将自动取消`;
+${t('order_valid_time', lang)}
+${t('order_timeout_warning', lang)}`;
 
   return { 
     handled: true, 
@@ -411,7 +510,8 @@ async function handlePaymentMethodCallback(
   botToken: string,
   chatId: number,
   callbackData: string,
-  messageId: number
+  messageId: number,
+  lang: 'zh' | 'en' = 'zh'
 ): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string; orderId?: string; paymentMethod?: string; h5PayUrl?: string }> {
   // 解析回调: pay_<method>_<orderNo>
   const match = callbackData.match(/^pay_(usdt|trx|alipay|wechat|cancel)_(.+)$/i);
@@ -430,11 +530,11 @@ async function handlePaymentMethodCallback(
     .maybeSingle();
 
   if (orderError || !order) {
-    return { handled: true, message: '❌ 订单不存在或已过期' };
+    return { handled: true, message: t('error_order_not_found', lang) };
   }
 
   if (order.status !== 'pending') {
-    return { handled: true, message: '❌ 订单已完成或已取消' };
+    return { handled: true, message: t('error_order_completed', lang) };
   }
 
   // 处理取消订单
@@ -450,7 +550,7 @@ async function handlePaymentMethodCallback(
       message_id: messageId
     });
     
-    return { handled: true, message: `✅ 订单 \`${orderNo}\` 已取消` };
+    return { handled: true, message: `${t('order_cancelled', lang)} \`${orderNo}\`` };
   }
 
   // 获取商店配置
@@ -461,7 +561,7 @@ async function handlePaymentMethodCallback(
     .maybeSingle();
 
   if (!shopConfig) {
-    return { handled: true, message: '❌ 商店配置错误' };
+    return { handled: true, message: t('error_no_shop', lang) };
   }
 
   // 根据选择的支付方式计算最终金额
@@ -553,11 +653,11 @@ async function handlePaymentMethodCallback(
   let paymentInfo = '';
   if (paymentMethod === 'usdt' || paymentMethod === 'trx') {
     const currencyLabel = paymentMethod.toUpperCase();
-    paymentInfo = `💎 支付方式: ${currencyLabel}
+    paymentInfo = `${t('payment_method', lang)}: ${currencyLabel}
 
-💰 需支付: ${finalAmount} ${currencyLabel}
+${t('payment_amount', lang)}: ${finalAmount} ${currencyLabel}
 
-📍 网络收款地址 (点击复制):
+${t('payment_address', lang)}:
 \`${shopConfig.wallet_address}\``;
   } else {
     // 法币支付：直接生成付款二维码（虎皮椒/云沟），避免用户再手动输入 /pay_* 指令
@@ -598,48 +698,49 @@ async function handlePaymentMethodCallback(
 
         if (useH5 && paymentData?.h5_url) {
           // H5模式：显示引导信息
-          paymentInfo = `💳 支付方式: 支付宝 (H5)
+          paymentInfo = `${t('payment_method', lang)}: ${t('payment_alipay', lang)} (H5)
 
-💰 需支付: ¥${finalAmount}
+${t('payment_amount', lang)}: ¥${finalAmount}
 
-📱 请点击下方"去支付"按钮，在浏览器中打开后唤起支付宝完成支付`;
+${t('payment_h5_tip', lang)}`;
           
           return { 
             handled: true, 
-            message: `🛒 *订单支付详情*
+            message: `${t('payment_details_title', lang)}
 
-📦 商品: ${order.product_name}
-📝 订单号: \`${orderNo}\`
+${t('order_product', lang)}: ${order.product_name}
+${t('order_no', lang)}: \`${orderNo}\`
 
 ────────────────
 ${paymentInfo}
 ────────────────
 
-⏰ 支付截止: ${expireTimeStr} (30分钟)
-⚠️ 超时订单将自动取消并删除
-✅ 支付成功后将自动发货到此对话`,
+${t('payment_deadline', lang)}: ${expireTimeStr} (${t('payment_30min', lang)})
+${t('payment_auto_cancel', lang)}
+${t('payment_auto_deliver', lang)}`,
             orderId: order.id, 
             paymentMethod,
             h5PayUrl: paymentData.h5_url
           };
         }
 
-        paymentInfo = `💳 支付方式: ${paymentMethod === 'alipay' ? '支付宝' : '微信支付'}
+        const payMethodName = paymentMethod === 'alipay' ? t('payment_alipay', lang) : t('payment_wechat', lang);
+        paymentInfo = `${t('payment_method', lang)}: ${payMethodName}
 
-💰 需支付: ¥${finalAmount}
+${t('payment_amount', lang)}: ¥${finalAmount}
 
-📱 请扫描上方二维码完成支付`;
+${t('payment_scan_qr', lang)}`;
       } else {
-        return { handled: true, message: `❌ 获取付款码失败: ${paymentData?.error || '未知错误'}` };
+        return { handled: true, message: `${t('error_qr_failed', lang)}: ${paymentData?.error || 'Unknown error'}` };
       }
     } catch (e) {
       console.error('[TG Shop] create-payment error (callback):', e);
-      return { handled: true, message: '❌ 支付系统错误，请稍后重试' };
+      return { handled: true, message: t('error_payment_failed', lang) };
     }
   }
 
   // 获取自定义支付说明
-  const defaultPaymentNotice = `⚠️ 超时订单将自动取消并删除
+  const defaultPaymentNoticeZh = `⚠️ 超时订单将自动取消并删除
 ⚠️付款转账精确到小数点后面数值
 ⚠️虚拟货币转账不包含扣除的手续费
 下面举个例子👇币安
@@ -649,19 +750,27 @@ tokenpocket（简称TP）
 币安充TRX提现到你的TP钱包
 付错额度不会发货联系人工客服处理
 ✅ 支付成功后将自动发货到此对话`;
+
+  const defaultPaymentNoticeEn = `⚠️ Order will be auto-cancelled if timeout
+⚠️ Pay exact amount including decimals
+⚠️ Crypto transfer amount excludes network fees
+Example: 10.12 TRX + 1 TRX fee = Send 11.12 TRX from Binance
+Using TokenPocket: Send exact 10.12 TRX (fee from balance)
+Wrong amount = No delivery, contact support
+✅ Auto-delivery after payment confirmed`;
   
-  const paymentNotice = shopConfig.payment_notice || defaultPaymentNotice;
+  const paymentNotice = shopConfig.payment_notice || (lang === 'en' ? defaultPaymentNoticeEn : defaultPaymentNoticeZh);
 
-  const message = `🛒 *订单支付详情*
+  const message = `${t('payment_details_title', lang)}
 
-📦 商品: ${order.product_name}
-📝 订单号: \`${orderNo}\`
+${t('order_product', lang)}: ${order.product_name}
+${t('order_no', lang)}: \`${orderNo}\`
 
 ────────────────
 ${paymentInfo}
 ────────────────
 
-⏰ 支付截止: ${expireTimeStr} (30分钟)
+${t('payment_deadline', lang)}: ${expireTimeStr} (${t('payment_30min', lang)})
 ${paymentNotice}`;
 
   return { handled: true, message, cryptoQrUrl, orderId: order.id, paymentMethod };
@@ -671,9 +780,9 @@ ${paymentNotice}`;
 async function handleShopCommand(
   supabase: any,
   botToken: string,
-  expandedCategory?: string
+  expandedCategory?: string,
+  lang: 'zh' | 'en' = 'zh'
 ): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any }> {
-  // 获取商店配置
   const { data: shopConfig } = await supabase
     .from('shop_configs')
     .select('*')
@@ -681,10 +790,9 @@ async function handleShopCommand(
     .maybeSingle();
 
   if (!shopConfig) {
-    return { handled: true, message: '❌ 该机器人未配置商城功能' };
+    return { handled: true, message: t('error_no_shop', lang) };
   }
 
-  // 获取所有上架商品
   const { data: products } = await supabase
     .from('shop_products')
     .select('*')
@@ -693,64 +801,59 @@ async function handleShopCommand(
     .order('created_at', { ascending: false });
 
   if (!products || products.length === 0) {
-    return { handled: true, message: '📦 暂无可购买的商品' };
+    return { handled: true, message: t('shop_no_products', lang) };
   }
 
-  // 按分类分组商品
+  const defaultCat = t('default_category', lang);
   const categoryMap: Record<string, ShopProduct[]> = {};
   for (const p of products) {
-    const category = p.category || '默认分类';
-    if (!categoryMap[category]) {
-      categoryMap[category] = [];
-    }
+    const category = p.category || defaultCat;
+    if (!categoryMap[category]) categoryMap[category] = [];
     categoryMap[category].push(p);
   }
 
   const categories = Object.keys(categoryMap);
+  const stockLabel = lang === 'en' ? 'Stock' : '库存';
+  const outOfStockLabel = lang === 'en' ? 'Out of stock' : '缺货';
+  const itemsLabel = lang === 'en' ? 'items' : '件';
   
-  // 如果指定了展开的分类，显示该分类下的商品
   if (expandedCategory && categoryMap[expandedCategory]) {
     const categoryProducts = categoryMap[expandedCategory];
     const productLines = categoryProducts.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
-      const stockText = stock > 0 ? `(库存: ${stock})` : '(缺货)';
+      const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, '');
-      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   ${p.description || ''}\n   点击购买👉 /buy\\_${shortId}`;
+      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   ${p.description || ''}\n   ${t('shop_click_to_buy', lang)} /buy\\_${shortId}`;
     });
 
-    // 构建返回按钮
-    const inlineButtons: any[][] = [[{ text: '🔙 返回分类列表', callback_data: 'shop_back' }]];
-
-    const message = `🏪 **${expandedCategory}** (${categoryProducts.length}件商品)
+    const inlineButtons: any[][] = [[{ text: t('shop_back_to_categories', lang), callback_data: 'shop_back' }]];
+    const message = `${t('shop_category_title', lang, { name: expandedCategory, count: categoryProducts.length })}
 
 ${productLines.join('\n\n')}
 
 ────────────────
-💡 点击上方指令直接购买对应商品`;
+${t('shop_buy_tip', lang)}`;
 
     return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons } };
   }
 
-  // 默认显示分类列表（每个分类一个按钮）
   const inlineButtons: any[][] = categories.map(cat => {
     const count = categoryMap[cat].length;
-    return [{ text: `📂 ${cat} (${count}件)`, callback_data: `shop_cat_${encodeURIComponent(cat)}` }];
+    return [{ text: `📂 ${cat} (${count}${itemsLabel})`, callback_data: `shop_cat_${encodeURIComponent(cat)}` }];
   });
 
-  const message = `🏪 **商城商品分类**
+  const message = `${t('shop_categories_title', lang)}
 
-共 ${products.length} 件商品，${categories.length} 个分类
+${t('shop_total_products', lang, { count: products.length, cats: categories.length })}
 
 ────────────────
-💡 点击下方分类查看商品`;
+${t('shop_click_category', lang)}`;
 
   return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons } };
 }
 
-// 格式化时间为中国24小时制
 function formatChinaTime(dateStr: string): string {
   const date = new Date(dateStr);
-  // 转换为北京时间 (UTC+8)
   const chinaTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
   const year = chinaTime.getUTCFullYear();
   const month = (chinaTime.getUTCMonth() + 1).toString().padStart(2, '0');
@@ -761,19 +864,17 @@ function formatChinaTime(dateStr: string): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
-// 处理 /order 命令 - 查询订单（只显示已付款订单）
 async function handleOrderCommand(
   supabase: any,
   botToken: string,
   chatId: number,
-  text: string
+  text: string,
+  lang: 'zh' | 'en' = 'zh'
 ): Promise<{ handled: boolean; message?: string }> {
-  // 解析命令 - 支持 /order 或自定义命令
   const match = text.match(/^(?:\/order|订单|查询|我的订单)\s*(.*)$/i);
   const orderNo = match?.[1]?.trim();
 
   if (orderNo) {
-    // 查询特定订单（只允许查询已付款订单）
     const { data: order } = await supabase
       .from('shop_orders')
       .select('*')
@@ -783,25 +884,24 @@ async function handleOrderCommand(
       .maybeSingle();
 
     if (!order) {
-      return { handled: true, message: `❌ 未找到已付款订单: ${orderNo}` };
+      return { handled: true, message: `${t('order_not_found', lang)}: ${orderNo}` };
     }
 
-    let message = `📋 **订单详情**
+    let message = `${t('order_details_title', lang)}
 
-订单号: \`${order.order_no}\`
-商品: ${order.product_name}
-金额: ${order.amount} ${order.currency}
-状态: ✅ 已支付
-创建时间: ${formatChinaTime(order.created_at)}`;
+${t('order_no', lang)}: \`${order.order_no}\`
+${t('order_product', lang)}: ${order.product_name}
+${t('order_amount', lang)}: ${order.amount} ${order.currency}
+${t('order_status', lang)}: ${t('order_status_paid', lang)}
+${t('order_created_at', lang)}: ${formatChinaTime(order.created_at)}`;
 
     if (order.delivery_content) {
-      message += `\n\n📦 **卡密:**\n\`${order.delivery_content}\``;
+      message += `\n\n${t('order_card_key', lang)}\n\`${order.delivery_content}\``;
     }
 
     return { handled: true, message };
   }
 
-  // 查询用户所有已付款订单
   const { data: orders } = await supabase
     .from('shop_orders')
     .select('*')
@@ -812,19 +912,19 @@ async function handleOrderCommand(
     .limit(10);
 
   if (!orders || orders.length === 0) {
-    return { handled: true, message: '📋 您暂无已购买的订单' };
+    return { handled: true, message: t('order_no_history', lang) };
   }
 
   const orderLines = orders.map((o: any) => {
     return `✅ \`/order ${o.order_no}\` - ${o.product_name} - ${o.amount} ${o.currency}`;
   });
 
-  const message = `📋 **您的已购订单** (最近10条)
+  const message = `${t('order_history_title', lang)}
 
 ${orderLines.join('\n')}
 
 ────────────────
-💡 点击上面订单号可复制粘贴发送查询详情`;
+${t('order_click_to_view', lang)}`;
 
   return { handled: true, message };
 }
