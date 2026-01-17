@@ -63,6 +63,9 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
   'error_order_create_failed': { zh: '❌ 订单创建失败，请稍后再试', en: '❌ Order creation failed, please try later' },
   'error_payment_failed': { zh: '❌ 支付系统错误，请稍后重试', en: '❌ Payment system error, please try again' },
   'error_qr_failed': { zh: '❌ 获取付款码失败', en: '❌ Failed to get payment QR code' },
+  'error_order_expired': { zh: '❌ 订单已过期', en: '❌ Order expired' },
+  'error_shop_config': { zh: '❌ 商店配置错误', en: '❌ Shop configuration error' },
+  'error_payment_not_configured': { zh: '❌ 支付未配置，请联系管理员', en: '❌ Payment not configured, please contact admin' },
   
   // /shop 商城
   'shop_no_products': { zh: '📦 暂无可购买的商品', en: '📦 No products available' },
@@ -112,6 +115,9 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
   'payment_alipay': { zh: '支付宝', en: 'Alipay' },
   'payment_wechat': { zh: '微信支付', en: 'WeChat Pay' },
   'payment_go_pay': { zh: '💳 去支付', en: '💳 Pay Now' },
+  'payment_crypto_network': { zh: '当前支付网络协议为 （TRX/TRC20）', en: 'Payment network: TRX/TRC20' },
+  'payment_scan_wechat': { zh: '请用微信扫一扫完成支付！', en: 'Please scan with WeChat to pay!' },
+  'payment_scan_alipay': { zh: '请用支付宝扫一扫完成支付！', en: 'Please scan with Alipay to pay!' },
   
   // /order 订单查询
   'order_not_found': { zh: '❌ 未找到已付款订单', en: '❌ No paid order found' },
@@ -130,6 +136,16 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
   
   // 默认分类
   'default_category': { zh: '默认分类', en: 'Default' },
+  
+  // /start 按钮
+  'btn_shop': { zh: '商城', en: 'Shop' },
+  'btn_order': { zh: '我的订单', en: 'My Orders' },
+  
+  // 法币支付相关
+  'fiat_payment_title': { zh: '💳 *{method}支付*', en: '💳 *{method} Payment*' },
+  'fiat_scan_qr': { zh: '📱 请扫描上方二维码完成支付', en: '📱 Please scan the QR code above to pay' },
+  'fiat_timeout_warning': { zh: '⚠️ 超时订单将自动取消', en: '⚠️ Order will be auto-cancelled if timeout' },
+  'fiat_auto_deliver': { zh: '✅ 支付成功后将自动发货到此对话', en: '✅ Order will be delivered here after payment' },
 };
 
 // 获取翻译文本
@@ -1417,14 +1433,14 @@ serve(async (req) => {
             
             // 如果有二维码，先发送二维码图片
             if (paymentResult.cryptoQrUrl) {
-              // 根据支付方式选择不同的提示文案
+              // 根据支付方式选择不同的提示文案（多语言）
               let qrCaption = '';
               if (paymentResult.paymentMethod === 'usdt' || paymentResult.paymentMethod === 'trx') {
-                qrCaption = '当前支付网络协议为 （TRX/TRC20）';
+                qrCaption = t('payment_crypto_network', payUserLang);
               } else if (paymentResult.paymentMethod === 'wechat') {
-                qrCaption = '请用微信扫一扫完成支付！';
+                qrCaption = t('payment_scan_wechat', payUserLang);
               } else if (paymentResult.paymentMethod === 'alipay') {
-                qrCaption = '请用支付宝扫一扫完成支付！';
+                qrCaption = t('payment_scan_alipay', payUserLang);
               }
               
               const qrResult = await sendTelegramMessage(botToken, 'sendPhoto', {
@@ -1444,11 +1460,11 @@ serve(async (req) => {
               parse_mode: 'Markdown'
             };
             
-            // H5支付模式：添加"去支付"按钮
+            // H5支付模式：添加"去支付"按钮（多语言）
             if (paymentResult.h5PayUrl) {
               sendMessageParams.reply_markup = {
                 inline_keyboard: [[
-                  { text: '💳 去支付', url: paymentResult.h5PayUrl }
+                  { text: t('payment_go_pay', payUserLang), url: paymentResult.h5PayUrl }
                 ]]
               };
             }
@@ -1533,13 +1549,13 @@ serve(async (req) => {
             .update({ user_language_preferences: langPrefs })
             .eq('bot_token', botToken);
           
-          // 重新发送开始消息
+          // 重新发送开始消息 - 使用翻译系统
           const shopBtnText = newLang === 'en' 
-            ? (shopConfigForLang.shop_button_text_en || 'Shop')
-            : (shopConfigForLang.shop_button_text || '商城');
+            ? t('btn_shop', 'en')
+            : (shopConfigForLang.shop_button_text || t('btn_shop', 'zh'));
           const orderBtnText = newLang === 'en'
-            ? (shopConfigForLang.order_button_text_en || 'My Orders')
-            : (shopConfigForLang.order_button_text || '我的订单');
+            ? t('btn_order', 'en')
+            : (shopConfigForLang.order_button_text || t('btn_order', 'zh'));
           
           // 更新原消息的按钮
           const startButtons = [
@@ -1994,14 +2010,14 @@ serve(async (req) => {
       if (payOrderError || !payOrder) {
         await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
-          text: `❌ 订单不存在: ${payOrderNo}`,
+          text: `${t('error_order_not_found', shopUserLanguage)}: ${payOrderNo}`,
           parse_mode: 'Markdown'
         });
         keyboardHandled = true;
       } else if (payOrder.status !== 'pending') {
         await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
-          text: `❌ 订单已完成或已取消`,
+          text: t('error_order_completed', shopUserLanguage),
           parse_mode: 'Markdown'
         });
         keyboardHandled = true;
@@ -2016,7 +2032,7 @@ serve(async (req) => {
         if (!payShopConfig) {
           await sendTelegramMessage(botToken, 'sendMessage', {
             chat_id: chatId,
-            text: `❌ 商店配置错误`,
+            text: t('error_shop_config', shopUserLanguage),
             parse_mode: 'Markdown'
           });
           keyboardHandled = true;
@@ -2033,14 +2049,14 @@ serve(async (req) => {
           if (provider === 'yungou' && (!payShopConfig.yungou_id || !payShopConfig.yungou_key)) {
             await sendTelegramMessage(botToken, 'sendMessage', {
               chat_id: chatId,
-              text: `❌ 云沟支付未配置，请联系管理员`,
+              text: t('error_payment_not_configured', shopUserLanguage),
               parse_mode: 'Markdown'
             });
             keyboardHandled = true;
           } else if (provider === 'xunhu' && (!payShopConfig.xunhu_id || !payShopConfig.xunhu_secret)) {
             await sendTelegramMessage(botToken, 'sendMessage', {
               chat_id: chatId,
-              text: `❌ 虎皮椒支付未配置，请联系管理员`,
+              text: t('error_payment_not_configured', shopUserLanguage),
               parse_mode: 'Markdown'
             });
             keyboardHandled = true;
@@ -2071,24 +2087,24 @@ serve(async (req) => {
               console.log('[TG Shop] Create payment response:', paymentData);
               
               if (paymentData.success && paymentData.qr_code) {
-                // 发送支付二维码
-                const paymentLabel = payMethod === 'alipay' ? '支付宝' : '微信';
+                // 发送支付二维码 - 多语言支持
+                const paymentLabel = payMethod === 'alipay' ? t('payment_alipay', shopUserLanguage) : t('payment_wechat', shopUserLanguage);
                 const expireTime = new Date(payOrder.expires_at);
                 const chinaTime = new Date(expireTime.getTime() + 8 * 60 * 60 * 1000);
                 const expireTimeStr = `${chinaTime.getUTCHours().toString().padStart(2, '0')}:${chinaTime.getUTCMinutes().toString().padStart(2, '0')}`;
                 
-                const qrCaption = `💳 *${paymentLabel}支付*
+                const qrCaption = `💳 *${paymentLabel}*
 
-📦 商品: ${payOrder.product_name}
-📝 订单号: \`${payOrderNo}\`
-💰 金额: ¥${payOrder.amount}
+${t('order_product', shopUserLanguage)}: ${payOrder.product_name}
+${t('order_no', shopUserLanguage)}: \`${payOrderNo}\`
+${t('payment_amount', shopUserLanguage)}: ¥${payOrder.amount}
 
 ────────────────
-📱 请扫描上方二维码完成支付
+${t('fiat_scan_qr', shopUserLanguage)}
 
-⏰ 支付截止: ${expireTimeStr} (30分钟)
-⚠️ 超时订单将自动取消
-✅ 支付成功后将自动发货到此对话`;
+${t('payment_deadline', shopUserLanguage)}: ${expireTimeStr} (${t('payment_30min', shopUserLanguage)})
+${t('fiat_timeout_warning', shopUserLanguage)}
+${t('fiat_auto_deliver', shopUserLanguage)}`;
                 
                 const qrMsgResult = await sendTelegramMessage(botToken, 'sendPhoto', {
                   chat_id: chatId,
@@ -2110,7 +2126,7 @@ serve(async (req) => {
               } else {
                 await sendTelegramMessage(botToken, 'sendMessage', {
                   chat_id: chatId,
-                  text: `❌ 获取付款码失败: ${paymentData.error || '未知错误'}\n\n请稍后重试或联系管理员`,
+                  text: `${t('error_qr_failed', shopUserLanguage)}: ${paymentData.error || 'Unknown error'}`,
                   parse_mode: 'Markdown'
                 });
                 keyboardHandled = true;
@@ -2119,7 +2135,7 @@ serve(async (req) => {
               console.error('[TG Shop] Create payment error:', payError);
               await sendTelegramMessage(botToken, 'sendMessage', {
                 chat_id: chatId,
-                text: `❌ 支付系统错误，请稍后重试`,
+                text: t('error_payment_failed', shopUserLanguage),
                 parse_mode: 'Markdown'
               });
               keyboardHandled = true;
@@ -2135,12 +2151,13 @@ serve(async (req) => {
       if (shopConfig?.start_enabled) {
         console.log('[TG Shop] Sending shop start message');
         
+        // 使用翻译系统自动中英文切换
         const shopBtnText = shopUserLanguage === 'en' 
-          ? (shopConfig.shop_button_text_en || 'Shop')
-          : (shopConfig.shop_button_text || '商城');
+          ? t('btn_shop', 'en')
+          : (shopConfig.shop_button_text || t('btn_shop', 'zh'));
         const orderBtnText = shopUserLanguage === 'en'
-          ? (shopConfig.order_button_text_en || 'My Orders')
-          : (shopConfig.order_button_text || '我的订单');
+          ? t('btn_order', 'en')
+          : (shopConfig.order_button_text || t('btn_order', 'zh'));
         
         const startButtons = {
           inline_keyboard: [
