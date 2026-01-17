@@ -755,7 +755,7 @@ ${t('payment_scan_qr', lang)}`;
     }
   }
 
-  // 获取自定义支付说明
+  // 获取自定义支付说明 - 根据语言选择对应的默认文案
   const defaultPaymentNoticeZh = `⚠️ 超时订单将自动取消并删除
 ⚠️付款转账精确到小数点后面数值
 ⚠️虚拟货币转账不包含扣除的手续费
@@ -775,7 +775,10 @@ Using TokenPocket: Send exact 10.12 TRX (fee from balance)
 Wrong amount = No delivery, contact support
 ✅ Auto-delivery after payment confirmed`;
   
-  const paymentNotice = shopConfig.payment_notice || (lang === 'en' ? defaultPaymentNoticeEn : defaultPaymentNoticeZh);
+  // 如果用户有自定义支付说明使用自定义的，否则根据语言选择默认文案
+  const paymentNotice = shopConfig.payment_notice 
+    ? shopConfig.payment_notice 
+    : (lang === 'en' ? defaultPaymentNoticeEn : defaultPaymentNoticeZh);
 
   const message = `${t('payment_details_title', lang)}
 
@@ -820,18 +823,30 @@ async function handleShopCommand(
     return { handled: true, message: t('shop_no_products', lang) };
   }
 
-  const defaultCat = t('default_category', lang);
+  // 默认分类名称需要根据语言自动翻译
+  const defaultCatZh = '默认分类';
+  const defaultCatEn = 'Default';
+  const defaultCatDisplay = lang === 'en' ? defaultCatEn : defaultCatZh;
+  
   const categoryMap: Record<string, ShopProduct[]> = {};
   for (const p of products) {
-    const category = p.category || defaultCat;
+    // 如果商品分类是中文默认分类或空，根据语言显示对应的分类名
+    let category = p.category;
+    if (!category || category === defaultCatZh || category === defaultCatEn) {
+      category = defaultCatDisplay;
+    } else if (lang === 'en' && category === '默认分类') {
+      // 自动翻译中文默认分类
+      category = 'Default';
+    }
     if (!categoryMap[category]) categoryMap[category] = [];
     categoryMap[category].push(p);
   }
 
   const categories = Object.keys(categoryMap);
-  const stockLabel = lang === 'en' ? 'Stock' : '库存';
-  const outOfStockLabel = lang === 'en' ? 'Out of stock' : '缺货';
-  const itemsLabel = lang === 'en' ? 'items' : '件';
+  const stockLabel = t('shop_stock', lang);
+  const outOfStockLabel = t('shop_out_of_stock', lang);
+  
+  const itemsLabel = t('order_items', lang);
   
   if (expandedCategory && categoryMap[expandedCategory]) {
     const categoryProducts = categoryMap[expandedCategory];
@@ -2269,9 +2284,10 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
         if (mainPage && mainPage.rows.length > 0) {
           const keyboard = generateKeyboardWithLanguage(mainPage, userLanguage, bilingualEnabled);
           if (keyboard) {
+            const menuPromptText = userLanguage === 'en' ? '📂 Please use the menu to select a function' : '📂 请使用菜单选择功能';
             await sendTelegramMessage(botToken, 'sendMessage', {
               chat_id: chatId,
-              text: '📂 请使用菜单选择功能',
+              text: menuPromptText,
               reply_markup: {
                 keyboard,
                 resize_keyboard: true,
