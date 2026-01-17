@@ -344,7 +344,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               {/* 自定义按钮文字 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">/shop 按钮文字 (中文)</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">/shop 按钮文字</label>
                   <input 
                     type="text" 
                     value={localConfig.shopButtonText || '商城'}
@@ -354,33 +354,13 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">/shop 按钮文字 (英文)</label>
-                  <input 
-                    type="text" 
-                    value={localConfig.shopButtonTextEn || 'Shop'}
-                    onChange={(e) => handleChange('shopButtonTextEn', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                    placeholder="Shop"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">/order 按钮文字 (中文)</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">/order 按钮文字</label>
                   <input 
                     type="text" 
                     value={localConfig.orderButtonText || '我的订单'}
                     onChange={(e) => handleChange('orderButtonText', e.target.value)}
                     className="w-full p-2 bg-background border rounded text-sm"
                     placeholder="我的订单"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">/order 按钮文字 (英文)</label>
-                  <input 
-                    type="text" 
-                    value={localConfig.orderButtonTextEn || 'My Orders'}
-                    onChange={(e) => handleChange('orderButtonTextEn', e.target.value)}
-                    className="w-full p-2 bg-background border rounded text-sm"
-                    placeholder="My Orders"
                   />
                 </div>
               </div>
