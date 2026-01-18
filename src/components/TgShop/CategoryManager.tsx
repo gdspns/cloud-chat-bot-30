@@ -7,28 +7,40 @@ interface CategoryManagerProps {
   onUpdateProduct: (id: string, updates: Partial<Product>) => Promise<boolean>;
   showToast: (type: "success" | "error" | "info", message: string) => void;
   isSyncing: boolean;
+  customCategories: string[];
+  onAddCustomCategory: (category: string) => void;
+  onRemoveCustomCategory: (category: string) => void;
 }
 
 export function CategoryManager({ 
   products, 
   onUpdateProduct, 
   showToast,
-  isSyncing 
+  isSyncing,
+  customCategories,
+  onAddCustomCategory,
+  onRemoveCustomCategory
 }: CategoryManagerProps) {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // 获取所有分类及其商品数量
+  // 获取所有分类及其商品数量（包含自定义分类）
   const categoriesWithCount = useMemo(() => {
     const catMap: Record<string, number> = {};
     products.forEach(p => {
       const cat = p.category || '默认分类';
       catMap[cat] = (catMap[cat] || 0) + 1;
     });
+    // 添加自定义分类（没有商品的）
+    customCategories.forEach(cat => {
+      if (!(cat in catMap)) {
+        catMap[cat] = 0;
+      }
+    });
     return Object.entries(catMap).map(([name, count]) => ({ name, count }));
-  }, [products]);
+  }, [products, customCategories]);
 
   // 新建分类
   const handleAddCategory = () => {
@@ -41,8 +53,9 @@ export function CategoryManager({
       showToast("error", "分类已存在");
       return;
     }
-    // 分类通过添加商品时自动创建，这里只提示
-    showToast("info", `分类 "${name}" 已创建，请在商品管理中选择该分类`);
+    // 添加到自定义分类列表
+    onAddCustomCategory(name);
+    showToast("success", `分类 "${name}" 已创建`);
     setNewCategoryName('');
   };
 
@@ -109,6 +122,9 @@ export function CategoryManager({
         const success = await onUpdateProduct(product.id, { category: '默认分类' });
         if (success) successCount++;
       }
+
+      // 从自定义分类中移除
+      onRemoveCustomCategory(categoryName);
 
       if (productsInCategory.length === 0 || successCount === productsInCategory.length) {
         showToast("success", `分类 "${categoryName}" 已删除`);
