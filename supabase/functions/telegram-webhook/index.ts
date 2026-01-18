@@ -161,6 +161,103 @@ function t(key: string, lang: 'zh' | 'en', params?: Record<string, string | numb
   return text;
 }
 
+// ========== TG商城内容自动翻译（用于商品名/分类名/自定义文案） ==========
+// 说明：系统内置文案用 t()；用户自定义内容（商品标题/详情/分类/支付说明等）在英文模式下自动从中文翻译成英文。
+const translationCache = new Map<string, string>();
+
+function containsCjk(text: string): boolean {
+  return /[\u3400-\u9FFF]/.test(text);
+}
+
+async function translateManyToEnglish(texts: string[]): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+  const unique = Array.from(new Set(texts.map(t => (t || '').trim()).filter(Boolean)));
+
+  // cache hit
+  for (const t of unique) {
+    const cached = translationCache.get(t);
+    if (cached) result[t] = cached;
+  }
+
+  const need = unique.filter(t => !result[t] && containsCjk(t));
+  if (need.length === 0) return result;
+
+  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!apiKey) {
+    // 没有启用AI网关时，直接返回原文（不阻断业务流）
+    for (const t of need) result[t] = t;
+    return result;
+  }
+
+  try {
+    const prompt = [
+      'You are a professional Chinese->English translator for a Telegram shop bot.',
+      'Translate each item in the JSON array into natural, concise English.',
+      '- Keep brand names (e.g., Netflix) as proper nouns.',
+      '- Keep numbers, emojis, and formatting characters.',
+      '- Do NOT add extra commentary.',
+      'Return ONLY a JSON array of translated strings in the same order.'
+    ].join('\n');
+
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        temperature: 0.2,
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content: JSON.stringify(need) },
+        ],
+      }),
+    });
+
+    const data = await resp.json();
+    const content = data?.choices?.[0]?.message?.content ?? '';
+
+    let translatedArr: string[] | null = null;
+    try {
+      translatedArr = JSON.parse(content);
+    } catch {
+      // 某些模型可能会包裹 ```json
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        translatedArr = JSON.parse(jsonMatch[0]);
+      }
+    }
+
+    if (!translatedArr || !Array.isArray(translatedArr)) {
+      for (const t of need) result[t] = t;
+      return result;
+    }
+
+    for (let i = 0; i < need.length; i++) {
+      const src = need[i];
+      const dst = (translatedArr[i] ?? src).toString().trim() || src;
+      translationCache.set(src, dst);
+      result[src] = dst;
+    }
+
+    return result;
+  } catch (e) {
+    console.error('[TG Shop] translateManyToEnglish failed:', e);
+    for (const t of need) result[t] = t;
+    return result;
+  }
+}
+
+async function localizeText(text: string | null | undefined, lang: 'zh' | 'en'): Promise<string> {
+  if (!text) return '';
+  const trimmed = String(text);
+  if (lang !== 'en') return trimmed;
+  if (!containsCjk(trimmed)) return trimmed;
+  const map = await translateManyToEnglish([trimmed]);
+  return map[trimmed] || trimmed;
+}
+
 // 生成随机小数防撞单 - 加密货币 (0.010-0.099，三位小数)
 function generateRandomDecimal(price: number, enabled: boolean): number {
   if (!enabled) return price;
@@ -325,29 +422,44 @@ async function handleBuyCommand(
   });
 
   if (matchedProducts.length === 0) {
-    const productList = products.map((p: ShopProduct) => `• ${p.name} - ${p.price} ${p.currency}`).join('\n');
-    return { 
-      handled: true, 
-      message: `${t('buy_not_found', lang)}: "${keyword}"\n\n${t('buy_available_products', lang)}:\n${productList}\n\n${t('buy_use_command', lang)}` 
+    // 英文模式下：把商品列表里的中文商品名也自动翻译
+    const names = lang === 'en' ? (products as ShopProduct[]).map(p => p.name) : [];
+    const nameMap = lang === 'en' ? await translateManyToEnglish(names) : {};
+
+    const productList = (products as ShopProduct[])
+      .map((p: ShopProduct) => {
+        const displayName = lang === 'en' ? (nameMap[p.name] || p.name) : p.name;
+        return `• ${displayName} - ${p.price} ${p.currency}`;
+      })
+      .join('\n');
+
+    return {
+      handled: true,
+      message: `${t('buy_not_found', lang)}: "${keyword}"\n\n${t('buy_available_products', lang)}:\n${productList}\n\n${t('buy_use_command', lang)}`,
     };
   }
 
   // 如果匹配到多个商品，显示商品列表供用户选择
   if (matchedProducts.length > 1) {
-    const stockLabel = lang === 'en' ? 'Stock' : '库存';
-    const outOfStockLabel = lang === 'en' ? 'Out of stock' : '缺货';
+    const stockLabel = t('shop_stock', lang);
+    const outOfStockLabel = t('shop_out_of_stock', lang);
     const buyLabel = t('shop_click_to_buy', lang);
-    
+
+    // 英文模式下：翻译匹配到的商品名
+    const names = lang === 'en' ? matchedProducts.map((p: ShopProduct) => p.name) : [];
+    const nameMap = lang === 'en' ? await translateManyToEnglish(names) : {};
+
     const productLines = matchedProducts.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
       const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, '');
-      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
+      const displayName = lang === 'en' ? (nameMap[p.name] || p.name) : p.name;
+      return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
     });
-    
+
     return {
       handled: true,
-      message: `${t('buy_found_multiple', lang, { count: matchedProducts.length, keyword })}\n\n${productLines.join('\n\n')}\n\n────────────────\n${t('shop_buy_tip', lang)}`
+      message: `${t('buy_found_multiple', lang, { count: matchedProducts.length, keyword })}\n\n${productLines.join('\n\n')}\n\n────────────────\n${t('shop_buy_tip', lang)}`,
     };
   }
 
@@ -406,7 +518,8 @@ async function createOrderForProduct(
 
   // 检查库存
   if (!product.stock_content || product.stock_content.length === 0) {
-    return { handled: true, message: `❌ "${product.name}" ${t('error_no_stock', lang)}` };
+    const displayName = await localizeText(product.name, lang);
+    return { handled: true, message: `❌ "${displayName}" ${t('error_no_stock', lang)}` };
   }
 
   // 生成订单
@@ -499,9 +612,10 @@ async function createOrderForProduct(
   }
 
   const itemsLabel = t('order_items', lang);
+  const displayProductName = await localizeText(product.name, lang);
   const message = `${t('order_created', lang)}
 
-${t('order_product', lang)}: ${product.name}
+${t('order_product', lang)}: ${displayProductName}
 ${t('order_amount', lang)}: ${amountDisplay}
 ${t('order_no', lang)}: \`${orderNo}\`
 ${t('order_stock', lang)}: ${product.stock_content.length} ${itemsLabel}
@@ -579,6 +693,9 @@ async function handlePaymentMethodCallback(
   if (!shopConfig) {
     return { handled: true, message: t('error_no_shop', lang) };
   }
+
+  // 英文模式下：订单内的商品名也要自动翻译展示
+  const displayOrderProductName = await localizeText(order.product_name, lang);
 
   // 根据选择的支付方式计算最终金额
   let finalAmount = order.amount;
@@ -724,7 +841,7 @@ ${t('payment_h5_tip', lang)}`;
             handled: true, 
             message: `${t('payment_details_title', lang)}
 
-${t('order_product', lang)}: ${order.product_name}
+${t('order_product', lang)}: ${displayOrderProductName}
 ${t('order_no', lang)}: \`${orderNo}\`
 
 ────────────────
@@ -776,13 +893,14 @@ Wrong amount = No delivery, contact support
 ✅ Auto-delivery after payment confirmed`;
   
   // 如果用户有自定义支付说明使用自定义的，否则根据语言选择默认文案
-  const paymentNotice = shopConfig.payment_notice 
-    ? shopConfig.payment_notice 
+  // 英文模式下：自定义文案也做自动翻译
+  const paymentNotice = shopConfig.payment_notice
+    ? await localizeText(shopConfig.payment_notice, lang)
     : (lang === 'en' ? defaultPaymentNoticeEn : defaultPaymentNoticeZh);
 
   const message = `${t('payment_details_title', lang)}
 
-${t('order_product', lang)}: ${order.product_name}
+${t('order_product', lang)}: ${displayOrderProductName}
 ${t('order_no', lang)}: \`${orderNo}\`
 
 ────────────────
@@ -799,7 +917,7 @@ ${paymentNotice}`;
 async function handleShopCommand(
   supabase: any,
   botToken: string,
-  expandedCategory?: string,
+  expandedCategoryKey?: string,
   lang: 'zh' | 'en' = 'zh'
 ): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any }> {
   const { data: shopConfig } = await supabase
@@ -823,42 +941,78 @@ async function handleShopCommand(
     return { handled: true, message: t('shop_no_products', lang) };
   }
 
-  // 默认分类名称需要根据语言自动翻译
+  // 分类Key稳定（用于callback），展示名按语言（英文模式下自动翻译中文分类）
+  const DEFAULT_CAT_KEY = '__default__';
   const defaultCatZh = '默认分类';
   const defaultCatEn = 'Default';
-  const defaultCatDisplay = lang === 'en' ? defaultCatEn : defaultCatZh;
-  
-  const categoryMap: Record<string, ShopProduct[]> = {};
-  for (const p of products) {
-    // 如果商品分类是中文默认分类或空，根据语言显示对应的分类名
-    let category = p.category;
-    if (!category || category === defaultCatZh || category === defaultCatEn) {
-      category = defaultCatDisplay;
-    } else if (lang === 'en' && category === '默认分类') {
-      // 自动翻译中文默认分类
-      category = 'Default';
-    }
-    if (!categoryMap[category]) categoryMap[category] = [];
-    categoryMap[category].push(p);
+
+  type CatBucket = { products: ShopProduct[]; displayName: string };
+  const categoryBuckets: Record<string, CatBucket> = {};
+
+  // 先按“原始分类key”分组
+  for (const p of products as ShopProduct[]) {
+    const raw = (p.category || '').trim();
+    const key = raw ? raw : DEFAULT_CAT_KEY;
+    if (!categoryBuckets[key]) categoryBuckets[key] = { products: [], displayName: '' };
+    categoryBuckets[key].products.push(p);
   }
 
-  const categories = Object.keys(categoryMap);
+  // 准备需要翻译的分类名（仅英文模式）
+  const keys = Object.keys(categoryBuckets);
+  const rawCategoryNamesToTranslate: string[] = [];
+  if (lang === 'en') {
+    for (const k of keys) {
+      if (k === DEFAULT_CAT_KEY) continue;
+      if (k === defaultCatZh || k === defaultCatEn) continue;
+      rawCategoryNamesToTranslate.push(k);
+    }
+  }
+  const catTranslations = lang === 'en'
+    ? await translateManyToEnglish(rawCategoryNamesToTranslate)
+    : {};
+
+  // 写入 displayName
+  for (const k of keys) {
+    if (k === DEFAULT_CAT_KEY || k === defaultCatZh || k === defaultCatEn) {
+      categoryBuckets[k].displayName = t('default_category', lang);
+    } else if (lang === 'en') {
+      categoryBuckets[k].displayName = catTranslations[k] || k;
+    } else {
+      categoryBuckets[k].displayName = k;
+    }
+  }
+
   const stockLabel = t('shop_stock', lang);
   const outOfStockLabel = t('shop_out_of_stock', lang);
-  
   const itemsLabel = t('order_items', lang);
-  
-  if (expandedCategory && categoryMap[expandedCategory]) {
-    const categoryProducts = categoryMap[expandedCategory];
-    const productLines = categoryProducts.map((p: ShopProduct) => {
+
+  // 展开某个分类
+  if (expandedCategoryKey && categoryBuckets[expandedCategoryKey]) {
+    const bucket = categoryBuckets[expandedCategoryKey];
+
+    // 英文模式下翻译商品名/详情
+    const namesToTranslate: string[] = [];
+    const descToTranslate: string[] = [];
+    if (lang === 'en') {
+      for (const p of bucket.products) {
+        if (p.name) namesToTranslate.push(p.name);
+        if (p.description) descToTranslate.push(p.description);
+      }
+    }
+    const nameMap = lang === 'en' ? await translateManyToEnglish(namesToTranslate) : {};
+    const descMap = lang === 'en' ? await translateManyToEnglish(descToTranslate) : {};
+
+    const productLines = bucket.products.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
       const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, '');
-      return `📦 **${p.name}** - ${p.price} ${p.currency} ${stockText}\n   ${p.description || ''}\n   ${t('shop_click_to_buy', lang)} /buy\\_${shortId}`;
+      const displayName = lang === 'en' ? (nameMap[p.name] || p.name) : p.name;
+      const displayDesc = p.description ? (lang === 'en' ? (descMap[p.description] || p.description) : p.description) : '';
+      return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n   ${displayDesc || ''}\n   ${t('shop_click_to_buy', lang)} /buy\\_${shortId}`;
     });
 
     const inlineButtons: any[][] = [[{ text: t('shop_back_to_categories', lang), callback_data: 'shop_back' }]];
-    const message = `${t('shop_category_title', lang, { name: expandedCategory, count: categoryProducts.length })}
+    const message = `${t('shop_category_title', lang, { name: bucket.displayName, count: bucket.products.length })}
 
 ${productLines.join('\n\n')}
 
@@ -868,20 +1022,29 @@ ${t('shop_buy_tip', lang)}`;
     return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons } };
   }
 
-  const inlineButtons: any[][] = categories.map(cat => {
-    const count = categoryMap[cat].length;
-    return [{ text: `📂 ${cat} (${count}${itemsLabel})`, callback_data: `shop_cat_${encodeURIComponent(cat)}` }];
+  // 分类列表（按钮显示翻译后的名字，callback_data 用稳定 key）
+  const sortedKeys = keys.sort((a, b) => {
+    if (a === DEFAULT_CAT_KEY) return -1;
+    if (b === DEFAULT_CAT_KEY) return 1;
+    return categoryBuckets[a].displayName.localeCompare(categoryBuckets[b].displayName);
+  });
+
+  const inlineButtons: any[][] = sortedKeys.map((key) => {
+    const count = categoryBuckets[key].products.length;
+    const name = categoryBuckets[key].displayName;
+    return [{ text: `📂 ${name} (${count}${itemsLabel})`, callback_data: `shop_cat_${encodeURIComponent(key)}` }];
   });
 
   const message = `${t('shop_categories_title', lang)}
 
-${t('shop_total_products', lang, { count: products.length, cats: categories.length })}
+${t('shop_total_products', lang, { count: (products as any[]).length, cats: keys.length })}
 
 ────────────────
 ${t('shop_click_category', lang)}`;
 
   return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons } };
 }
+
 
 function formatChinaTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -918,10 +1081,12 @@ async function handleOrderCommand(
       return { handled: true, message: `${t('order_not_found', lang)}: ${orderNo}` };
     }
 
+    const localizedProductName = await localizeText(order.product_name, lang);
+
     let message = `${t('order_details_title', lang)}
 
 ${t('order_no', lang)}: \`${order.order_no}\`
-${t('order_product', lang)}: ${order.product_name}
+${t('order_product', lang)}: ${localizedProductName}
 ${t('order_amount', lang)}: ${order.amount} ${order.currency}
 ${t('order_status', lang)}: ${t('order_status_paid', lang)}
 ${t('order_created_at', lang)}: ${formatChinaTime(order.created_at)}`;
@@ -946,8 +1111,13 @@ ${t('order_created_at', lang)}: ${formatChinaTime(order.created_at)}`;
     return { handled: true, message: t('order_no_history', lang) };
   }
 
+  // 英文模式下，订单列表里的商品名也做自动翻译
+  const productNames = lang === 'en' ? orders.map((o: any) => String(o.product_name || '')) : [];
+  const nameMap = lang === 'en' ? await translateManyToEnglish(productNames) : {};
+
   const orderLines = orders.map((o: any) => {
-    return `✅ \`/order ${o.order_no}\` - ${o.product_name} - ${o.amount} ${o.currency}`;
+    const displayName = lang === 'en' ? (nameMap[String(o.product_name || '')] || o.product_name) : o.product_name;
+    return `✅ \`/order ${o.order_no}\` - ${displayName} - ${o.amount} ${o.currency}`;
   });
 
   const message = `${t('order_history_title', lang)}
