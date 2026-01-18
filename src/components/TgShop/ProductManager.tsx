@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen, ChevronDown } from "lucide-react";
 import { Product } from "./types";
 
 interface ProductManagerProps {
@@ -9,6 +9,7 @@ interface ProductManagerProps {
   onDeleteProduct: (id: string) => Promise<boolean>;
   showToast: (type: "success" | "error" | "info", message: string) => void;
   isSyncing: boolean;
+  customCategories?: string[];
 }
 
 const defaultFormData: Omit<Product, 'id' | 'keywordsList'> = {
@@ -29,11 +30,15 @@ export function ProductManager({
   onUpdateProduct, 
   onDeleteProduct, 
   showToast,
-  isSyncing 
+  isSyncing,
+  customCategories = []
 }: ProductManagerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(defaultFormData);
   const [isSaving, setIsSaving] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const categoryInputRef = useRef<HTMLInputElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editingId) {
@@ -117,11 +122,17 @@ export function ProductManager({
     });
   };
 
-  // 获取所有分类
+  // 获取所有分类（包含自定义分类）
   const categories = useMemo(() => {
     const cats = new Set(products.map(p => p.category || '默认分类'));
-    return Array.from(cats);
-  }, [products]);
+    // 添加自定义分类
+    customCategories.forEach(cat => cats.add(cat));
+    return Array.from(cats).sort((a, b) => {
+      if (a === '默认分类') return -1;
+      if (b === '默认分类') return 1;
+      return a.localeCompare(b);
+    });
+  }, [products, customCategories]);
 
   // 按分类分组商品
   const productsByCategory = useMemo(() => {
@@ -133,6 +144,27 @@ export function ProductManager({
     });
     return grouped;
   }, [products]);
+
+  // 点击外部关闭下拉框
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(event.target as Node) &&
+        categoryInputRef.current &&
+        !categoryInputRef.current.contains(event.target as Node)
+      ) {
+        setShowCategoryDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectCategory = (cat: string) => {
+    setFormData({ ...formData, category: cat });
+    setShowCategoryDropdown(false);
+  };
 
   return (
     <div className="flex flex-col xl:flex-row h-full">
@@ -174,26 +206,51 @@ export function ProductManager({
             </div>
 
             {/* 分类选择 */}
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-1">
                 <Tag size={14} /> 商品分类
               </label>
-              <div className="flex gap-2">
+              <div className="relative">
                 <input 
+                  ref={categoryInputRef}
                   type="text" 
                   value={formData.category}
                   onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  className="flex-1 p-2.5 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none text-sm"
-                  placeholder="输入分类名称"
-                  list="category-list"
+                  onFocus={() => setShowCategoryDropdown(true)}
+                  className="w-full p-2.5 pr-10 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none text-sm"
+                  placeholder="输入或选择分类"
                 />
-                <datalist id="category-list">
-                  {categories.map(cat => (
-                    <option key={cat} value={cat} />
-                  ))}
-                </datalist>
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronDown size={16} className={`transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">输入现有分类或新建分类</p>
+              
+              {/* 分类下拉列表 */}
+              {showCategoryDropdown && categories.length > 0 && (
+                <div 
+                  ref={categoryDropdownRef}
+                  className="absolute z-50 w-full mt-1 bg-background border rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                >
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => handleSelectCategory(cat)}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 ${
+                        formData.category === cat ? 'bg-primary/10 text-primary' : 'text-foreground'
+                      }`}
+                    >
+                      <FolderOpen size={14} className="text-muted-foreground" />
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">点击输入框选择已有分类或输入新分类名称</p>
             </div>
 
             <div className="flex gap-3">

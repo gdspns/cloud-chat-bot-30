@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag } from "lucide-react";
 import { ShopTab } from "./types";
 import { ShopNavButton } from "./ShopNavButton";
@@ -15,6 +15,7 @@ interface TgShopPanelProps {
 
 export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
   const [activeTab, setActiveTab] = useState<ShopTab>('settings');
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
   
   const {
     products,
@@ -51,6 +52,17 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
     }
   };
 
+  // 自定义分类管理
+  const handleAddCustomCategory = useCallback((category: string) => {
+    setCustomCategories(prev => {
+      if (prev.includes(category)) return prev;
+      return [...prev, category];
+    });
+  }, []);
+
+  const handleRemoveCustomCategory = useCallback((category: string) => {
+    setCustomCategories(prev => prev.filter(c => c !== category));
+  }, []);
   // 如果没有 botToken，显示提示
   if (!botToken) {
     return (
@@ -187,6 +199,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 onDeleteProduct={deleteProduct}
                 showToast={showToast}
                 isSyncing={isSyncing}
+                customCategories={customCategories}
               />
             )}
             {activeTab === 'categories' && (
@@ -195,6 +208,9 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 onUpdateProduct={updateProduct}
                 showToast={showToast}
                 isSyncing={isSyncing}
+                customCategories={customCategories}
+                onAddCustomCategory={handleAddCustomCategory}
+                onRemoveCustomCategory={handleRemoveCustomCategory}
               />
             )}
             {activeTab === 'orders' && (
