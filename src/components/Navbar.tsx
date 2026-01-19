@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Bot, Home, LogIn, UserPlus, LogOut, User, Settings, MessageSquare, Layout } from "lucide-react";
+import { Bot, Home, LogIn, UserPlus, LogOut, User, Settings, MessageSquare, Layout, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -54,6 +54,17 @@ export const Navbar = () => {
             <Link to="/keyboard-menu">
               <Layout className="h-4 w-4 mr-1" />
               菜单键盘
+            </Link>
+          </Button>
+          
+          <Button 
+            variant={location.pathname === "/store" ? "default" : "ghost"} 
+            size="sm" 
+            asChild
+          >
+            <Link to="/store">
+              <ShoppingCart className="h-4 w-4 mr-1" />
+              自助商城
             </Link>
           </Button>
         </div>

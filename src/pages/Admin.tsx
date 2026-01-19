@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Play, Pause, Calendar, Copy, CheckCircle, XCircle, Key, Globe, Smartphone, List, MessageSquare, Send, LayoutDashboard, Users, Bot, Image as ImageIcon, ChevronDown, ChevronUp, X, ZoomIn, Loader2, Database, RefreshCw, FileText } from "lucide-react";
+import { Trash2, Play, Pause, Calendar, Copy, CheckCircle, XCircle, Key, Globe, Smartphone, List, MessageSquare, Send, LayoutDashboard, Users, Bot, Image as ImageIcon, ChevronDown, ChevronUp, X, ZoomIn, Loader2, Database, RefreshCw, FileText, ShoppingCart } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuth } from "@/hooks/use-auth";
 import { DataExportImport } from "@/components/DataExportImport";
 import { ArticleManager } from "@/components/ArticleManager";
+import { ProductManagement } from "@/components/ProductManagement";
 
 interface BotActivation {
   id: string;
@@ -1301,6 +1302,10 @@ export const Admin = () => {
               <MessageSquare className="h-4 w-4 mr-2" />
               聊天监控
             </TabsTrigger>
+            <TabsTrigger value="products">
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              商品管理
+            </TabsTrigger>
             <TabsTrigger value="articles">
               <FileText className="h-4 w-4 mr-2" />
               文章管理
@@ -1940,6 +1945,13 @@ export const Admin = () => {
                 )}
               </Card>
             </div>
+          </TabsContent>
+
+          {/* 商品管理 */}
+          <TabsContent value="products" className="space-y-4">
+            <Card className="p-6">
+              <ProductManagement />
+            </Card>
           </TabsContent>
 
           {/* 文章管理 */}

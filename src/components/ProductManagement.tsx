@@ -1,0 +1,553 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Shield, 
+  Settings,
+  Edit3,
+  Package,
+  Save,
+  Loader2,
+  Layers,
+  ClipboardList,
+  Copy,
+  Plus,
+  Trash2,
+  Database,
+  ArrowRightLeft,
+  CreditCard,
+  Shuffle,
+  Calculator
+} from 'lucide-react';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+
+// --- 全局工具组件 ---
+const ToggleSwitch = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (val: boolean) => void }) => (
+  <div className="flex items-center justify-between py-2 px-1">
+    <span className="text-sm font-semibold text-foreground">{label}</span>
+    <button 
+      onClick={() => onChange(!checked)} 
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-300 ${checked ? 'bg-primary' : 'bg-muted'}`}
+    >
+      <span className={`inline-block h-3 w-3 transform rounded-full bg-background transition-transform ${checked ? 'translate-x-5' : 'translate-x-1'}`} />
+    </button>
+  </div>
+);
+
+const copyToClipboard = (text: string, successMessage = "复制成功") => {
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => alert(successMessage)).catch(() => alert("复制失败"));
+  } else {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      alert(successMessage);
+    } catch (err) {
+      alert("复制失败");
+    }
+    document.body.removeChild(textArea);
+  }
+};
+
+interface Product {
+  id: number;
+  type: 'card' | 'auto';
+  tags: string[];
+  name: string;
+  duration: number;
+  price: number;
+  usdt: number;
+  trx: number;
+  desc: string;
+  codes: string[];
+}
+
+interface Order {
+  orderNo: string;
+  botId: string;
+  contact: string;
+  productName: string;
+  amount: string;
+  paymentMethod: string;
+  code: string;
+  type: string;
+  time: string;
+  status: 'pending' | 'paid' | 'expired';
+}
+
+interface Config {
+  usdtAddress: string;
+  tronGridApiKey: string;
+  hupiWechatAppId: string;
+  hupiWechatSecret: string;
+  hupiAlipayAppId: string;
+  hupiAlipaySecret: string;
+  hupiGateway: string;
+  enableUsdt: boolean;
+  enableTrx: boolean;
+  enableWechat: boolean;
+  enableAlipay: boolean;
+  enableAntiCollision: boolean;
+  exchangeRateUsdtCny: number;
+}
+
+const getStockCount = (product: Product) => {
+  if (!product) return 0;
+  if (product.type === 'auto') return 9999; 
+  return (product.codes || []).length;
+};
+
+// --- 初始数据常量 ---
+const CATEGORY_TAGS = [
+  { id: 'chat', label: '双向聊天' },
+  { id: 'keyboard', label: '菜单键盘' },
+  { id: 'mall', label: 'TG商城' }
+];
+
+const DEFAULT_PRODUCTS: Product[] = [
+  { id: 1, type: 'auto', tags: ['chat'], name: '1个月-自动订阅', duration: 30, price: 30, usdt: 5.000, trx: 40.000, desc: '支付后系统全自动激活，有效期30天', codes: [] },
+  { id: 2, type: 'auto', tags: ['keyboard'], name: '3个月-自动订阅', duration: 90, price: 85, usdt: 14.000, trx: 110.000, desc: '季度优惠套餐，系统自动处理', codes: [] },
+  { id: 5, type: 'card', tags: ['mall'], name: '1个月-独立激活码', duration: 30, price: 35, usdt: 6.000, trx: 45.000, desc: '购买后发放独立激活码，可转赠', codes: ['KEY-ADMIN-FIX-888', 'KEY-B2-999'] },
+  { id: 8, type: 'card', tags: ['chat', 'mall'], name: '12个月-年费卡密', duration: 360, price: 320, usdt: 50.000, trx: 400.000, desc: '年度尊享授权，下单即刻发卡', codes: ['YEAR-KING-2026-PRO'] },
+];
+
+const DEFAULT_CONFIG: Config = {
+  usdtAddress: '', 
+  tronGridApiKey: '', 
+  hupiWechatAppId: '',   
+  hupiWechatSecret: '',     
+  hupiAlipayAppId: '',
+  hupiAlipaySecret: '',
+  hupiGateway: 'https://api.xunhupay.com/payment/do.html',
+  enableUsdt: true,
+  enableTrx: true,
+  enableWechat: true,
+  enableAlipay: true,
+  enableAntiCollision: false,
+  exchangeRateUsdtCny: 7.40,
+};
+
+interface NewProduct {
+  name: string;
+  type: 'card' | 'auto';
+  duration: number;
+  price: string;
+  usdt: string;
+  trx: string;
+  desc: string;
+  codesText: string;
+  tags: string[];
+}
+
+// --- 管理后台组件 ---
+export const ProductManagement = () => {
+  const { toast } = useToast();
+  const [adminTab, setAdminTab] = useState('products'); 
+
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('app_products_v41');
+    return saved ? JSON.parse(saved) : DEFAULT_PRODUCTS;
+  });
+  const [config, setConfig] = useState<Config>(() => {
+    const saved = localStorage.getItem('app_config_v41');
+    return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
+  });
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem('app_orders_v41');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [isSavingConfig, setIsSavingConfig] = useState(false); 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [newProduct, setNewProduct] = useState<NewProduct>({
+    name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: []
+  });
+  const [orderFilter, setOrderFilter] = useState('all');
+
+  // 实时保存数据
+  useEffect(() => { localStorage.setItem('app_products_v41', JSON.stringify(products)); }, [products]);
+  useEffect(() => { localStorage.setItem('app_orders_v41', JSON.stringify(orders)); }, [orders]);
+  useEffect(() => { localStorage.setItem('app_config_v41', JSON.stringify(config)); }, [config]);
+
+  // --- 管理逻辑 ---
+  const handleEditClick = (product: Product) => {
+    setEditingId(product.id);
+    setNewProduct({ 
+      ...product, 
+      price: product.price.toString(),
+      usdt: product.usdt.toString(),
+      trx: product.trx.toString(),
+      codesText: (product.codes || []).join('\n'),
+      tags: product.tags || [] 
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
+  };
+
+  const handleDeleteProduct = (id: number) => {
+    if (confirm("确定删除此商品？")) {
+      setProducts(prev => prev.filter(p => Number(p.id) !== Number(id)));
+      if (Number(editingId) === Number(id)) handleCancelEdit();
+      toast({ title: "删除成功", description: "商品已删除" });
+    }
+  };
+
+  const handleSaveProduct = () => {
+    if (!newProduct.name || !newProduct.price) {
+      toast({ title: "错误", description: "名称/价格必填", variant: "destructive" });
+      return;
+    }
+    const codesArr = newProduct.codesText 
+      ? newProduct.codesText.split('\n').map(l => l.trim()).filter(l => l !== "") 
+      : [];
+    const formatted: Product = { 
+      id: editingId || Date.now(),
+      name: newProduct.name,
+      type: newProduct.type,
+      duration: Number(newProduct.duration), 
+      price: Number(newProduct.price), 
+      usdt: Number(newProduct.usdt), 
+      trx: Number(newProduct.trx),
+      desc: newProduct.desc,
+      codes: codesArr,
+      tags: newProduct.tags || []
+    };
+    if (editingId) {
+      setProducts(products.map(p => p.id === editingId ? formatted : p));
+      setEditingId(null);
+      toast({ title: "修改成功", description: "商品已更新" });
+    } else {
+      setProducts([formatted, ...products]);
+      toast({ title: "上架成功", description: "商品已添加" });
+    }
+    setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
+  };
+
+  const handleAutoConvert = async () => {
+    if (!newProduct.price) {
+      toast({ title: "提示", description: "请输入CNY价格", variant: "destructive" });
+      return;
+    }
+    setIsCalculating(true);
+    setTimeout(() => {
+      const rate = config.exchangeRateUsdtCny || 7.4;
+      const usdtVal = (parseFloat(newProduct.price) / rate).toFixed(3);
+      const trxVal = (parseFloat(usdtVal) / 0.155).toFixed(3);
+      setNewProduct(prev => ({ ...prev, usdt: usdtVal, trx: trxVal }));
+      setIsCalculating(false);
+    }, 500);
+  };
+
+  const handleSaveConfig = () => {
+    setIsSavingConfig(true);
+    setTimeout(() => {
+      setIsSavingConfig(false);
+      toast({ title: "保存成功", description: "设置已保存" });
+    }, 800);
+  };
+
+  const toggleAdminTag = (tagId: string) => {
+    setNewProduct(prev => {
+        const currentTags = prev.tags || [];
+        return {
+            ...prev,
+            tags: currentTags.includes(tagId) 
+                ? currentTags.filter(t => t !== tagId) 
+                : [...currentTags, tagId]
+        };
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* 顶部横向导航 */}
+      <div className="flex items-center gap-4 border-b pb-4">
+        <button onClick={() => setAdminTab('products')} className={`px-4 py-2 rounded-lg transition-all font-bold text-sm flex items-center gap-2 ${adminTab==='products'?'bg-foreground text-background':'text-muted-foreground hover:bg-muted'}`}>
+          <Package size={16} /> 商品管理
+        </button>
+        <button onClick={() => setAdminTab('orders')} className={`px-4 py-2 rounded-lg transition-all font-bold text-sm flex items-center gap-2 ${adminTab==='orders'?'bg-foreground text-background':'text-muted-foreground hover:bg-muted'}`}>
+          <ClipboardList size={16} /> 订单中心
+        </button>
+        <button onClick={() => setAdminTab('settings')} className={`px-4 py-2 rounded-lg transition-all font-bold text-sm flex items-center gap-2 ${adminTab==='settings'?'bg-foreground text-background':'text-muted-foreground hover:bg-muted'}`}>
+          <Settings size={16} /> 网关配置
+        </button>
+      </div>
+
+      {adminTab === 'products' && (
+        <div className="space-y-6">
+          {/* 录入区 */}
+          <Card className="p-6">
+            <h3 className="font-bold text-lg mb-6 flex items-center gap-3">
+              {editingId ? <Edit3 size={20} className="text-orange-500"/> : <Plus size={20} className="text-primary"/>} 
+              {editingId ? '编辑商品' : '发布新商品'}
+            </h3>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-2 space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground">名称</label>
+                  <Input placeholder="商品标题..." value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground">模式</label>
+                  <select className="w-full p-2 bg-muted border border-border rounded-lg outline-none font-bold text-sm" value={newProduct.type} onChange={e => setNewProduct({...newProduct, type: e.target.value as 'card' | 'auto'})}>
+                    <option value="card">卡密 (CARD)</option>
+                    <option value="auto">直充 (AUTO)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground">天数</label>
+                  <Input type="number" value={newProduct.duration} onChange={e => setNewProduct({...newProduct, duration: Number(e.target.value)})} />
+                </div>
+              </div>
+              
+              {/* 分类标签 */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted-foreground">分类标签 (支持多选)</label>
+                <div className="flex gap-2 flex-wrap">
+                  {CATEGORY_TAGS.map(tag => (
+                    <button
+                      key={tag.id}
+                      onClick={() => toggleAdminTag(tag.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${newProduct.tags.includes(tag.id) ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}
+                    >
+                      {tag.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground">定价 (¥)</label>
+                  <Input type="number" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={handleAutoConvert} disabled={isCalculating} variant="outline" className="w-full h-10">
+                    {isCalculating ? <Loader2 size={14} className="animate-spin mr-2"/> : <Calculator size={14} className="mr-2"/>} 自动算价
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground">USDT</label>
+                  <Input type="number" step="0.001" className="font-mono text-primary" value={newProduct.usdt} onChange={e => setNewProduct({...newProduct, usdt: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground">TRX</label>
+                  <Input type="number" step="0.001" className="font-mono text-destructive" value={newProduct.trx} onChange={e => setNewProduct({...newProduct, trx: e.target.value})} />
+                </div>
+              </div>
+              {newProduct.type === 'card' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-primary flex items-center gap-2"><Layers size={14} /> 卡密库 (一行一个)</label>
+                  <textarea placeholder="在此粘贴卡密数据..." className="w-full min-h-[120px] p-4 bg-foreground text-green-400 border border-border rounded-lg font-mono text-xs outline-none" value={newProduct.codesText} onChange={e => setNewProduct({...newProduct, codesText: e.target.value})} />
+                  <p className="text-xs text-muted-foreground">当前识别: {newProduct.codesText ? newProduct.codesText.split('\n').filter(s => s.trim() !== "").length : 0} 行</p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-4 mt-6 pt-6 border-t">
+              <Button onClick={handleSaveProduct} className="flex-1">{editingId ? '保存修改' : '确认上架'}</Button>
+              {editingId && (<Button onClick={handleCancelEdit} variant="outline">取消</Button>)}
+            </div>
+          </Card>
+
+          {/* 商品列表 */}
+          <div className="space-y-4">
+            <div className="font-bold text-sm text-muted-foreground">商品列表 ({products.length})</div>
+            {products.map(p => {
+              const stock = getStockCount(p);
+              return (
+                <Card key={p.id} className="p-4 flex flex-col md:flex-row items-center gap-4 relative overflow-hidden group">
+                  <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-lg text-xs font-bold ${p.type === 'auto' ? 'bg-primary text-primary-foreground' : 'bg-orange-500 text-white'}`}>
+                    {p.type === 'auto' ? '直充' : '卡密'}
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <h5 className="font-bold text-base">{p.name}</h5>
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      {(p.tags || []).map(tid => <span key={tid} className="text-xs bg-muted text-muted-foreground px-1.5 rounded">{CATEGORY_TAGS.find(t=>t.id===tid)?.label}</span>)}
+                    </div>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center md:items-start gap-1">
+                    <div className="bg-muted px-3 py-1 rounded-lg font-mono font-bold text-sm border">¥{p.price}</div>
+                    <div className="flex gap-2 text-xs font-bold">
+                      <span className="text-primary">{p.usdt.toFixed(3)} U</span>
+                      <span className="text-destructive">{p.trx.toFixed(3)} T</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 text-center">
+                    <span className="text-xs text-muted-foreground uppercase font-bold mb-1 block">库存</span>
+                    <span className={`px-3 py-1 rounded-lg font-bold text-xs ${p.type === 'auto' ? 'bg-green-500/20 text-green-600' : (stock > 0 ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive')}`}>
+                      {p.type === 'auto' ? '不限' : stock}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => handleEditClick(p)}><Edit3 size={16} /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleDeleteProduct(p.id)} className="text-destructive hover:text-destructive"><Trash2 size={16} /></Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {adminTab === 'orders' && (
+        <div className="space-y-6">
+          <Card className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-lg flex items-center gap-3"><ClipboardList size={20} /> 订单管理中心</h3>
+              <div className="flex bg-muted p-1 rounded-lg">
+                {['all', 'pending', 'paid', 'expired'].map(status => (
+                  <button 
+                    key={status} 
+                    onClick={() => setOrderFilter(status)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${orderFilter === status ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    {status === 'all' ? '全部' : (status === 'pending' ? '待付款' : (status === 'paid' ? '已成交' : '已过期'))}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-muted text-muted-foreground text-xs border-b">
+                  <tr>
+                    <th className="p-4 font-bold">订单号</th>
+                    <th className="p-4 font-bold">商品名称</th>
+                    <th className="p-4 font-bold">支付金额</th>
+                    <th className="p-4 font-bold">联系/账号</th>
+                    <th className="p-4 font-bold">时间</th>
+                    <th className="p-4 font-bold text-center">状态</th>
+                    <th className="p-4 font-bold">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border text-xs">
+                  {orders.filter(o => orderFilter === 'all' || o.status === orderFilter).map(order => (
+                    <tr key={order.orderNo} className="hover:bg-muted/50 transition-colors">
+                      <td className="p-4 font-mono font-bold text-muted-foreground">{order.orderNo}</td>
+                      <td className="p-4 font-bold">{order.productName}</td>
+                      <td className="p-4 font-mono font-bold text-primary">{order.amount}</td>
+                      <td className="p-4 text-muted-foreground">{order.type === 'auto' ? order.botId : order.contact}</td>
+                      <td className="p-4 text-muted-foreground">{order.time}</td>
+                      <td className="p-4 text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${
+                          order.status === 'paid' ? 'bg-green-500/20 text-green-600' : 
+                          (order.status === 'expired' ? 'bg-destructive/20 text-destructive' : 'bg-yellow-500/20 text-yellow-600')
+                        }`}>
+                          {order.status === 'paid' ? '已成交' : (order.status === 'expired' ? '已过期' : '待付款')}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        {order.status === 'paid' && order.code && (
+                          <Button size="sm" variant="outline" onClick={() => {copyToClipboard(order.code, '卡密已复制')}}>复制卡密</Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {orders.filter(o => orderFilter === 'all' || o.status === orderFilter).length === 0 && (
+                    <tr><td colSpan={7} className="p-10 text-center text-muted-foreground font-bold">暂无相关订单记录</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {adminTab === 'settings' && (
+        <div className="space-y-6 max-w-3xl">
+          <Card className="p-6 space-y-6">
+            <div className="flex items-center gap-3 border-b pb-4">
+              <div className="bg-primary p-2 rounded-lg"><ArrowRightLeft size={20} className="text-primary-foreground"/></div>
+              <h4 className="font-bold text-base">汇率设置</h4>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-muted-foreground">1 USDT = ? CNY</label>
+              <Input type="number" step="0.01" value={config.exchangeRateUsdtCny} onChange={e=>setConfig({...config,exchangeRateUsdtCny:parseFloat(e.target.value)})} className="text-2xl font-bold text-center" />
+            </div>
+          </Card>
+
+          <Card className="p-6 space-y-6">
+            <div className="flex items-center gap-3 border-b pb-4">
+              <div className="bg-primary p-2 rounded-lg"><Database size={20} className="text-primary-foreground"/></div>
+              <h4 className="font-bold text-base">区块链监听</h4>
+            </div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                <ToggleSwitch label="USDT" checked={config.enableUsdt} onChange={(v)=>setConfig({...config, enableUsdt: v})} />
+                <ToggleSwitch label="TRX" checked={config.enableTrx} onChange={(v)=>setConfig({...config, enableTrx: v})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted-foreground">收款地址</label>
+                <Input type="text" value={config.usdtAddress} onChange={e=>setConfig({...config,usdtAddress:e.target.value})} className="font-mono text-xs" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted-foreground">TronGrid Key</label>
+                <Input type="text" value={config.tronGridApiKey} onChange={e=>setConfig({...config,tronGridApiKey:e.target.value})} className="font-mono text-xs" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6 space-y-6">
+            <div className="flex items-center gap-3 border-b pb-4">
+              <div className="bg-green-600 p-2 rounded-lg"><CreditCard size={20} className="text-white"/></div>
+              <h4 className="font-bold text-base">虎皮椒接口</h4>
+            </div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                <ToggleSwitch label="微信" checked={config.enableWechat} onChange={(v)=>setConfig({...config, enableWechat: v})} />
+                <ToggleSwitch label="支付宝" checked={config.enableAlipay} onChange={(v)=>setConfig({...config, enableAlipay: v})} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground">微信 App ID</label>
+                  <Input type="text" value={config.hupiWechatAppId} onChange={e=>setConfig({...config,hupiWechatAppId:e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground">微信 Secret</label>
+                  <Input type="password" value={config.hupiWechatSecret} onChange={e=>setConfig({...config,hupiWechatSecret:e.target.value})} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground">支付宝 App ID</label>
+                  <Input type="text" value={config.hupiAlipayAppId} onChange={e=>setConfig({...config,hupiAlipayAppId:e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground">支付宝 Secret</label>
+                  <Input type="password" value={config.hupiAlipaySecret} onChange={e=>setConfig({...config,hupiAlipaySecret:e.target.value})} />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6 flex items-center justify-between bg-yellow-500/10 border-yellow-500/30">
+            <div className="flex-1">
+              <h4 className="font-bold text-sm flex items-center gap-2"><Shuffle size={16}/> 防撞单算法</h4>
+              <p className="text-xs text-muted-foreground mt-1">自动生成毫级随机尾数</p>
+            </div>
+            <div className="p-3 bg-background rounded-lg">
+              <ToggleSwitch label="" checked={config.enableAntiCollision} onChange={(v)=>setConfig({...config, enableAntiCollision: v})} />
+            </div>
+          </Card>
+          
+          <Button onClick={handleSaveConfig} disabled={isSavingConfig} className="w-full">
+            {isSavingConfig ? <Loader2 className="animate-spin mr-2"/> : null} 保存所有配置
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ProductManagement;
