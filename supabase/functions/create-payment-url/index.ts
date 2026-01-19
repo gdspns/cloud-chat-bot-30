@@ -167,7 +167,8 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const notifyUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook`;
+    // 使用自助商城专用回调
+    const notifyUrl = `${supabaseUrl}/functions/v1/store-payment-webhook`;
 
     // 构建支付参数 - 完全按照你分享的可用代码格式
     const params: Record<string, string> = {
