@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Settings, Plus, Trash2, Edit3, Image as ImageIcon, Video, Bold, Italic, List, Save, X, Check } from "lucide-react";
+import { Settings, Plus, Trash2, Edit3, Image as ImageIcon, Video, Bold, Italic, List, Save, X, Check, Loader2, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,27 +7,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 // --- 数据配置 ---
 const CATEGORIES = ["菜单键盘配置", "TG商城配置"];
 
 interface Article {
-  id: number;
+  id: string;
   title: string;
-  date: string;
-  category: string;
   content: string;
+  category: string;
+  created_at: string;
+  updated_at: string;
 }
-
-const INITIAL_DATA: Article[] = [
-  {
-    id: 1,
-    title: "如何使用本系统",
-    date: "2023-10-27",
-    category: "菜单键盘配置",
-    content: `<p><font size="5">欢迎使用！</font></p><p>这是后台初始化数据。</p>`
-  }
-];
 
 // --- 富文本编辑器 ---
 interface RichEditorProps {
@@ -174,7 +167,9 @@ const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
 export const ArticleManager: React.FC = () => {
   const [view, setView] = useState<'list' | 'editor'>('list');
   const [articles, setArticles] = useState<Article[]>([]);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // 编辑器状态
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
@@ -183,34 +178,58 @@ export const ArticleManager: React.FC = () => {
   const [editorCategory, setEditorCategory] = useState(CATEGORIES[0]);
   const [saveError, setSaveError] = useState('');
 
-  // 初始化加载数据
-  useEffect(() => {
-    const stored = localStorage.getItem('cms_articles');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored).map((a: Article) => ({
-          ...a,
-          category: a.category || CATEGORIES[0]
-        }));
-        setArticles(parsed);
-      } catch (e) {
-        setArticles(INITIAL_DATA);
-      }
-    } else {
-      setArticles(INITIAL_DATA);
-      localStorage.setItem('cms_articles', JSON.stringify(INITIAL_DATA));
-    }
-  }, []);
+  const { toast } = useToast();
 
-  const saveArticlesToStorage = (newArticles: Article[]) => {
-    setArticles(newArticles);
-    localStorage.setItem('cms_articles', JSON.stringify(newArticles));
+  // 加载文章
+  const loadArticles = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setArticles(data || []);
+    } catch (error: any) {
+      console.error('加载文章失败:', error);
+      toast({
+        title: "加载失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const confirmDelete = (id: number) => {
-    const newArticles = articles.filter(a => a.id !== id);
-    saveArticlesToStorage(newArticles);
-    setDeleteConfirmId(null);
+  useEffect(() => {
+    loadArticles();
+  }, []);
+
+  const confirmDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('articles')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setArticles(prev => prev.filter(a => a.id !== id));
+      setDeleteConfirmId(null);
+      toast({
+        title: "删除成功",
+        description: "文章已删除",
+      });
+    } catch (error: any) {
+      console.error('删除文章失败:', error);
+      toast({
+        title: "删除失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const openEditor = (article: Article | null = null) => {
@@ -229,26 +248,67 @@ export const ArticleManager: React.FC = () => {
     setView('editor');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editorTitle.trim()) {
       setSaveError('标题不能为空');
       return;
     }
-    const newArticle: Article = {
-      id: editingArticle ? editingArticle.id : Date.now(),
-      title: editorTitle,
-      category: editorCategory,
-      content: editorContent,
-      date: new Date().toLocaleDateString('zh-CN')
-    };
-    let newArticles: Article[];
-    if (editingArticle) {
-      newArticles = articles.map(a => a.id === editingArticle.id ? newArticle : a);
-    } else {
-      newArticles = [newArticle, ...articles];
+
+    setIsSaving(true);
+    try {
+      if (editingArticle) {
+        // 更新文章
+        const { error } = await supabase
+          .from('articles')
+          .update({
+            title: editorTitle,
+            category: editorCategory,
+            content: editorContent,
+          })
+          .eq('id', editingArticle.id);
+
+        if (error) throw error;
+
+        setArticles(prev => prev.map(a => 
+          a.id === editingArticle.id 
+            ? { ...a, title: editorTitle, category: editorCategory, content: editorContent, updated_at: new Date().toISOString() }
+            : a
+        ));
+        toast({
+          title: "更新成功",
+          description: "文章已更新",
+        });
+      } else {
+        // 新建文章
+        const { data, error } = await supabase
+          .from('articles')
+          .insert({
+            title: editorTitle,
+            category: editorCategory,
+            content: editorContent,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setArticles(prev => [data, ...prev]);
+        toast({
+          title: "发布成功",
+          description: "文章已发布",
+        });
+      }
+      setView('list');
+    } catch (error: any) {
+      console.error('保存文章失败:', error);
+      toast({
+        title: "保存失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
-    saveArticlesToStorage(newArticles);
-    setView('list');
   };
 
   // 列表视图
@@ -260,13 +320,23 @@ export const ArticleManager: React.FC = () => {
             <Settings className="text-primary" />
             <h2 className="text-xl font-bold">内容管理系统 (CMS)</h2>
           </div>
-          <Button onClick={() => openEditor()} className="gap-2">
-            <Plus size={18} /> 新增文章
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={loadArticles} disabled={isLoading}>
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+            </Button>
+            <Button onClick={() => openEditor()} className="gap-2">
+              <Plus size={18} /> 新增文章
+            </Button>
+          </div>
         </div>
 
         <Card className="overflow-hidden">
-          {articles.length === 0 ? (
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+              <p className="mt-2 text-muted-foreground">加载中...</p>
+            </div>
+          ) : articles.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">暂无文章，请点击右上角添加。</div>
           ) : (
             <ScrollArea className="h-[500px]">
@@ -275,7 +345,7 @@ export const ArticleManager: React.FC = () => {
                   <TableRow>
                     <TableHead>标题</TableHead>
                     <TableHead className="w-32">分类</TableHead>
-                    <TableHead className="w-32">日期</TableHead>
+                    <TableHead className="w-40">更新时间</TableHead>
                     <TableHead className="w-48 text-center">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -286,7 +356,9 @@ export const ArticleManager: React.FC = () => {
                       <TableCell>
                         <Badge variant="secondary">{article.category}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{article.date}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(article.updated_at).toLocaleString('zh-CN')}
+                      </TableCell>
                       <TableCell>
                         {deleteConfirmId === article.id ? (
                           <div className="flex justify-center gap-2 items-center">
@@ -370,8 +442,9 @@ export const ArticleManager: React.FC = () => {
 
         <div className="flex justify-end gap-3 pt-4 border-t">
           <Button variant="outline" onClick={() => setView('list')}>取消</Button>
-          <Button onClick={handleSave} className="gap-2">
-            <Save size={18} /> 保存发布
+          <Button onClick={handleSave} className="gap-2" disabled={isSaving}>
+            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            {isSaving ? '保存中...' : '保存发布'}
           </Button>
         </div>
       </Card>

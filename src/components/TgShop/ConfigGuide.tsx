@@ -1,56 +1,67 @@
 import React, { useState, useEffect } from "react";
-import { BookOpen, ChevronDown, ChevronUp, X } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, X, Loader2, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 // --- 配置 ---
 const CATEGORIES = ["菜单键盘配置", "TG商城配置"];
 
 interface Article {
-  id: number;
+  id: string;
   title: string;
-  date: string;
-  category: string;
   content: string;
+  category: string;
+  created_at: string;
+  updated_at: string;
 }
-
-const INITIAL_DATA: Article[] = [
-  { id: 1, title: "欢迎使用", date: "2023-10-27", category: "菜单键盘配置", content: `<p>暂无数据，请登录后台添加。</p>` }
-];
 
 export const ConfigGuide: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>('全部');
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 初始化数据 (只读)
-  useEffect(() => {
-    const stored = localStorage.getItem('cms_articles');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored).map((a: Article) => ({
-          ...a,
-          category: a.category || CATEGORIES[0]
-        }));
-        setArticles(parsed);
-      } catch (e) {
-        setArticles(INITIAL_DATA);
-      }
-    } else {
-      setArticles(INITIAL_DATA);
+  // 加载文章
+  const loadArticles = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setArticles(data || []);
+    } catch (error) {
+      console.error('加载文章失败:', error);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    // 监听 storage 变化，实现跨标签页同步
-    const handleStorageChange = () => {
-      const updated = localStorage.getItem('cms_articles');
-      if (updated) setArticles(JSON.parse(updated));
+  useEffect(() => {
+    loadArticles();
+
+    // 订阅实时更新
+    const channel = supabase
+      .channel('articles-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'articles' },
+        () => {
+          loadArticles();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // 筛选文章
@@ -66,80 +77,94 @@ export const ConfigGuide: React.FC = () => {
           <BookOpen className="w-5 h-5" />
           <span>配置说明</span>
         </div>
+        <Button variant="ghost" size="sm" onClick={loadArticles} disabled={isLoading}>
+          <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+        </Button>
       </header>
 
-      <ScrollArea className="flex-1">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          {/* 分类切换 Tab */}
-          <div className="flex flex-wrap gap-2 mb-8 justify-center">
-            <Button
-              variant={activeCategory === '全部' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveCategory('全部')}
-              className="rounded-full"
-            >
-              全部
-            </Button>
-            {CATEGORIES.map(cat => (
-              <Button
-                key={cat}
-                variant={activeCategory === cat ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveCategory(cat)}
-                className="rounded-full"
-              >
-                {cat}
-              </Button>
-            ))}
-          </div>
-
-          {/* 文章列表 */}
-          <div className="space-y-4">
-            {filteredArticles.length === 0 ? (
-              <Card className="p-10 text-center">
-                <p className="text-muted-foreground">该分类下暂无文章</p>
-              </Card>
-            ) : (
-              filteredArticles.map(article => (
-                <Card key={article.id} className="overflow-hidden transition-all duration-200 hover:shadow-md">
-                  <div
-                    className="p-5 cursor-pointer flex items-center justify-between select-none hover:bg-muted/50"
-                    onClick={() => setExpandedId(expandedId === article.id ? null : article.id)}
-                  >
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-primary border-primary/50">
-                          {article.category || CATEGORIES[0]}
-                        </Badge>
-                        <h3 className="text-lg font-medium">{article.title}</h3>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                      <span className="text-sm hidden sm:inline">{article.date}</span>
-                      {expandedId === article.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                    </div>
-                  </div>
-                  {expandedId === article.id && (
-                    <div className="border-t bg-muted/30 p-6">
-                      <div
-                        className="article-body prose prose-sm max-w-none text-muted-foreground leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: article.content }}
-                        onClick={(e) => {
-                          const target = e.target as HTMLElement;
-                          if (target.tagName === 'IMG') {
-                            e.stopPropagation();
-                            setPreviewImage((target as HTMLImageElement).src);
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-                </Card>
-              ))
-            )}
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+            <p className="mt-2 text-muted-foreground">加载中...</p>
           </div>
         </div>
-      </ScrollArea>
+      ) : (
+        <ScrollArea className="flex-1">
+          <div className="max-w-3xl mx-auto px-4 py-8">
+            {/* 分类切换 Tab */}
+            <div className="flex flex-wrap gap-2 mb-8 justify-center">
+              <Button
+                variant={activeCategory === '全部' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveCategory('全部')}
+                className="rounded-full"
+              >
+                全部
+              </Button>
+              {CATEGORIES.map(cat => (
+                <Button
+                  key={cat}
+                  variant={activeCategory === cat ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveCategory(cat)}
+                  className="rounded-full"
+                >
+                  {cat}
+                </Button>
+              ))}
+            </div>
+
+            {/* 文章列表 */}
+            <div className="space-y-4">
+              {filteredArticles.length === 0 ? (
+                <Card className="p-10 text-center">
+                  <p className="text-muted-foreground">该分类下暂无文章</p>
+                </Card>
+              ) : (
+                filteredArticles.map(article => (
+                  <Card key={article.id} className="overflow-hidden transition-all duration-200 hover:shadow-md">
+                    <div
+                      className="p-5 cursor-pointer flex items-center justify-between select-none hover:bg-muted/50"
+                      onClick={() => setExpandedId(expandedId === article.id ? null : article.id)}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-primary border-primary/50">
+                            {article.category || CATEGORIES[0]}
+                          </Badge>
+                          <h3 className="text-lg font-medium">{article.title}</h3>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 text-muted-foreground">
+                        <span className="text-sm hidden sm:inline">
+                          {new Date(article.updated_at).toLocaleDateString('zh-CN')}
+                        </span>
+                        {expandedId === article.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                      </div>
+                    </div>
+                    {expandedId === article.id && (
+                      <div className="border-t bg-muted/30 p-6">
+                        <div
+                          className="article-body prose prose-sm max-w-none text-muted-foreground leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: article.content }}
+                          onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.tagName === 'IMG') {
+                              e.stopPropagation();
+                              setPreviewImage((target as HTMLImageElement).src);
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+        </ScrollArea>
+      )}
 
       {/* 图片预览 */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
