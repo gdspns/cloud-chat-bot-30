@@ -281,7 +281,7 @@ export const StorePage = () => {
     }
   };
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (activeTab === 'card' && !contactInfo.trim()) {
       return setValidationError("请填写邮箱或手机号，以便后续查询订单卡密！");
     }
@@ -305,17 +305,40 @@ export const StorePage = () => {
       finalAmount = Number((basePrice + offset).toFixed(3));
     }
 
+    const orderNo = 'ORD' + Date.now();
+    const currency = paymentMethod === 'usdt' ? 'USDT' : (paymentMethod === 'trx' ? 'TRX' : 'CNY');
+
+    // 先将订单保存到数据库（供轮询和回调使用）
+    const { error: dbError } = await supabase
+      .from('store_orders')
+      .insert({
+        order_no: orderNo,
+        product_id: String(product.id),
+        product_name: product.name,
+        amount: finalAmount,
+        currency: currency,
+        payment_method: paymentMethod,
+        contact: contactInfo || null,
+        bot_id: activeTab === 'auto' ? botId : null,
+        status: 'pending'
+      });
+
+    if (dbError) {
+      console.error('创建订单失败:', dbError);
+      return setValidationError("创建订单失败，请稍后重试");
+    }
+
     setRealPayAmount(finalAmount); 
     setTimeLeft(600); 
     setPaymentStep('paying');
     setHupiPayUrl(''); 
     
     const newOrder: Order = {
-      orderNo: 'ORD' + Date.now(),
+      orderNo,
       botId: activeTab === 'auto' ? botId : '匿名',
       contact: contactInfo || '无', 
       productName: product.name,
-      amount: `${finalAmount} ${paymentMethod.toUpperCase()}`,
+      amount: `${finalAmount} ${currency}`,
       paymentMethod,
       code: '',
       type: product.type,
@@ -329,9 +352,9 @@ export const StorePage = () => {
     if (paymentMethod === 'usdt' || paymentMethod === 'trx') {
       startCryptoMonitoring(paymentMethod.toUpperCase(), finalAmount);
     } else {
-      generateHupijiaoUrl(paymentMethod, finalAmount, newOrder.orderNo);
+      generateHupijiaoUrl(paymentMethod, finalAmount, orderNo);
       // 法币支付开始轮询订单状态
-      startOrderPolling(newOrder.orderNo);
+      startOrderPolling(orderNo);
     }
   };
 
