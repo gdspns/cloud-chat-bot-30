@@ -343,9 +343,33 @@ export const StorePage = () => {
     }, 5000);
   };
 
-  const confirmHupijiaoPayment = () => {
-    if (window.confirm(`确认已完成 ¥${realPayAmount} 的支付？`)) {
-      completeOrder(`HUPI-MANUAL-` + Date.now());
+  const confirmHupijiaoPayment = async () => {
+    if (!currentOrder) return;
+    
+    // 从数据库查询订单支付状态（通过虎皮椒回调自动更新）
+    const { data: dbOrder, error } = await supabase
+      .from('store_orders')
+      .select('status, delivered_code')
+      .eq('order_no', currentOrder.orderNo)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('查询订单状态失败:', error);
+      alert('查询订单状态失败，请稍后重试');
+      return;
+    }
+    
+    if (dbOrder?.status === 'paid') {
+      // 订单已在后台确认支付，直接完成
+      if (dbOrder.delivered_code) {
+        updateOrderStatus('paid', dbOrder.delivered_code);
+        setPaymentStep('success');
+      } else {
+        completeOrder(`HUPI-CALLBACK-` + Date.now());
+      }
+    } else {
+      // 订单未确认支付
+      alert('未检测到支付成功，请确保已完成支付后再试。如已支付请稍等片刻后重试。');
     }
   };
 
