@@ -79,9 +79,45 @@ const RichEditor: React.FC<RichEditorProps> = ({ value, onChange }) => {
     if (promptMode === 'image') {
       execCmd('insertImage', promptValue);
     } else if (promptMode === 'video') {
-      let html = `<div class="my-4"><video controls class="w-full rounded-lg" src="${promptValue}"></video><p><br/></p>`;
-      if (promptValue.includes('iframe') || promptValue.includes('embed')) html = promptValue;
-      execCmd('insertHTML', html);
+      const url = promptValue.trim();
+      let html = '';
+      
+      // 检查是否是iframe嵌入代码
+      if (url.includes('<iframe') || url.includes('embed')) {
+        html = `<div class="my-4">${url}</div><p><br/></p>`;
+      }
+      // YouTube链接转换为嵌入iframe
+      else if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
+        let videoId = '';
+        if (url.includes('youtube.com/watch')) {
+          const urlParams = new URL(url).searchParams;
+          videoId = urlParams.get('v') || '';
+        } else if (url.includes('youtu.be/')) {
+          videoId = url.split('youtu.be/')[1]?.split('?')[0] || '';
+        }
+        if (videoId) {
+          html = `<div class="my-4"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div><p><br/></p>`;
+        }
+      }
+      // Bilibili链接转换为嵌入iframe
+      else if (url.includes('bilibili.com/video/')) {
+        const bvMatch = url.match(/\/video\/(BV[a-zA-Z0-9]+)/);
+        if (bvMatch) {
+          html = `<div class="my-4"><iframe src="//player.bilibili.com/player.html?bvid=${bvMatch[1]}&high_quality=1" frameborder="0" allowfullscreen></iframe></div><p><br/></p>`;
+        }
+      }
+      // 直接视频文件链接 (mp4, webm, ogg等)
+      else if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url)) {
+        html = `<div class="my-4"><video controls playsinline preload="metadata"><source src="${url}" type="video/${url.match(/\.(mp4|webm|ogg|mov)/i)?.[1] || 'mp4'}">您的浏览器不支持视频播放</video></div><p><br/></p>`;
+      }
+      // 其他链接尝试作为视频源
+      else {
+        html = `<div class="my-4"><video controls playsinline preload="metadata"><source src="${url}">您的浏览器不支持视频播放</video></div><p><br/></p>`;
+      }
+      
+      if (html) {
+        execCmd('insertHTML', html);
+      }
     }
     setPromptMode(null);
     setPromptValue('');
