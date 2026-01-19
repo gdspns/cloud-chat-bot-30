@@ -1,12 +1,11 @@
 import React, { useState, useCallback } from "react";
-import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag, HelpCircle } from "lucide-react";
+import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag } from "lucide-react";
 import { ShopTab } from "./types";
 import { ShopNavButton } from "./ShopNavButton";
 import { ProductManager } from "./ProductManager";
 import { CategoryManager } from "./CategoryManager";
 import { OrderManager } from "./OrderManager";
 import { ShopSettings } from "./ShopSettings";
-import { ConfigGuide } from "./ConfigGuide";
 import { useShopData } from "./hooks/useShopData";
 
 interface TgShopPanelProps {
@@ -127,12 +126,6 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
               active={activeTab === 'orders'} 
               onClick={() => setActiveTab('orders')} 
             />
-            <ShopNavButton 
-              icon={<HelpCircle size={16}/>} 
-              label="配置说明" 
-              active={activeTab === 'guide'} 
-              onClick={() => setActiveTab('guide')} 
-            />
           </nav>
         </div>
 
@@ -227,9 +220,6 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 onClearOrders={handleClearOrders}
                 isLoading={isLoading}
               />
-            )}
-            {activeTab === 'guide' && (
-              <ConfigGuide />
             )}
           </div>
         </main>

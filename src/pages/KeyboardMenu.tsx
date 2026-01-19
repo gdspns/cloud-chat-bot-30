@@ -63,9 +63,10 @@ import {
   Smile,
   Video,
   ShoppingCart,
+  HelpCircle,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { TgShopPanel } from "@/components/TgShop";
+import { TgShopPanel, ConfigGuide } from "@/components/TgShop";
 import { Navbar } from "@/components/Navbar";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -488,7 +489,7 @@ function Workspace({
   commands,
   setCommands,
 }: any) {
-  const [activeTab, setActiveTab] = useState<"message" | "keyboard" | "commands" | "settings" | "users" | "shop">("settings");
+  const [activeTab, setActiveTab] = useState<"message" | "keyboard" | "commands" | "settings" | "users" | "shop" | "guide">("settings");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
   const [flowMessages, setFlowMessages] = useState<MessageData[]>([
@@ -1309,6 +1310,12 @@ function Workspace({
             active={activeTab === "shop"}
             onClick={() => setActiveTab("shop")}
           />
+          <SidebarItem
+            icon={<HelpCircle size={18} />}
+            label="配置说明"
+            active={activeTab === "guide"}
+            onClick={() => setActiveTab("guide")}
+          />
         </nav>
 
         <div className="p-4 border-t space-y-3">
@@ -1451,10 +1458,13 @@ function Workspace({
               showToast={showToast}
             />
           )}
+          {activeTab === "guide" && (
+            <ConfigGuide />
+          )}
         </div>
 
-        {/* Phone Simulator - 仅在非商城页面显示 */}
-        {activeTab !== "shop" && (
+        {/* Phone Simulator - 仅在非商城和配置说明页面显示 */}
+        {activeTab !== "shop" && activeTab !== "guide" && (
           <div className="w-[320px] p-6 flex items-center justify-center bg-muted/50 border-l shrink-0">
             <PhoneSimulator
               chatHistory={chatHistory}
