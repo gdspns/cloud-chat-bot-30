@@ -92,4 +92,4 @@ export interface ShopConfig {
   userLanguagePreferences?: Record<string, string>;
 }
 
-export type ShopTab = 'settings' | 'products' | 'categories' | 'orders' | 'guide';
+export type ShopTab = 'settings' | 'products' | 'categories' | 'orders';
