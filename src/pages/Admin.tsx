@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Play, Pause, Calendar, Copy, CheckCircle, XCircle, Key, Globe, Smartphone, List, MessageSquare, Send, LayoutDashboard, Users, Bot, Image as ImageIcon, ChevronDown, ChevronUp, X, ZoomIn, Loader2, Database, RefreshCw } from "lucide-react";
+import { Trash2, Play, Pause, Calendar, Copy, CheckCircle, XCircle, Key, Globe, Smartphone, List, MessageSquare, Send, LayoutDashboard, Users, Bot, Image as ImageIcon, ChevronDown, ChevronUp, X, ZoomIn, Loader2, Database, RefreshCw, FileText } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/hooks/use-auth";
 import { DataExportImport } from "@/components/DataExportImport";
+import { ArticleManager } from "@/components/ArticleManager";
 
 interface BotActivation {
   id: string;
@@ -1188,6 +1189,10 @@ export const Admin = () => {
               <MessageSquare className="h-4 w-4 mr-2" />
               聊天监控
             </TabsTrigger>
+            <TabsTrigger value="articles">
+              <FileText className="h-4 w-4 mr-2" />
+              文章管理
+            </TabsTrigger>
           </TabsList>
 
           {/* 仪表盘 */}
@@ -1760,6 +1765,11 @@ export const Admin = () => {
                 )}
               </Card>
             </div>
+          </TabsContent>
+
+          {/* 文章管理 */}
+          <TabsContent value="articles" className="space-y-4">
+            <ArticleManager />
           </TabsContent>
         </Tabs>
 
