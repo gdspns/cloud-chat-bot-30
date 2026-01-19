@@ -37,47 +37,51 @@ const ADMIN_ACTIONS = [
 // Helper function to verify admin role
 async function verifyAdminRole(req: Request, supabase: any): Promise<{ isAdmin: boolean; userId: string | null; error?: string }> {
   const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return { isAdmin: false, userId: null, error: '未提供认证信息' };
   }
 
   const token = authHeader.replace('Bearer ', '');
 
-  // Verify the JWT and get user
-  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+  // Verify the JWT using getClaims for better reliability
+  const { data, error: claimsError } = await supabase.auth.getClaims(token);
 
-  if (userError || !user) {
+  if (claimsError || !data?.claims) {
+    console.error('getClaims error:', claimsError);
     return { isAdmin: false, userId: null, error: '无效的认证令牌' };
   }
 
+  const userId = data.claims.sub;
+
   // Check if user has admin role using the has_role function
   const { data: hasRole, error: roleError } = await supabase.rpc('has_role', {
-    _user_id: user.id,
+    _user_id: userId,
     _role: 'admin'
   });
 
   if (roleError) {
     console.error('Role check error:', roleError);
-    return { isAdmin: false, userId: user.id, error: '角色验证失败' };
+    return { isAdmin: false, userId, error: '角色验证失败' };
   }
 
-  return { isAdmin: hasRole === true, userId: user.id };
+  return { isAdmin: hasRole === true, userId };
 }
 
 // Helper function to verify a normal authenticated user
 async function verifyUser(req: Request, supabase: any): Promise<{ userId: string | null; error?: string }> {
   const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return { userId: null, error: '未提供认证信息' };
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !user) {
+  const { data, error: claimsError } = await supabase.auth.getClaims(token);
+  if (claimsError || !data?.claims) {
+    console.error('getClaims error in verifyUser:', claimsError);
     return { userId: null, error: '无效的认证令牌' };
   }
 
-  return { userId: user.id };
+  return { userId: data.claims.sub };
 }
 
 serve(async (req) => {
