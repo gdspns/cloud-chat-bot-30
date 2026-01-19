@@ -138,7 +138,6 @@ interface PaymentRequest {
   orderId: string;
   amount: number;
   paymentMethod: 'wechat' | 'alipay';
-  useNativeApi?: boolean; // 是否尝试原生API
 }
 
 serve(async (req) => {
@@ -148,7 +147,7 @@ serve(async (req) => {
   }
 
   try {
-    const { orderId, amount, paymentMethod, useNativeApi = false } = await req.json() as PaymentRequest;
+    const { orderId, amount, paymentMethod } = await req.json() as PaymentRequest;
 
     // 验证必要参数
     if (!orderId || !amount || !paymentMethod) {
@@ -174,15 +173,16 @@ serve(async (req) => {
       );
     }
 
-    // 构建支付参数
-    const params: Record<string, string | number> = {
+    // 构建支付参数 - 使用当面付接口
+    const params: Record<string, string> = {
       version: '1.1',
       appid: appId.trim(),
       trade_order_id: orderId,
-      total_fee: amount,
+      total_fee: amount.toFixed(2),
       title: '在线支付',
-      time: Math.floor(Date.now() / 1000),
-      nonce_str: Math.random().toString(36).substr(2, 15),
+      time: Math.floor(Date.now() / 1000).toString(),
+      nonce_str: Math.random().toString(36).substring(2, 15),
+      type: paymentMethod === 'alipay' ? 'alipay' : 'wechat',
     };
 
     // 按键名排序并生成签名字符串
@@ -194,30 +194,66 @@ serve(async (req) => {
     
     // 生成 MD5 签名
     const hash = md5(signStr.slice(0, -1) + secret.trim());
+    params.hash = hash;
 
-    // 生成支付页面URL（供用户跳转使用）
-    const gatewayUrl = 'https://api.xunhupay.com/payment/do.html';
-    const queryString = new URLSearchParams({
-      ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-      hash
-    }).toString();
-    
-    const payUrl = `${gatewayUrl}?${queryString}`;
+    console.log(`[create-payment-url] 调用当面付API: orderId=${orderId}, method=${paymentMethod}`);
 
-    console.log(`[create-payment-url] 生成支付链接: orderId=${orderId}, method=${paymentMethod}`);
+    // 使用 POST 请求调用虎皮椒当面付接口
+    const formData = new URLSearchParams(params);
+    const apiResponse = await fetch('https://api.xunhupay.com/payment/do.html', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+      },
+      body: formData,
+    });
 
-    // 返回支付URL，前端用QR生成器渲染二维码
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        payUrl,           // 支付页面URL
-        qrCodeUrl: null,  // 虎皮椒不支持直接返回二维码，使用payUrl生成
-        orderId,
-        amount,
-        paymentMethod
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const responseText = await apiResponse.text();
+    console.log(`[create-payment-url] API响应: ${responseText}`);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      console.error('[create-payment-url] 解析响应失败:', responseText);
+      return new Response(
+        JSON.stringify({ error: '支付网关响应异常', details: responseText }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 检查返回结果
+    if (data.errcode === 0 || data.errcode === '0') {
+      // 成功 - 返回二维码URL
+      const qrCodeUrl = data.url_qrcode || null;
+      const payUrl = data.url || null;
+
+      console.log(`[create-payment-url] 成功: qrCodeUrl=${qrCodeUrl}, payUrl=${payUrl}`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          qrCodeUrl,       // 二维码图片URL（当面付接口返回）
+          payUrl,          // 支付页面URL
+          orderId,
+          amount,
+          paymentMethod
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else {
+      // 失败
+      console.error('[create-payment-url] 支付创建失败:', data);
+      return new Response(
+        JSON.stringify({ 
+          error: data.errmsg || '支付创建失败', 
+          errcode: data.errcode,
+          details: JSON.stringify(data)
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
