@@ -214,6 +214,8 @@ export const StorePage = () => {
 
       if (data?.payUrl) {
         setHupiPayUrl(data.payUrl);
+        // 自动打开支付页面（虎皮椒需要跳转到支付页面扫码）
+        window.open(data.payUrl, '_blank');
       } else if (data?.error) {
         console.error('支付配置错误:', data.error);
         setHupiPayUrl('');
@@ -437,13 +439,16 @@ export const StorePage = () => {
                     </div>
                   )}
 
-                  <div className="flex justify-center bg-white p-2 rounded-xl border border-blue-100 shadow-sm mx-auto w-fit">
-                    <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(isCrypto ? config.usdtAddress : hupiPayUrl)}`}
-                      alt="支付二维码"
-                      className="w-[150px] h-[150px]"
-                    />
-                  </div>
+                  {/* 只有加密货币才显示二维码，法币支付跳转支付页面 */}
+                  {isCrypto && (
+                    <div className="flex justify-center bg-white p-2 rounded-xl border border-blue-100 shadow-sm mx-auto w-fit">
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(config.usdtAddress)}`}
+                        alt="支付二维码"
+                        className="w-[150px] h-[150px]"
+                      />
+                    </div>
+                  )}
 
                   {isCrypto && (
                     <div className="flex items-center justify-center gap-2 bg-white/60 py-2 rounded-lg border border-blue-200">
@@ -456,24 +461,31 @@ export const StorePage = () => {
                   
                   {!isCrypto && (
                     <div className="text-center space-y-3">
-                      <p className="text-[9px] text-gray-400 mt-1 font-bold">请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫码支付</p>
-                      <button 
-                        onClick={confirmHupijiaoPayment}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95"
-                      >
-                        我已完成支付
-                      </button>
+                      <p className="text-xs text-gray-600 mt-1 font-bold">
+                        已自动跳转到{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付页面
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        如未打开，请点击下方按钮
+                      </p>
                       
                       {hupiPayUrl && (
                         <a 
                           href={hupiPayUrl} 
                           target="_blank" 
                           rel="noreferrer" 
-                          className="block text-[9px] text-blue-500 font-bold underline mt-2"
+                          className="block w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95"
                         >
-                          手机端无法扫码？点击跳转支付
+                          <Smartphone size={14} className="inline mr-1" />
+                          打开支付页面
                         </a>
                       )}
+                      
+                      <button 
+                        onClick={confirmHupijiaoPayment}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95"
+                      >
+                        我已完成支付
+                      </button>
                     </div>
                   )}
                 </div>
