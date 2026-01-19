@@ -148,7 +148,7 @@ serve(async (req) => {
   }
 
   try {
-    const { orderId, amount, paymentMethod, gateway } = await req.json() as PaymentRequest;
+    const { orderId, amount, paymentMethod } = await req.json() as PaymentRequest;
 
     // 验证必要参数
     if (!orderId || !amount || !paymentMethod) {
@@ -174,7 +174,7 @@ serve(async (req) => {
       );
     }
 
-    // 构建支付参数
+    // 构建支付参数 - 使用原生API接口
     const params: Record<string, string | number> = {
       version: '1.1',
       appid: appId.trim(),
@@ -183,6 +183,9 @@ serve(async (req) => {
       title: '在线支付',
       time: Math.floor(Date.now() / 1000),
       nonce_str: Math.random().toString(36).substr(2, 15),
+      type: paymentMethod === 'wechat' ? 'WAP' : 'WAP', // 使用 WAP 获取原生支付
+      wap_url: 'https://lovable.dev',
+      wap_name: '自助商城',
     };
 
     // 按键名排序并生成签名字符串
@@ -194,28 +197,56 @@ serve(async (req) => {
     
     // 生成 MD5 签名
     const hash = md5(signStr.slice(0, -1) + secret.trim());
+    params.hash = hash;
 
-    // 构建最终 URL
-    const gatewayUrl = gateway || 'https://api.xunhupay.com/payment/do.html';
-    const queryString = new URLSearchParams({
-      ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-      hash
-    }).toString();
+    // 调用虎皮椒原生API获取二维码
+    const apiUrl = 'https://api.xunhupay.com/payment/do.html';
     
-    const payUrl = `${gatewayUrl}?${queryString}`;
+    console.log(`[create-payment-url] 请求虎皮椒原生API: orderId=${orderId}, method=${paymentMethod}`);
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams(
+        Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
+      ).toString(),
+    });
 
-    console.log(`[create-payment-url] 生成支付链接成功: orderId=${orderId}, method=${paymentMethod}`);
+    const result = await response.json();
+    
+    console.log(`[create-payment-url] 虎皮椒返回:`, JSON.stringify(result));
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        payUrl,
-        orderId,
-        amount,
-        paymentMethod
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    if (result.errcode === 0 || result.openid) {
+      // 成功 - 返回二维码URL或支付链接
+      const qrCodeUrl = result.url_qrcode || result.url || result.qrcode;
+      const payUrl = result.url || result.mweb_url || result.h5_url;
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          qrCodeUrl,  // 二维码图片URL
+          payUrl,     // 支付页面URL（备用）
+          orderId,
+          amount,
+          paymentMethod,
+          raw: result
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else {
+      // 失败 - 返回错误信息
+      console.error(`[create-payment-url] 虎皮椒错误:`, result);
+      return new Response(
+        JSON.stringify({ 
+          error: result.errmsg || '支付接口返回错误',
+          details: result,
+          orderId
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
