@@ -847,6 +847,9 @@ serve(async (req) => {
           .maybeSingle();
 
         let newShopExpireAt: Date;
+        let newChatExpireAt: Date | null = null;
+        let newKeyboardExpireAt: Date | null = null;
+        
         if (shopConfig?.shop_expire_at && new Date(shopConfig.shop_expire_at) > new Date()) {
           newShopExpireAt = new Date(shopConfig.shop_expire_at);
           newShopExpireAt.setDate(newShopExpireAt.getDate() + validityDays);
@@ -861,10 +864,83 @@ serve(async (req) => {
           {
             bot_token: botToken,
             shop_expire_at: newShopExpireAt.toISOString(),
+            shop_trial_started_at: null, // 清除试用记录
             updated_at: new Date().toISOString(),
           } as any,
           { onConflict: 'bot_token' }
         );
+
+        // 复合激活码：同时更新双向聊天有效期
+        const supportsChat = ['chat_shop', 'all'].includes(featureType);
+        if (supportsChat) {
+          const { data: currentBot } = await supabase
+            .from('bot_activations')
+            .select('id, expire_at, bot_token')
+            .eq('bot_token', botToken)
+            .maybeSingle();
+
+          if (currentBot) {
+            if (currentBot.expire_at && new Date(currentBot.expire_at) > new Date()) {
+              newChatExpireAt = new Date(currentBot.expire_at);
+              newChatExpireAt.setDate(newChatExpireAt.getDate() + validityDays);
+            } else {
+              newChatExpireAt = new Date();
+              newChatExpireAt.setDate(newChatExpireAt.getDate() + validityDays);
+            }
+            newChatExpireAt.setHours(23, 59, 59, 999);
+
+            await supabase
+              .from('bot_activations')
+              .update({
+                expire_at: newChatExpireAt.toISOString(),
+                is_authorized: true,
+                is_active: true,
+                trial_messages_used: 0,
+                web_enabled: true,
+                app_enabled: true,
+              })
+              .eq('id', currentBot.id);
+
+            // 更新试用记录
+            await supabase
+              .from('bot_trial_records')
+              .upsert({
+                bot_token: botToken,
+                was_authorized: true,
+                last_authorized_expire_at: newChatExpireAt.toISOString(),
+                is_blocked: false,
+              }, { onConflict: 'bot_token' });
+          }
+        }
+
+        // 复合激活码：同时更新菜单键盘有效期
+        const supportsKeyboard = ['keyboard_shop', 'all'].includes(featureType);
+        if (supportsKeyboard) {
+          const { data: keyboardConfig } = await supabase
+            .from('keyboard_configs')
+            .select('keyboard_expire_at')
+            .eq('bot_token', botToken)
+            .maybeSingle();
+
+          if (keyboardConfig?.keyboard_expire_at && new Date(keyboardConfig.keyboard_expire_at) > new Date()) {
+            newKeyboardExpireAt = new Date(keyboardConfig.keyboard_expire_at);
+            newKeyboardExpireAt.setDate(newKeyboardExpireAt.getDate() + validityDays);
+          } else {
+            newKeyboardExpireAt = new Date();
+            newKeyboardExpireAt.setDate(newKeyboardExpireAt.getDate() + validityDays);
+          }
+          newKeyboardExpireAt.setHours(23, 59, 59, 999);
+
+          await supabase.from('keyboard_configs').upsert(
+            {
+              bot_token: botToken,
+              keyboard_expire_at: newKeyboardExpireAt.toISOString(),
+              keyboard_trial_started_at: null, // 清除试用记录
+              updated_at: new Date().toISOString(),
+            } as any,
+            { onConflict: 'bot_token' }
+          );
+        }
 
         // 标记激活码为已使用
         await supabase
@@ -875,12 +951,19 @@ serve(async (req) => {
           })
           .eq('id', codeData.id);
 
-        console.log('Bind shop code success:', { featureType, newShopExpireAt: newShopExpireAt.toISOString() });
+        console.log('Bind shop code success:', { 
+          featureType, 
+          newShopExpireAt: newShopExpireAt.toISOString(),
+          newChatExpireAt: newChatExpireAt?.toISOString() || null,
+          newKeyboardExpireAt: newKeyboardExpireAt?.toISOString() || null,
+        });
 
         return new Response(JSON.stringify({ 
           ok: true, 
           message: 'TG商城激活成功',
           expireAt: newShopExpireAt.toISOString(),
+          chatExpireAt: newChatExpireAt?.toISOString() || null,
+          keyboardExpireAt: newKeyboardExpireAt?.toISOString() || null,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
