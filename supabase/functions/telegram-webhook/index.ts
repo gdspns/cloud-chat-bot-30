@@ -2056,12 +2056,43 @@ serve(async (req) => {
       .eq('bot_token', botToken)
       .maybeSingle();
     
-    const shopConfig = shopConfigData as ShopConfig | null;
+    let shopConfig = shopConfigData as (ShopConfig & { shop_expire_at?: string | null; shop_trial_started_at?: string | null }) | null;
     const customCommands = shopConfig?.custom_commands || { shop: [], buy: [], order: [] };
     
     // 获取TG商城的用户语言偏好
     let shopUserLanguagePreferences: Record<string, string> = shopConfig?.user_language_preferences || {};
     let shopUserLanguage: 'zh' | 'en' = (shopUserLanguagePreferences[chatId.toString()] as 'zh' | 'en') || 'zh';
+    
+    // TG商城有效期/试用期检查
+    let shopEnabled = true;
+    let shopExpiredMessage = '';
+    if (shopConfig) {
+      const now = new Date();
+      const shopExpireAt = (shopConfigData as any)?.shop_expire_at ? new Date((shopConfigData as any).shop_expire_at) : null;
+      const shopTrialStartedAt = (shopConfigData as any)?.shop_trial_started_at ? new Date((shopConfigData as any).shop_trial_started_at) : null;
+      
+      // 如果已激活授权，检查是否过期
+      if (shopExpireAt) {
+        if (shopExpireAt < now) {
+          console.log('[TG Shop] Shop expired - disabling shop features');
+          shopEnabled = false;
+          shopExpiredMessage = shopUserLanguage === 'en' 
+            ? '❌ Shop subscription expired. Please enter an activation code to renew.'
+            : '❌ 商城授权已过期，请输入激活码续期！';
+        }
+      } else if (shopTrialStartedAt) {
+        // 试用模式：24小时后过期
+        const trialEndTime = new Date(shopTrialStartedAt.getTime() + 24 * 60 * 60 * 1000);
+        if (now > trialEndTime) {
+          console.log('[TG Shop] Shop trial expired (24h) - disabling shop features');
+          shopEnabled = false;
+          shopExpiredMessage = shopUserLanguage === 'en'
+            ? '❌ Shop trial has expired. Please enter an activation code to activate.'
+            : '❌ 商城试用已过期，请输入激活码激活！';
+        }
+      }
+      // 注意：如果既没有 shop_expire_at 也没有 shop_trial_started_at，说明是首次使用，将在下面自动开启试用
+    }
     
     // 处理TG商城的语言切换回调（从/start消息的语言按钮）
     if (!keyboardHandled && (text === '🌐 English' || text === '🌐 中文 / English' || text === 'shop_lang_en' || text === 'shop_lang_zh')) {
@@ -2087,16 +2118,39 @@ serve(async (req) => {
     // 处理 /shop 命令或自定义中文命令
     const isShopCommand = text.toLowerCase() === '/shop' || fuzzyMatchChinese(text, customCommands.shop);
     if (!keyboardHandled && isShopCommand) {
-      const shopResult = await handleShopCommand(supabase, botToken, undefined, shopUserLanguage);
-      if (shopResult.handled && shopResult.message) {
+      // 首次使用自动开启24小时试用
+      if (shopConfig && !(shopConfigData as any)?.shop_expire_at && !(shopConfigData as any)?.shop_trial_started_at) {
+        console.log('[TG Shop] First use - starting 24h trial');
+        const trialStartTime = new Date().toISOString();
+        await supabase.from('shop_configs').update({
+          shop_trial_started_at: trialStartTime,
+          updated_at: new Date().toISOString()
+        }).eq('bot_token', botToken);
+        // 更新本地变量
+        shopEnabled = true;
+      }
+      
+      // 检查商城是否过期
+      if (!shopEnabled) {
         await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
-          text: shopResult.message,
-          parse_mode: 'Markdown',
-          reply_markup: shopResult.inlineKeyboard
+          text: shopExpiredMessage,
+          parse_mode: 'Markdown'
         });
         keyboardHandled = true;
-        console.log('[TG Shop] /shop command handled');
+        console.log('[TG Shop] /shop command blocked - shop expired');
+      } else {
+        const shopResult = await handleShopCommand(supabase, botToken, undefined, shopUserLanguage);
+        if (shopResult.handled && shopResult.message) {
+          await sendTelegramMessage(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: shopResult.message,
+            parse_mode: 'Markdown',
+            reply_markup: shopResult.inlineKeyboard
+          });
+          keyboardHandled = true;
+          console.log('[TG Shop] /shop command handled');
+        }
       }
     }
     
@@ -2107,44 +2161,55 @@ serve(async (req) => {
     const isBuyChineseCommand = fuzzyMatchChinese(text.split(/\s+/)[0] || '', customCommands.buy);
     
     if (!keyboardHandled && (isBuyEnglishCommand || isBuyChineseCommand)) {
-      // 如果是中文命令，转换为 /buy 格式以便处理
-      if (isBuyChineseCommand && !isBuyEnglishCommand) {
-        const parts = text.split(/\s+/);
-        if (parts.length > 1) {
-          buyCommandText = '/buy ' + parts.slice(1).join(' ');
-        } else {
-          buyCommandText = '/buy';
-        }
-      }
-      
-      const buyResult = await handleBuyCommand(
-        supabase, 
-        botToken, 
-        chatId, 
-        fromUser.username || null,
-        buyCommandText,
-        shopUserLanguage
-      );
-      if (buyResult.handled && buyResult.message) {
-        // 发送订单详情，带支付方式选择按钮
-        const msgResult = await sendTelegramMessage(botToken, 'sendMessage', {
+      // 检查商城是否过期
+      if (!shopEnabled) {
+        await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
-          text: buyResult.message,
-          parse_mode: 'Markdown',
-          reply_markup: buyResult.inlineKeyboard
+          text: shopExpiredMessage,
+          parse_mode: 'Markdown'
         });
-        
-        // 保存消息ID以便超时后删除
-        if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
-          await supabase
-            .from('shop_orders')
-            .update({ telegram_message_id: msgResult.result.message_id })
-            .eq('id', buyResult.orderId);
-          console.log(`[TG Shop] Saved message_id ${msgResult.result.message_id} for order ${buyResult.orderId}`);
+        keyboardHandled = true;
+        console.log('[TG Shop] /buy command blocked - shop expired');
+      } else {
+        // 如果是中文命令，转换为 /buy 格式以便处理
+        if (isBuyChineseCommand && !isBuyEnglishCommand) {
+          const parts = text.split(/\s+/);
+          if (parts.length > 1) {
+            buyCommandText = '/buy ' + parts.slice(1).join(' ');
+          } else {
+            buyCommandText = '/buy';
+          }
         }
         
-        keyboardHandled = true;
-        console.log('[TG Shop] /buy command handled');
+        const buyResult = await handleBuyCommand(
+          supabase, 
+          botToken, 
+          chatId, 
+          fromUser.username || null,
+          buyCommandText,
+          shopUserLanguage
+        );
+        if (buyResult.handled && buyResult.message) {
+          // 发送订单详情，带支付方式选择按钮
+          const msgResult = await sendTelegramMessage(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: buyResult.message,
+            parse_mode: 'Markdown',
+            reply_markup: buyResult.inlineKeyboard
+          });
+          
+          // 保存消息ID以便超时后删除
+          if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
+            await supabase
+              .from('shop_orders')
+              .update({ telegram_message_id: msgResult.result.message_id })
+              .eq('id', buyResult.orderId);
+            console.log(`[TG Shop] Saved message_id ${msgResult.result.message_id} for order ${buyResult.orderId}`);
+          }
+          
+          keyboardHandled = true;
+          console.log('[TG Shop] /buy command handled');
+        }
       }
     }
     
@@ -2154,25 +2219,36 @@ serve(async (req) => {
     const isOrderChineseCommand = fuzzyMatchChinese(text.split(/\s+/)[0] || '', customCommands.order);
     
     if (!keyboardHandled && (isOrderEnglishCommand || isOrderChineseCommand)) {
-      // 如果是中文命令，转换为 /order 格式
-      if (isOrderChineseCommand && !isOrderEnglishCommand) {
-        const parts = text.split(/\s+/);
-        if (parts.length > 1) {
-          orderCommandText = '/order ' + parts.slice(1).join(' ');
-        } else {
-          orderCommandText = '/order';
-        }
-      }
-      
-      const orderResult = await handleOrderCommand(supabase, botToken, chatId, orderCommandText, shopUserLanguage);
-      if (orderResult.handled && orderResult.message) {
+      // 检查商城是否过期
+      if (!shopEnabled) {
         await sendTelegramMessage(botToken, 'sendMessage', {
           chat_id: chatId,
-          text: orderResult.message,
+          text: shopExpiredMessage,
           parse_mode: 'Markdown'
         });
         keyboardHandled = true;
-        console.log('[TG Shop] /order command handled');
+        console.log('[TG Shop] /order command blocked - shop expired');
+      } else {
+        // 如果是中文命令，转换为 /order 格式
+        if (isOrderChineseCommand && !isOrderEnglishCommand) {
+          const parts = text.split(/\s+/);
+          if (parts.length > 1) {
+            orderCommandText = '/order ' + parts.slice(1).join(' ');
+          } else {
+            orderCommandText = '/order';
+          }
+        }
+        
+        const orderResult = await handleOrderCommand(supabase, botToken, chatId, orderCommandText, shopUserLanguage);
+        if (orderResult.handled && orderResult.message) {
+          await sendTelegramMessage(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: orderResult.message,
+            parse_mode: 'Markdown'
+          });
+          keyboardHandled = true;
+          console.log('[TG Shop] /order command handled');
+        }
       }
     }
     
