@@ -98,10 +98,17 @@ const CATEGORY_TAGS = [
 ];
 
 const DEFAULT_PRODUCTS: Product[] = [
-  { id: 1, type: 'auto', tags: ['chat'], name: '1个月-自动订阅', duration: 30, price: 30, usdt: 5.000, trx: 40.000, desc: '支付后系统全自动激活，有效期30天', codes: [] },
-  { id: 2, type: 'auto', tags: ['keyboard'], name: '3个月-自动订阅', duration: 90, price: 85, usdt: 14.000, trx: 110.000, desc: '季度优惠套餐，系统自动处理', codes: [] },
-  { id: 5, type: 'card', tags: ['mall'], name: '1个月-独立激活码', duration: 30, price: 35, usdt: 6.000, trx: 45.000, desc: '购买后发放独立激活码，可转赠', codes: ['KEY-ADMIN-FIX-888', 'KEY-B2-999'] },
-  { id: 8, type: 'card', tags: ['chat', 'mall'], name: '12个月-年费卡密', duration: 360, price: 320, usdt: 50.000, trx: 400.000, desc: '年度尊享授权，下单即刻发卡', codes: ['YEAR-KING-2026-PRO'] },
+  // 自动充值商品 - 商品名称需包含功能类型和时长，用于 webhook 解析
+  { id: 1, type: 'auto', tags: ['chat'], name: '双向聊天-1个月', duration: 30, price: 30, usdt: 5.000, trx: 40.000, desc: '支付后系统全自动激活，有效期30天', codes: [] },
+  { id: 2, type: 'auto', tags: ['chat'], name: '双向聊天-3个月', duration: 90, price: 85, usdt: 14.000, trx: 110.000, desc: '季度优惠套餐，系统自动处理', codes: [] },
+  { id: 3, type: 'auto', tags: ['keyboard'], name: '菜单键盘-1个月', duration: 30, price: 30, usdt: 5.000, trx: 40.000, desc: '支付后系统全自动激活，有效期30天', codes: [] },
+  { id: 4, type: 'auto', tags: ['keyboard'], name: '菜单键盘-3个月', duration: 90, price: 85, usdt: 14.000, trx: 110.000, desc: '季度优惠套餐，系统自动处理', codes: [] },
+  { id: 5, type: 'auto', tags: ['mall'], name: 'TG商城-1个月', duration: 30, price: 30, usdt: 5.000, trx: 40.000, desc: '支付后系统全自动激活，有效期30天', codes: [] },
+  { id: 6, type: 'auto', tags: ['mall'], name: 'TG商城-3个月', duration: 90, price: 85, usdt: 14.000, trx: 110.000, desc: '季度优惠套餐，系统自动处理', codes: [] },
+  // 卡密商品 - 购买后直接发放激活码
+  { id: 101, type: 'card', tags: ['chat'], name: '双向聊天-独立激活码-1个月', duration: 30, price: 35, usdt: 6.000, trx: 45.000, desc: '购买后发放独立激活码，可转赠', codes: [] },
+  { id: 102, type: 'card', tags: ['keyboard'], name: '菜单键盘-独立激活码-1个月', duration: 30, price: 35, usdt: 6.000, trx: 45.000, desc: '购买后发放独立激活码，可转赠', codes: [] },
+  { id: 103, type: 'card', tags: ['mall'], name: 'TG商城-独立激活码-1个月', duration: 30, price: 35, usdt: 6.000, trx: 45.000, desc: '购买后发放独立激活码，可转赠', codes: [] },
 ];
 
 const DEFAULT_CONFIG: Config = {
