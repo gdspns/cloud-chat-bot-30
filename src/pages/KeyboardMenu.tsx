@@ -824,6 +824,20 @@ function Workspace({
         showToast("success", "已从云端加载配置");
       }
 
+      // 连接机器人后立即确保机器人出现在管理员后台列表
+      try {
+        await supabase.functions.invoke('manage-bot', {
+          body: {
+            action: 'ensure-bot-listing',
+            botToken: token,
+            personalUserId: (targetChatId || userIdInput || '').toString(),
+          }
+        });
+        console.log('[KeyboardMenu] ensure-bot-listing called on connect');
+      } catch (e) {
+        console.warn('[KeyboardMenu] ensure-bot-listing failed (ignored):', e);
+      }
+
       setTimeout(() => {
         isInitialLoadRef.current = false;
       }, 1000);
