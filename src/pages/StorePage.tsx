@@ -337,22 +337,59 @@ export const StorePage = () => {
     }
   };
 
-  const completeOrder = (txId: string) => {
+  const completeOrder = async (txId: string) => {
     const productIdx = products.findIndex(p => Number(p.id) === Number(selectedProductId));
     if (productIdx === -1) return;
 
     const product = products[productIdx];
-    let finalCode = product.type === 'card' ? product.codes[0] : "AUTO_OK";
     
-    if (product.type === 'card') {
-      const updatedProducts = [...products];
-      const newCodes = [...product.codes];
-      newCodes.shift();
-      updatedProducts[productIdx] = { ...product, codes: newCodes };
-      setProducts(updatedProducts);
+    // 卡密类型商品 - 调用云函数从数据库原子获取卡密
+    if (product.type === 'card' && currentOrder) {
+      try {
+        const { data, error } = await supabase.functions.invoke('deliver-card-key', {
+          body: {
+            orderNo: currentOrder.orderNo,
+            productId: String(product.id)
+          }
+        });
+
+        if (error || !data?.success) {
+          // 数据库无卡密时回退到本地库存
+          if (product.codes && product.codes.length > 0) {
+            const localCode = product.codes[0];
+            const updatedProducts = [...products];
+            const newCodes = [...product.codes];
+            newCodes.shift();
+            updatedProducts[productIdx] = { ...product, codes: newCodes };
+            setProducts(updatedProducts);
+            updateOrderStatus('paid', localCode);
+          } else {
+            updateOrderStatus('paid', '卡密已售罄，请联系客服');
+          }
+        } else {
+          // 成功从数据库获取卡密
+          updateOrderStatus('paid', data.cardKey);
+        }
+      } catch (err) {
+        console.error('获取卡密失败:', err);
+        // 回退到本地
+        if (product.codes && product.codes.length > 0) {
+          const localCode = product.codes[0];
+          const updatedProducts = [...products];
+          const newCodes = [...product.codes];
+          newCodes.shift();
+          updatedProducts[productIdx] = { ...product, codes: newCodes };
+          setProducts(updatedProducts);
+          updateOrderStatus('paid', localCode);
+        } else {
+          updateOrderStatus('paid', '系统错误，请联系客服');
+        }
+      }
+    } else {
+      // 自动订阅类型
+      updateOrderStatus('paid', 'AUTO_OK');
     }
     
-    updateOrderStatus('paid', finalCode);
     setPaymentStep('success');
   };
 

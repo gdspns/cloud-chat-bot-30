@@ -686,6 +686,87 @@ export type Database = {
         }
         Relationships: []
       }
+      store_card_keys: {
+        Row: {
+          card_key: string
+          created_at: string
+          id: string
+          is_used: boolean
+          order_id: string | null
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          card_key: string
+          created_at?: string
+          id?: string
+          is_used?: boolean
+          order_id?: string | null
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          card_key?: string
+          created_at?: string
+          id?: string
+          is_used?: boolean
+          order_id?: string | null
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      store_orders: {
+        Row: {
+          amount: number
+          bot_id: string | null
+          contact: string | null
+          created_at: string
+          currency: string
+          delivered_code: string | null
+          id: string
+          order_no: string
+          payment_method: string
+          product_id: string
+          product_name: string
+          status: string
+          tx_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bot_id?: string | null
+          contact?: string | null
+          created_at?: string
+          currency: string
+          delivered_code?: string | null
+          id?: string
+          order_no: string
+          payment_method: string
+          product_id: string
+          product_name: string
+          status?: string
+          tx_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bot_id?: string | null
+          contact?: string | null
+          created_at?: string
+          currency?: string
+          delivered_code?: string | null
+          id?: string
+          order_no?: string
+          payment_method?: string
+          product_id?: string
+          product_name?: string
+          status?: string
+          tx_hash?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -712,6 +793,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      deliver_card_key: {
+        Args: { p_order_no: string; p_product_id: string }
+        Returns: {
+          card_key: string
+          error_message: string
+          success: boolean
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
