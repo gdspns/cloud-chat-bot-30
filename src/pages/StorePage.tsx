@@ -148,6 +148,48 @@ export const StorePage = () => {
   const [paymentLoading, setPaymentLoading] = useState(false);
 
   const paymentTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const orderPollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 停止订单轮询
+  const stopOrderPolling = () => {
+    if (orderPollingRef.current) {
+      clearInterval(orderPollingRef.current);
+      orderPollingRef.current = null;
+    }
+  };
+
+  // 开始轮询订单状态（法币支付时使用）
+  const startOrderPolling = (orderNo: string) => {
+    stopOrderPolling();
+    
+    orderPollingRef.current = setInterval(async () => {
+      try {
+        const { data: dbOrder, error } = await supabase
+          .from('store_orders')
+          .select('status, delivered_code')
+          .eq('order_no', orderNo)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('轮询订单状态失败:', error);
+          return;
+        }
+        
+        if (dbOrder?.status === 'paid') {
+          console.log('检测到订单已支付:', orderNo);
+          stopOrderPolling();
+          stopMonitoring();
+          
+          // 更新本地订单状态并显示成功
+          const code = dbOrder.delivered_code || 'AUTO_OK';
+          updateOrderStatus('paid', code);
+          setPaymentStep('success');
+        }
+      } catch (err) {
+        console.error('轮询异常:', err);
+      }
+    }, 3000); // 每3秒轮询一次
+  };
 
   // 监听 Storage 变化
   useEffect(() => {
@@ -183,7 +225,8 @@ export const StorePage = () => {
     } else if (timeLeft === 0 && paymentStep === 'paying') {
       setPaymentStep('expired');
       stopMonitoring();
-      updateOrderStatus('expired'); 
+      stopOrderPolling();
+      updateOrderStatus('expired');
     }
     return () => clearInterval(timer);
   }, [paymentStep, timeLeft]);
@@ -287,12 +330,15 @@ export const StorePage = () => {
       startCryptoMonitoring(paymentMethod.toUpperCase(), finalAmount);
     } else {
       generateHupijiaoUrl(paymentMethod, finalAmount, newOrder.orderNo);
+      // 法币支付开始轮询订单状态
+      startOrderPolling(newOrder.orderNo);
     }
   };
 
   const handleClosePayment = () => {
     setPaymentStep('selection');
     stopMonitoring();
+    stopOrderPolling();
     if (currentOrder && currentOrder.status === 'pending') {
       updateOrderStatus('expired');
     }
