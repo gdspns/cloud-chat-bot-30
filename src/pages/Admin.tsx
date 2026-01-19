@@ -116,6 +116,9 @@ export const Admin = () => {
   // 键盘配置缓存
   const [keyboardConfigs, setKeyboardConfigs] = useState<Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null }>>({});
   
+  // 商城配置缓存
+  const [shopConfigs, setShopConfigs] = useState<Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null }>>({});
+  
   // 用户列表展开相关
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   
@@ -178,6 +181,7 @@ export const Admin = () => {
     loadDisabledUsers();
     loadAllUsers();
     loadKeyboardConfigs();
+    loadShopConfigs();
     
     // 设置消息实时订阅 - 直接更新状态而不是重新加载
     const messagesChannel = supabase
@@ -259,6 +263,7 @@ export const Admin = () => {
         loadDisabledUsers(),
         loadAllUsers(),
         loadKeyboardConfigs(),
+        loadShopConfigs(),
       ]);
       toast({
         title: "刷新成功",
@@ -426,6 +431,28 @@ export const Admin = () => {
       setKeyboardConfigs(configMap);
     } catch (error) {
       console.error('加载键盘配置失败:', error);
+    }
+  };
+
+  const loadShopConfigs = async () => {
+    if (!session) return;
+    try {
+      const { data, error } = await supabase
+        .from('shop_configs')
+        .select('bot_token, shop_expire_at, shop_trial_started_at');
+      
+      if (error) throw error;
+      
+      const configMap: Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null }> = {};
+      for (const config of data || []) {
+        configMap[config.bot_token] = {
+          shop_expire_at: config.shop_expire_at,
+          shop_trial_started_at: config.shop_trial_started_at,
+        };
+      }
+      setShopConfigs(configMap);
+    } catch (error) {
+      console.error('加载商城配置失败:', error);
     }
   };
 
@@ -1003,6 +1030,33 @@ export const Admin = () => {
     }
     
     return { enabled: true, expireAt: null, status: 'none' };
+  };
+
+  // 获取TG商城状态
+  const getShopStatus = (botToken: string) => {
+    const config = shopConfigs[botToken];
+    if (!config) return { enabled: false, expireAt: null, status: 'none' };
+    
+    const now = new Date();
+    const expireAt = config.shop_expire_at ? new Date(config.shop_expire_at) : null;
+    const trialStartedAt = config.shop_trial_started_at ? new Date(config.shop_trial_started_at) : null;
+    
+    if (expireAt) {
+      if (expireAt < now) {
+        return { enabled: false, expireAt: config.shop_expire_at, status: 'expired' };
+      }
+      return { enabled: true, expireAt: config.shop_expire_at, status: 'authorized' };
+    }
+    
+    if (trialStartedAt) {
+      const trialEndTime = new Date(trialStartedAt.getTime() + 24 * 60 * 60 * 1000);
+      if (now > trialEndTime) {
+        return { enabled: false, expireAt: null, status: 'trial_expired' };
+      }
+      return { enabled: true, expireAt: null, status: 'trial' };
+    }
+    
+    return { enabled: false, expireAt: null, status: 'none' };
   };
 
   const handleAdminReply = async () => {
@@ -1595,6 +1649,37 @@ export const Admin = () => {
                                   绑定激活码
                                 </Button>
                               )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* TG商城状态 */}
+                        {(() => {
+                          const shopStatus = getShopStatus(activation.bot_token);
+                          return (
+                            <div className="border rounded-lg p-3 space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`h-4 w-4 text-sm ${shopStatus.enabled ? 'text-green-500' : 'text-gray-400'}`}>🛒</span>
+                                <span className="text-xs font-medium">TG商城</span>
+                                <span className="text-muted-foreground">|</span>
+                                {shopStatus.status === 'authorized' && shopStatus.expireAt && (
+                                  <Badge variant="default" className="text-xs">
+                                    有效至 {new Date(shopStatus.expireAt).toLocaleDateString()}
+                                  </Badge>
+                                )}
+                                {shopStatus.status === 'expired' && (
+                                  <Badge variant="destructive" className="text-xs">已过期</Badge>
+                                )}
+                                {shopStatus.status === 'trial' && (
+                                  <Badge variant="outline" className="text-xs">试用中</Badge>
+                                )}
+                                {shopStatus.status === 'trial_expired' && (
+                                  <Badge variant="destructive" className="text-xs">试用已结束</Badge>
+                                )}
+                                {shopStatus.status === 'none' && (
+                                  <Badge variant="secondary" className="text-xs">未配置</Badge>
+                                )}
+                              </div>
                             </div>
                           );
                         })()}
