@@ -412,6 +412,20 @@ export function useShopData(botToken?: string) {
         }
       }
 
+      // 确保该机器人会出现在管理员后台机器人列表
+      try {
+        await supabase.functions.invoke('manage-bot', {
+          body: {
+            action: 'ensure-bot-listing',
+            botToken,
+            // 这里用 adminId 作为 personal_user_id 的一个合理默认值（为空则由后端回退到 userId）
+            personalUserId: mergedConfig.adminId || '',
+          }
+        });
+      } catch (e) {
+        console.warn('[Shop] ensure-bot-listing failed (ignored):', e);
+      }
+
       setConfig(mergedConfig);
       return true;
     } catch (error) {

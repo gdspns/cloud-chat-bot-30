@@ -684,6 +684,20 @@ function Workspace({
       }
 
       if (error) throw error;
+
+      // 确保该机器人也会出现在管理员后台机器人列表（管理员列表基于 bot_activations）
+      try {
+        await supabase.functions.invoke('manage-bot', {
+          body: {
+            action: 'ensure-bot-listing',
+            botToken: botProfile.token,
+            personalUserId: (targetChatId || userIdInput || '').toString(),
+          }
+        });
+      } catch (e) {
+        console.warn('[AutoSync] ensure-bot-listing failed (ignored):', e);
+      }
+
       setCloudSyncStatus("synced");
       console.log("[AutoSync] Configuration synced to cloud successfully");
     } catch (error: any) {
