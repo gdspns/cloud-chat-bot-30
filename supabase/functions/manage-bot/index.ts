@@ -42,10 +42,10 @@ async function verifyAdminRole(req: Request, supabase: any): Promise<{ isAdmin: 
   }
 
   const token = authHeader.replace('Bearer ', '');
-  
+
   // Verify the JWT and get user
   const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-  
+
   if (userError || !user) {
     return { isAdmin: false, userId: null, error: '无效的认证令牌' };
   }
@@ -62,6 +62,22 @@ async function verifyAdminRole(req: Request, supabase: any): Promise<{ isAdmin: 
   }
 
   return { isAdmin: hasRole === true, userId: user.id };
+}
+
+// Helper function to verify a normal authenticated user
+async function verifyUser(req: Request, supabase: any): Promise<{ userId: string | null; error?: string }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { userId: null, error: '未提供认证信息' };
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !user) {
+    return { userId: null, error: '无效的认证令牌' };
+  }
+
+  return { userId: user.id };
 }
 
 serve(async (req) => {
@@ -296,6 +312,72 @@ serve(async (req) => {
         });
 
         return new Response(JSON.stringify({ ok: true, data }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 确保机器人出现在管理员后台列表（用于菜单键盘/TG商城等只写配置表的场景）
+      case 'ensure-bot-listing': {
+        const { botToken, personalUserId } = params;
+
+        if (!botToken) {
+          return new Response(JSON.stringify({ ok: false, error: 'botToken is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const { userId, error: userError } = await verifyUser(req, supabase);
+        if (!userId) {
+          return new Response(JSON.stringify({ ok: false, error: userError || '未登录' }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 如果已存在：尽量补齐归属（user_id）
+        const { data: existing } = await supabase
+          .from('bot_activations')
+          .select('id, user_id')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+
+        if (existing?.id) {
+          if (!existing.user_id) {
+            await supabase
+              .from('bot_activations')
+              .update({ user_id: userId })
+              .eq('id', existing.id);
+          }
+
+          return new Response(JSON.stringify({ ok: true, existed: true }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 不启动聊天授权，仅用于后台列表展示
+        const activationCode = 'linked-' + crypto.randomUUID().substring(0, 8);
+        const { error: insertError } = await supabase
+          .from('bot_activations')
+          .insert({
+            bot_token: botToken,
+            personal_user_id: personalUserId || userId,
+            greeting_message: '你好！👋 有什么可以帮助你的吗？',
+            activation_code: activationCode,
+            is_active: false,
+            is_authorized: false,
+            user_id: userId,
+          });
+
+        if (insertError) {
+          console.error('Ensure bot listing insert error:', insertError);
+          return new Response(JSON.stringify({ ok: false, error: insertError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        return new Response(JSON.stringify({ ok: true, created: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
