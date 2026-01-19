@@ -144,6 +144,8 @@ export const StorePage = () => {
   const [timeLeft, setTimeLeft] = useState(600); 
   const [showQueryModal, setShowQueryModal] = useState(false); 
   const [hupiPayUrl, setHupiPayUrl] = useState('');
+  const [hupiQrCodeUrl, setHupiQrCodeUrl] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   const paymentTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -195,36 +197,44 @@ export const StorePage = () => {
   };
 
   const generateHupijiaoUrl = async (method: string, amount: number, orderId: string) => {
+    setPaymentLoading(true);
+    setHupiQrCodeUrl('');
+    setHupiPayUrl('');
+    
     try {
       const { data, error } = await supabase.functions.invoke('create-payment-url', {
         body: {
           orderId,
           amount,
           paymentMethod: method,
-          gateway: config.hupiGateway
         }
       });
 
       if (error) {
         console.error('获取支付链接失败:', error);
-        setHupiPayUrl('');
         setValidationError('获取支付链接失败，请稍后重试');
         return;
       }
 
-      if (data?.payUrl) {
-        setHupiPayUrl(data.payUrl);
-        // 自动打开支付页面（虎皮椒需要跳转到支付页面扫码）
-        window.open(data.payUrl, '_blank');
+      if (data?.success) {
+        // 优先使用二维码图片URL
+        if (data.qrCodeUrl) {
+          setHupiQrCodeUrl(data.qrCodeUrl);
+        }
+        // 备用支付页面URL
+        if (data.payUrl) {
+          setHupiPayUrl(data.payUrl);
+        }
+        console.log('支付接口返回:', data);
       } else if (data?.error) {
         console.error('支付配置错误:', data.error);
-        setHupiPayUrl('');
         setValidationError(data.error);
       }
     } catch (err) {
       console.error('调用支付接口异常:', err);
-      setHupiPayUrl('');
       setValidationError('支付服务暂时不可用');
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -461,22 +471,57 @@ export const StorePage = () => {
                   
                   {!isCrypto && (
                     <div className="text-center space-y-3">
-                      <p className="text-xs text-gray-600 mt-1 font-bold">
-                        已自动跳转到{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付页面
-                      </p>
-                      <p className="text-[10px] text-gray-400">
-                        如未打开，请点击下方按钮
+                      {/* 加载状态 */}
+                      {paymentLoading && (
+                        <div className="flex flex-col items-center py-4">
+                          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                          <p className="text-xs text-gray-500 mt-2">正在获取支付二维码...</p>
+                        </div>
+                      )}
+                      
+                      {/* 二维码图片 - 优先使用虎皮椒返回的二维码 */}
+                      {!paymentLoading && hupiQrCodeUrl && (
+                        <div className="flex justify-center bg-white p-2 rounded-xl border border-blue-100 shadow-sm mx-auto w-fit">
+                          <img 
+                            src={hupiQrCodeUrl}
+                            alt="支付二维码"
+                            className="w-[150px] h-[150px]"
+                            onError={(e) => {
+                              // 如果二维码加载失败，使用备用方案
+                              console.log('二维码加载失败，使用备用方案');
+                              if (hupiPayUrl) {
+                                (e.target as HTMLImageElement).src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(hupiPayUrl)}`;
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* 如果没有二维码但有支付链接，使用 QR 生成器 */}
+                      {!paymentLoading && !hupiQrCodeUrl && hupiPayUrl && (
+                        <div className="flex justify-center bg-white p-2 rounded-xl border border-blue-100 shadow-sm mx-auto w-fit">
+                          <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(hupiPayUrl)}`}
+                            alt="支付二维码"
+                            className="w-[150px] h-[150px]"
+                          />
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-gray-600 font-bold">
+                        请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫码支付
                       </p>
                       
+                      {/* 手机端跳转备用 */}
                       {hupiPayUrl && (
                         <a 
                           href={hupiPayUrl} 
                           target="_blank" 
                           rel="noreferrer" 
-                          className="block w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95"
+                          className="block text-[10px] text-blue-500 font-bold underline"
                         >
-                          <Smartphone size={14} className="inline mr-1" />
-                          打开支付页面
+                          <Smartphone size={12} className="inline mr-1" />
+                          手机端无法扫码？点击跳转支付
                         </a>
                       )}
                       
