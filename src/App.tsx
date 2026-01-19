@@ -11,6 +11,7 @@ import Activate from "./pages/Activate";
 import Console from "./pages/Console";
 import UserCenter from "./pages/UserCenter";
 import KeyboardMenu from "./pages/KeyboardMenu";
+import StorePage from "./pages/StorePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/user" element={<UserCenter />} />
             <Route path="/keyboard-menu" element={<KeyboardMenu />} />
+            <Route path="/store" element={<StorePage />} />
             <Route path="/activate/:activationCode" element={<Activate />} />
             <Route path="/console/:activationId" element={<Console />} />
             <Route path="*" element={<NotFound />} />
