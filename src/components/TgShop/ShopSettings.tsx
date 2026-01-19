@@ -67,7 +67,29 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
     showToast("info", "机器人已断开连接");
   };
 
+  // 检查是否已过期或试用已结束
+  const isExpiredOrTrialEnded = (): boolean => {
+    // 检查有效期
+    if (localConfig.shopExpireAt) {
+      return new Date(localConfig.shopExpireAt) < new Date();
+    }
+    // 检查试用
+    if (localConfig.shopTrialStartedAt) {
+      const trialStart = new Date(localConfig.shopTrialStartedAt);
+      const trialEnd = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
+      return new Date() > trialEnd;
+    }
+    // 没有有效期也没有试用开始时间，视为未激活（首次使用可以保存来启动试用）
+    return false;
+  };
+
+  const expired = isExpiredOrTrialEnded();
+
   const handleSaveClick = () => {
+    if (expired) {
+      showToast("error", "商城已过期或试用已结束，请先激活！");
+      return;
+    }
     onSave(localConfig);
   };
 
@@ -924,11 +946,29 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
         </div>
 
 
+        {/* 过期提示和保存按钮 */}
+        {expired && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-2 text-destructive">
+              <span className="text-lg">⚠️</span>
+              <div>
+                <div className="font-bold">商城已过期或试用已结束</div>
+                <div className="text-sm">请在上方输入激活码绑定以继续使用商城功能</div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <button 
           onClick={handleSaveClick}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-lg shadow-lg transition-all"
+          disabled={expired}
+          className={`w-full font-bold py-3 rounded-lg shadow-lg transition-all ${
+            expired 
+              ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+              : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+          }`}
         >
-          保存所有配置
+          {expired ? '请先激活商城' : '保存所有配置'}
         </button>
       </div>
     </div>

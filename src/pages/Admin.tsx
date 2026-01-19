@@ -105,13 +105,16 @@ export const Admin = () => {
   const [activationCode, setActivationCode] = useState("");
   const [isBinding, setIsBinding] = useState(false);
   
-  // 双向聊天/菜单键盘绑定相关
+  // 双向聊天/菜单键盘/商城绑定相关
   const [chatBindingBotToken, setChatBindingBotToken] = useState<string | null>(null);
   const [keyboardBindingBotToken, setKeyboardBindingBotToken] = useState<string | null>(null);
+  const [shopBindingBotToken, setShopBindingBotToken] = useState<string | null>(null);
   const [chatActivationCode, setChatActivationCode] = useState("");
   const [keyboardActivationCode, setKeyboardActivationCode] = useState("");
+  const [shopActivationCode, setShopActivationCode] = useState("");
   const [isChatBinding, setIsChatBinding] = useState(false);
   const [isKeyboardBinding, setIsKeyboardBinding] = useState(false);
+  const [isShopBinding, setIsShopBinding] = useState(false);
   
   // 键盘配置缓存
   const [keyboardConfigs, setKeyboardConfigs] = useState<Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null }>>({});
@@ -1005,6 +1008,61 @@ export const Admin = () => {
     }
   };
 
+  // 管理员切换TG商城状态
+  const handleAdminToggleShop = async (botToken: string, enabled: boolean) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-bot', {
+        body: { action: 'admin-toggle-shop', botToken, enabled }
+      });
+      if (error) throw error;
+      if (!data.ok) throw new Error(data.error);
+      toast({ title: enabled ? "已启用TG商城" : "已禁用TG商城" });
+      loadShopConfigs();
+    } catch (error: any) {
+      toast({ title: "操作失败", description: error.message, variant: "destructive" });
+    }
+  };
+
+  // 管理员设置TG商城过期时间
+  const handleAdminSetShopExpire = async (botToken: string, expireAt: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-bot', {
+        body: { action: 'admin-set-shop-expire', botToken, expireAt }
+      });
+      if (error) throw error;
+      if (!data.ok) throw new Error(data.error);
+      toast({ title: "TG商城有效期已更新" });
+      loadShopConfigs();
+    } catch (error: any) {
+      toast({ title: "操作失败", description: error.message, variant: "destructive" });
+    }
+  };
+
+  // 管理员绑定TG商城激活码
+  const handleAdminBindShopCode = async (botToken: string) => {
+    if (!shopActivationCode.trim()) {
+      toast({ title: "错误", description: "请输入激活码", variant: "destructive" });
+      return;
+    }
+    setIsShopBinding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-bot', {
+        body: { action: 'admin-bind-shop-code', botToken, activationCode: shopActivationCode.trim() }
+      });
+      if (error) throw error;
+      if (!data.ok) throw new Error(data.error);
+      toast({ title: "绑定成功", description: "TG商城激活码已绑定" });
+      setShopActivationCode("");
+      setShopBindingBotToken(null);
+      loadShopConfigs();
+      loadAllCodes();
+    } catch (error: any) {
+      toast({ title: "绑定失败", description: error.message, variant: "destructive" });
+    } finally {
+      setIsShopBinding(false);
+    }
+  };
+
   // 获取菜单键盘状态
   const getKeyboardStatus = (botToken: string) => {
     const config = keyboardConfigs[botToken];
@@ -1660,8 +1718,19 @@ export const Admin = () => {
                             <div className="border rounded-lg p-3 space-y-2">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className={`h-4 w-4 text-sm ${shopStatus.enabled ? 'text-green-500' : 'text-gray-400'}`}>🛒</span>
+                                <Switch
+                                  checked={shopStatus.enabled}
+                                  onCheckedChange={(checked) => handleAdminToggleShop(activation.bot_token, checked)}
+                                />
                                 <span className="text-xs font-medium">TG商城</span>
                                 <span className="text-muted-foreground">|</span>
+                                <Calendar className="h-4 w-4" />
+                                <Input
+                                  type="date"
+                                  className="w-36 h-7 text-xs"
+                                  defaultValue={shopStatus.expireAt ? shopStatus.expireAt.split('T')[0] : ''}
+                                  onChange={(e) => handleAdminSetShopExpire(activation.bot_token, e.target.value)}
+                                />
                                 {shopStatus.status === 'authorized' && shopStatus.expireAt && (
                                   <Badge variant="default" className="text-xs">
                                     有效至 {new Date(shopStatus.expireAt).toLocaleDateString()}
@@ -1680,6 +1749,27 @@ export const Admin = () => {
                                   <Badge variant="secondary" className="text-xs">未配置</Badge>
                                 )}
                               </div>
+                              {shopBindingBotToken === activation.bot_token ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={shopActivationCode}
+                                    onChange={(e) => setShopActivationCode(e.target.value)}
+                                    placeholder="输入TG商城激活码"
+                                    className="flex-1 h-7 text-xs"
+                                  />
+                                  <Button size="sm" className="h-7 text-xs" onClick={() => handleAdminBindShopCode(activation.bot_token)} disabled={isShopBinding}>
+                                    {isShopBinding ? "绑定中..." : "绑定"}
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShopBindingBotToken(null); setShopActivationCode(""); }}>
+                                    取消
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShopBindingBotToken(activation.bot_token)}>
+                                  <Key className="h-3 w-3 mr-1" />
+                                  绑定激活码
+                                </Button>
+                              )}
                             </div>
                           );
                         })()}

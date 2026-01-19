@@ -29,6 +29,9 @@ const ADMIN_ACTIONS = [
   'admin-set-keyboard-expire',
   'admin-bind-chat-code',
   'admin-bind-keyboard-code',
+  'admin-toggle-shop',
+  'admin-set-shop-expire',
+  'admin-bind-shop-code',
 ];
 
 // Helper function to verify admin role
@@ -2132,6 +2135,184 @@ serve(async (req) => {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           }
+        }
+
+        // 标记激活码为已使用
+        await supabase
+          .from('activation_codes')
+          .update({
+            is_used: true,
+          })
+          .eq('id', codeData.id);
+
+        return new Response(JSON.stringify({ ok: true, expireAt: newExpireAt.toISOString() }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 管理员切换TG商城状态（通过清除或设置试用开始时间）
+      case 'admin-toggle-shop': {
+        const { botToken, enabled } = params;
+        
+        if (!botToken) {
+          return new Response(JSON.stringify({ ok: false, error: '缺少机器人Token' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 获取当前配置
+        const { data: shopConfig } = await supabase
+          .from('shop_configs')
+          .select('*')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+
+        if (enabled) {
+          // 启用：如果没有有效期且没有试用记录，开始24小时试用
+          if (!shopConfig?.shop_expire_at && !shopConfig?.shop_trial_started_at) {
+            await supabase.from('shop_configs').upsert(
+              {
+                bot_token: botToken,
+                shop_trial_started_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              } as any,
+              { onConflict: 'bot_token' }
+            );
+          }
+        } else {
+          // 禁用：清除试用记录和有效期
+          if (shopConfig) {
+            await supabase
+              .from('shop_configs')
+              .update({
+                shop_expire_at: null,
+                shop_trial_started_at: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('bot_token', botToken);
+          }
+        }
+
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 管理员设置TG商城过期时间
+      case 'admin-set-shop-expire': {
+        const { botToken, expireAt } = params;
+        
+        if (!botToken) {
+          return new Response(JSON.stringify({ ok: false, error: '缺少机器人Token' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 将过期时间设置为当天的23:59:59
+        const expireDate = new Date(expireAt);
+        expireDate.setHours(23, 59, 59, 999);
+        const normalizedExpireAt = expireDate.toISOString();
+
+        const { error } = await supabase
+          .from('shop_configs')
+          .upsert({
+            bot_token: botToken,
+            shop_expire_at: normalizedExpireAt,
+            updated_at: new Date().toISOString(),
+          } as any, { onConflict: 'bot_token' });
+
+        if (error) {
+          return new Response(JSON.stringify({ ok: false, error: error.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 管理员绑定TG商城激活码
+      case 'admin-bind-shop-code': {
+        const { botToken, activationCode: code } = params;
+        
+        if (!botToken || !code) {
+          return new Response(JSON.stringify({ ok: false, error: '缺少必要参数' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 查找激活码
+        const { data: codeData, error: codeError } = await supabase
+          .from('activation_codes')
+          .select('*')
+          .eq('code', code)
+          .maybeSingle();
+
+        if (codeError || !codeData) {
+          return new Response(JSON.stringify({ ok: false, error: '激活码不存在' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (codeData.is_used) {
+          return new Response(JSON.stringify({ ok: false, error: '激活码已被使用' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 检查激活码类型是否支持shop
+        const supportsShop = ['shop', 'chat_shop', 'keyboard_shop', 'all'].includes(codeData.feature_type || 'both');
+        if (!supportsShop) {
+          return new Response(JSON.stringify({ ok: false, error: '此激活码不支持TG商城功能' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // 查找现有shop_config
+        const { data: shopConfig } = await supabase
+          .from('shop_configs')
+          .select('*')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+
+        // 计算新的过期时间
+        const validityDays = codeData.validity_days || 30;
+        let newExpireAt: Date;
+        
+        if (shopConfig?.shop_expire_at && new Date(shopConfig.shop_expire_at) > new Date()) {
+          // 已有有效期，叠加
+          newExpireAt = new Date(shopConfig.shop_expire_at);
+        } else {
+          // 新激活或已过期
+          newExpireAt = new Date();
+        }
+        newExpireAt.setDate(newExpireAt.getDate() + validityDays);
+        newExpireAt.setHours(23, 59, 59, 999);
+
+        // 更新或创建shop_configs
+        const { error: upsertError } = await supabase.from('shop_configs').upsert(
+          {
+            bot_token: botToken,
+            shop_expire_at: newExpireAt.toISOString(),
+            shop_trial_started_at: null, // 清除试用记录
+            updated_at: new Date().toISOString(),
+          } as any,
+          { onConflict: 'bot_token' }
+        );
+
+        if (upsertError) {
+          return new Response(JSON.stringify({ ok: false, error: upsertError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         // 标记激活码为已使用
