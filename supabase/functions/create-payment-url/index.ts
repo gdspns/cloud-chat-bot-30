@@ -5,75 +5,131 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// MD5 算法实现
-const md5 = (function() {
-  const safe_add = (x: number, y: number) => {
-    const lsw = (x & 0xFFFF) + (y & 0xFFFF);
-    const msw = (x >> 16) + (y >> 16) + (lsw >> 16);
-    return (msw << 16) | (lsw & 0xFFFF);
-  };
-  const bit_rol = (num: number, cnt: number) => (num << cnt) | (num >>> (32 - cnt));
-  const md5_cmn = (q: number, a: number, b: number, x: number, s: number, t: number) => safe_add(bit_rol(safe_add(safe_add(a, q), safe_add(x, t)), s), b);
-  const md5_ff = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => md5_cmn((b & c) | ((~b) & d), a, b, x, s, t);
-  const md5_gg = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => md5_cmn((b & d) | (c & (~d)), a, b, x, s, t);
-  const md5_hh = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => md5_cmn(b ^ c ^ d, a, b, x, s, t);
-  const md5_ii = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => md5_cmn(c ^ (b | (~d)), a, b, x, s, t);
-  const core_md5 = (x: number[], len: number) => {
-    x[len >> 5] |= 0x80 << ((len) % 32);
-    x[(((len + 64) >>> 9) << 4) + 14] = len;
-    let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
-    for (let i = 0; i < x.length; i += 16) {
-      const olda = a, oldb = b, oldc = c, oldd = d;
-      a = md5_ff(a, b, c, d, x[i + 0], 7, -680876936); d = md5_ff(d, a, b, c, x[i + 1], 12, -389564586);
-      c = md5_ff(c, d, a, b, x[i + 2], 17, 606105819); b = md5_ff(b, c, d, a, x[i + 3], 22, -1044525330);
-      a = md5_ff(a, b, c, d, x[i + 4], 7, -176418897); d = md5_ff(d, a, b, c, x[i + 5], 12, 1200080426);
-      c = md5_ff(c, d, a, b, x[i + 6], 17, -1473231341); b = md5_ff(b, c, d, a, x[i + 7], 22, -45705983);
-      a = md5_ff(a, b, c, d, x[i + 8], 7, 1770035416); d = md5_ff(d, a, b, c, x[i + 9], 12, -1958414417);
-      c = md5_ff(c, d, a, b, x[i + 10], 17, -42063); b = md5_ff(b, c, d, a, x[i + 11], 22, -1990404162);
-      a = md5_ff(a, b, c, d, x[i + 12], 7, 1804603682); d = md5_ff(d, a, b, c, x[i + 13], 12, -40341101);
-      c = md5_ff(c, d, a, b, x[i + 14], 17, -1502002290); b = md5_ff(b, c, d, a, x[i + 15], 22, 1236535329);
-      a = md5_gg(a, b, c, d, x[i + 1], 5, -165796510); d = md5_gg(d, a, b, c, x[i + 6], 9, -1069501632);
-      c = md5_gg(c, d, a, b, x[i + 11], 14, 643717713); b = md5_gg(b, c, d, a, x[i + 0], 20, -373897302);
-      a = md5_gg(a, b, c, d, x[i + 5], 5, -701558691); d = md5_gg(d, a, b, c, x[i + 10], 9, 38016083);
-      c = md5_gg(c, d, a, b, x[i + 15], 14, -660478335); b = md5_gg(b, c, d, a, x[i + 4], 20, -405537848);
-      a = md5_gg(a, b, c, d, x[i + 9], 5, 568446438); d = md5_gg(d, a, b, c, x[i + 14], 9, -1019803690);
-      c = md5_gg(c, d, a, b, x[i + 3], 14, -187363961); b = md5_gg(b, c, d, a, x[i + 8], 20, 1163531501);
-      a = md5_gg(a, b, c, d, x[i + 13], 5, -1444681467); d = md5_gg(d, a, b, c, x[i + 2], 9, -51403784);
-      c = md5_gg(c, d, a, b, x[i + 7], 14, 1735328473); b = md5_gg(b, c, d, a, x[i + 12], 20, -1926607734);
-      a = md5_hh(a, b, c, d, x[i + 5], 4, -378558); d = md5_hh(d, a, b, c, x[i + 8], 11, -2022574463);
-      c = md5_hh(c, d, a, b, x[i + 11], 16, 1839030562); b = md5_hh(b, c, d, a, x[i + 14], 23, -35309556);
-      a = md5_hh(a, b, c, d, x[i + 1], 4, -1530992060); d = md5_hh(d, a, b, c, x[i + 4], 11, 1272893353);
-      c = md5_hh(c, d, a, b, x[i + 7], 16, -155497632); b = md5_hh(b, c, d, a, x[i + 10], 23, -1094730640);
-      a = md5_hh(a, b, c, d, x[i + 13], 4, 681279174); d = md5_hh(d, a, b, c, x[i + 0], 11, -358537222);
-      c = md5_hh(c, d, a, b, x[i + 3], 16, -722521979); b = md5_hh(b, c, d, a, x[i + 6], 23, 76029189);
-      a = md5_hh(a, b, c, d, x[i + 9], 4, -640364487); d = md5_hh(d, a, b, c, x[i + 12], 11, -421815835);
-      c = md5_hh(c, d, a, b, x[i + 15], 16, 530742520); b = md5_hh(b, c, d, a, x[i + 2], 23, -995338651);
-      a = md5_ii(a, b, c, d, x[i + 0], 6, -198630844); d = md5_ii(d, a, b, c, x[i + 7], 10, 1126891415);
-      c = md5_ii(c, d, a, b, x[i + 14], 15, -1416354905); b = md5_ii(b, c, d, a, x[i + 5], 21, -57434055);
-      a = md5_ii(a, b, c, d, x[i + 12], 6, 1700485571); d = md5_ii(d, a, b, c, x[i + 3], 10, -1894986606);
-      c = md5_ii(c, d, a, b, x[i + 10], 15, -1051523); b = md5_ii(b, c, d, a, x[i + 1], 21, -2054922799);
-      a = md5_ii(a, b, c, d, x[i + 8], 6, 1873313359); d = md5_ii(d, a, b, c, x[i + 15], 10, -30611744);
-      c = md5_ii(c, d, a, b, x[i + 6], 15, -1560198380); b = md5_ii(b, c, d, a, x[i + 13], 21, 1309151649);
-      a = md5_ii(a, b, c, d, x[i + 4], 6, -145523070); d = md5_ii(d, a, b, c, x[i + 11], 10, -1120210379);
-      c = md5_ii(c, d, a, b, x[i + 2], 15, 718787259); b = md5_ii(b, c, d, a, x[i + 9], 21, -343485551);
-      a = safe_add(a, olda); b = safe_add(b, oldb); c = safe_add(c, oldc); d = safe_add(d, oldd);
-    }
-    return [a, b, c, d];
-  };
-  const str2binl = (str: string) => {
-    const bin: number[] = [];
-    for (let i = 0; i < str.length * 8; i += 8) bin[i >> 5] |= (str.charCodeAt(i / 8) & 0xFF) << (i % 32);
-    return bin;
-  };
-  const binl2hex = (binarray: number[]) => {
-    const hex_tab = "0123456789abcdef";
-    let str = "";
-    for (let i = 0; i < binarray.length * 4; i++)
-      str += hex_tab.charAt((binarray[i >> 2] >> ((i % 4) * 8 + 4)) & 0xF) + hex_tab.charAt((binarray[i >> 2] >> ((i % 4) * 8)) & 0xF);
-    return str;
-  };
-  return (str: string) => binl2hex(core_md5(str2binl(str), str.length * 8));
-})();
+// MD5(32位小写hex) - 纯JS实现
+function md5HexSync(input: string): string {
+  const utf8 = new TextEncoder().encode(input)
+
+  const words: number[] = []
+  for (let i = 0; i < utf8.length; i++) {
+    words[i >> 2] = (words[i >> 2] || 0) | (utf8[i] << ((i % 4) * 8))
+  }
+  const bitLen = utf8.length * 8
+  words[bitLen >> 5] = (words[bitLen >> 5] || 0) | (0x80 << (bitLen % 32))
+  words[(((bitLen + 64) >>> 9) << 4) + 14] = bitLen
+
+  let a = 0x67452301
+  let b = 0xefcdab89
+  let c = 0x98badcfe
+  let d = 0x10325476
+
+  const ff = (a0: number, b0: number, c0: number, d0: number, x: number, s: number, t: number) => {
+    const n = a0 + ((b0 & c0) | (~b0 & d0)) + x + t
+    return (((n << s) | (n >>> (32 - s))) + b0) | 0
+  }
+  const gg = (a0: number, b0: number, c0: number, d0: number, x: number, s: number, t: number) => {
+    const n = a0 + ((b0 & d0) | (c0 & ~d0)) + x + t
+    return (((n << s) | (n >>> (32 - s))) + b0) | 0
+  }
+  const hh = (a0: number, b0: number, c0: number, d0: number, x: number, s: number, t: number) => {
+    const n = a0 + (b0 ^ c0 ^ d0) + x + t
+    return (((n << s) | (n >>> (32 - s))) + b0) | 0
+  }
+  const ii = (a0: number, b0: number, c0: number, d0: number, x: number, s: number, t: number) => {
+    const n = a0 + (c0 ^ (b0 | ~d0)) + x + t
+    return (((n << s) | (n >>> (32 - s))) + b0) | 0
+  }
+
+  for (let i = 0; i < words.length; i += 16) {
+    const oa = a, ob = b, oc = c, od = d
+
+    a = ff(a, b, c, d, words[i + 0] | 0, 7, -680876936)
+    d = ff(d, a, b, c, words[i + 1] | 0, 12, -389564586)
+    c = ff(c, d, a, b, words[i + 2] | 0, 17, 606105819)
+    b = ff(b, c, d, a, words[i + 3] | 0, 22, -1044525330)
+    a = ff(a, b, c, d, words[i + 4] | 0, 7, -176418897)
+    d = ff(d, a, b, c, words[i + 5] | 0, 12, 1200080426)
+    c = ff(c, d, a, b, words[i + 6] | 0, 17, -1473231341)
+    b = ff(b, c, d, a, words[i + 7] | 0, 22, -45705983)
+    a = ff(a, b, c, d, words[i + 8] | 0, 7, 1770035416)
+    d = ff(d, a, b, c, words[i + 9] | 0, 12, -1958414417)
+    c = ff(c, d, a, b, words[i + 10] | 0, 17, -42063)
+    b = ff(b, c, d, a, words[i + 11] | 0, 22, -1990404162)
+    a = ff(a, b, c, d, words[i + 12] | 0, 7, 1804603682)
+    d = ff(d, a, b, c, words[i + 13] | 0, 12, -40341101)
+    c = ff(c, d, a, b, words[i + 14] | 0, 17, -1502002290)
+    b = ff(b, c, d, a, words[i + 15] | 0, 22, 1236535329)
+
+    a = gg(a, b, c, d, words[i + 1] | 0, 5, -165796510)
+    d = gg(d, a, b, c, words[i + 6] | 0, 9, -1069501632)
+    c = gg(c, d, a, b, words[i + 11] | 0, 14, 643717713)
+    b = gg(b, c, d, a, words[i + 0] | 0, 20, -373897302)
+    a = gg(a, b, c, d, words[i + 5] | 0, 5, -701558691)
+    d = gg(d, a, b, c, words[i + 10] | 0, 9, 38016083)
+    c = gg(c, d, a, b, words[i + 15] | 0, 14, -660478335)
+    b = gg(b, c, d, a, words[i + 4] | 0, 20, -405537848)
+    a = gg(a, b, c, d, words[i + 9] | 0, 5, 568446438)
+    d = gg(d, a, b, c, words[i + 14] | 0, 9, -1019803690)
+    c = gg(c, d, a, b, words[i + 3] | 0, 14, -187363961)
+    b = gg(b, c, d, a, words[i + 8] | 0, 20, 1163531501)
+    a = gg(a, b, c, d, words[i + 13] | 0, 5, -1444681467)
+    d = gg(d, a, b, c, words[i + 2] | 0, 9, -51403784)
+    c = gg(c, d, a, b, words[i + 7] | 0, 14, 1735328473)
+    b = gg(b, c, d, a, words[i + 12] | 0, 20, -1926607734)
+
+    a = hh(a, b, c, d, words[i + 5] | 0, 4, -378558)
+    d = hh(d, a, b, c, words[i + 8] | 0, 11, -2022574463)
+    c = hh(c, d, a, b, words[i + 11] | 0, 16, 1839030562)
+    b = hh(b, c, d, a, words[i + 14] | 0, 23, -35309556)
+    a = hh(a, b, c, d, words[i + 1] | 0, 4, -1530992060)
+    d = hh(d, a, b, c, words[i + 4] | 0, 11, 1272893353)
+    c = hh(c, d, a, b, words[i + 7] | 0, 16, -155497632)
+    b = hh(b, c, d, a, words[i + 10] | 0, 23, -1094730640)
+    a = hh(a, b, c, d, words[i + 13] | 0, 4, 681279174)
+    d = hh(d, a, b, c, words[i + 0] | 0, 11, -358537222)
+    c = hh(c, d, a, b, words[i + 3] | 0, 16, -722521979)
+    b = hh(b, c, d, a, words[i + 6] | 0, 23, 76029189)
+    a = hh(a, b, c, d, words[i + 9] | 0, 4, -640364487)
+    d = hh(d, a, b, c, words[i + 12] | 0, 11, -421815835)
+    c = hh(c, d, a, b, words[i + 15] | 0, 16, 530742520)
+    b = hh(b, c, d, a, words[i + 2] | 0, 23, -995338651)
+
+    a = ii(a, b, c, d, words[i + 0] | 0, 6, -198630844)
+    d = ii(d, a, b, c, words[i + 7] | 0, 10, 1126891415)
+    c = ii(c, d, a, b, words[i + 14] | 0, 15, -1416354905)
+    b = ii(b, c, d, a, words[i + 5] | 0, 21, -57434055)
+    a = ii(a, b, c, d, words[i + 12] | 0, 6, 1700485571)
+    d = ii(d, a, b, c, words[i + 3] | 0, 10, -1894986606)
+    c = ii(c, d, a, b, words[i + 10] | 0, 15, -1051523)
+    b = ii(b, c, d, a, words[i + 1] | 0, 21, -2054922799)
+    a = ii(a, b, c, d, words[i + 8] | 0, 6, 1873313359)
+    d = ii(d, a, b, c, words[i + 15] | 0, 10, -30611744)
+    c = ii(c, d, a, b, words[i + 6] | 0, 15, -1560198380)
+    b = ii(b, c, d, a, words[i + 13] | 0, 21, 1309151649)
+    a = ii(a, b, c, d, words[i + 4] | 0, 6, -145523070)
+    d = ii(d, a, b, c, words[i + 11] | 0, 10, -1120210379)
+    c = ii(c, d, a, b, words[i + 2] | 0, 15, 718787259)
+    b = ii(b, c, d, a, words[i + 9] | 0, 21, -343485551)
+
+    a = (a + oa) | 0
+    b = (b + ob) | 0
+    c = (c + oc) | 0
+    d = (d + od) | 0
+  }
+
+  const toHexLE = (n: number) => {
+    const hex = (n >>> 0).toString(16).padStart(8, '0')
+    return hex.match(/../g)!.reverse().join('')
+  }
+
+  return (toHexLE(a) + toHexLE(b) + toHexLE(c) + toHexLE(d)).toLowerCase()
+}
+
+// 虎皮椒签名 - 参数排序后拼接+secret
+function signXunHu(params: Record<string, string>, secret: string): string {
+  const sorted = Object.keys(params).filter(k => params[k]).sort()
+  const signStr = sorted.map(k => `${k}=${params[k]}`).join('&') + secret
+  return md5HexSync(signStr)
+}
 
 interface PaymentRequest {
   orderId: string;
@@ -110,43 +166,61 @@ serve(async (req) => {
       );
     }
 
-    // 构建支付参数
-    const params: Record<string, string | number> = {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const notifyUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook`;
+
+    // 构建支付参数 - 完全按照你分享的可用代码格式
+    const params: Record<string, string> = {
       version: '1.1',
       appid: appId.trim(),
       trade_order_id: orderId,
-      total_fee: amount,
+      total_fee: amount.toFixed(2),
       title: '在线支付',
-      time: Math.floor(Date.now() / 1000),
-      nonce_str: Math.random().toString(36).substring(2, 15),
+      time: Math.floor(Date.now() / 1000).toString(),
+      notify_url: notifyUrl,
+      nonce_str: Math.random().toString(36).substring(2),
+      type: paymentMethod === 'alipay' ? 'alipay' : 'wechat'
     };
 
     // 生成签名
-    const sortedKeys = Object.keys(params).sort();
-    let signStr = sortedKeys.map(key => `${key}=${params[key]}`).join('&');
-    const hash = md5(signStr + secret.trim());
+    params.hash = signXunHu(params, secret.trim());
 
-    // 生成支付页面URL（不调用API，直接拼接URL让用户跳转）
-    const queryString = new URLSearchParams({
-      ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-      hash
-    }).toString();
+    // 使用 POST 方式调用虎皮椒 API
+    const apiUrl = 'https://api.xunhupay.com/payment/do.html';
+    const formData = new URLSearchParams(params);
     
-    const payUrl = `https://api.xunhupay.com/payment/do.html?${queryString}`;
+    console.log(`[create-payment-url] 调用虎皮椒API: orderId=${orderId}, method=${paymentMethod}`);
+    
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData
+    });
+    
+    const data = await res.json();
+    console.log('[create-payment-url] 虎皮椒响应:', JSON.stringify(data));
 
-    console.log(`[create-payment-url] 生成支付链接: orderId=${orderId}`);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        payUrl,
-        qrCodeUrl: null, // 虎皮椒当面付需要开通权限，暂用前端生成二维码
-        orderId,
-        amount,
-        paymentMethod
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    if (data.errcode === 0 && data.url) {
+      // 成功获取支付信息
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          payUrl: data.url,
+          qrCodeUrl: data.url_qrcode || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.url)}`,
+          orderId,
+          amount,
+          paymentMethod
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else {
+      // API 返回错误
+      console.error('[create-payment-url] 虎皮椒错误:', data.errmsg || data);
+      return new Response(
+        JSON.stringify({ error: data.errmsg || '虎皮椒API错误', details: JSON.stringify(data) }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
