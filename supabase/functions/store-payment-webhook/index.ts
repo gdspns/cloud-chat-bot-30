@@ -87,10 +87,61 @@ Deno.serve(async (req) => {
       console.warn(`[Store Webhook] 金额不匹配: 预期 ${expectedAmount}, 实际 ${totalFee}`)
     }
 
-    // 调用发货函数获取卡密
+    // 判断订单类型 - 通过 bot_id 是否存在来判断是自动充值还是卡密
+    const isAutoRecharge = order.bot_id && order.bot_id !== '匿名' && order.bot_id.length > 10
     let deliveredCode = ''
     
-    if (order.product_id) {
+    if (isAutoRecharge) {
+      // 自动充值订单 - 调用自动激活函数
+      console.log(`[Store Webhook] 自动充值订单, botToken: ${order.bot_id?.slice(-8)}`)
+      
+      // 解析功能类型 - 从商品名称或 product_id 判断
+      // 商品名称格式示例: "双向聊天-1个月" / "菜单键盘-3个月" / "TG商城-1个月"
+      let featureType = 'chat' // 默认
+      const productName = order.product_name?.toLowerCase() || ''
+      if (productName.includes('键盘') || productName.includes('keyboard')) {
+        featureType = 'keyboard'
+      } else if (productName.includes('商城') || productName.includes('shop') || productName.includes('mall')) {
+        featureType = 'shop'
+      } else if (productName.includes('全部') || productName.includes('all')) {
+        featureType = 'all'
+      }
+      
+      // 从商品名称解析有效期天数
+      let validityDays = 30
+      if (productName.includes('3个月') || productName.includes('90')) validityDays = 90
+      else if (productName.includes('6个月') || productName.includes('180')) validityDays = 180
+      else if (productName.includes('12个月') || productName.includes('1年') || productName.includes('360')) validityDays = 360
+      
+      // 调用自动激活函数
+      try {
+        const activateRes = await fetch(`${supabaseUrl}/functions/v1/store-auto-activate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`
+          },
+          body: JSON.stringify({
+            orderNo,
+            botToken: order.bot_id,
+            featureType,
+            validityDays
+          })
+        })
+        
+        const activateData = await activateRes.json()
+        
+        if (activateData.success) {
+          deliveredCode = activateData.message || '激活成功'
+        } else {
+          deliveredCode = activateData.error || '激活失败，请联系客服'
+        }
+      } catch (e) {
+        console.error('[Store Webhook] 调用自动激活失败:', e)
+        deliveredCode = '自动激活异常，请联系客服'
+      }
+    } else if (order.product_id) {
+      // 卡密商品 - 调用发货函数获取卡密
       const { data: deliverResult, error: deliverError } = await supabase
         .rpc('deliver_card_key', {
           p_order_no: orderNo,

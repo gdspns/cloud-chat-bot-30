@@ -1,0 +1,258 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+/**
+ * 自助商城自动激活函数
+ * 支付成功后自动从卡密库获取激活码并激活机器人
+ */
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const { orderNo, botToken, featureType, validityDays } = await req.json()
+
+    if (!orderNo || !botToken || !featureType) {
+      return new Response(
+        JSON.stringify({ success: false, error: '缺少必要参数' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`[Auto Activate] 处理订单: ${orderNo}, 机器人: ${botToken.slice(-8)}, 功能: ${featureType}`)
+
+    // 1. 从 activation_codes 表获取一个匹配的未使用激活码
+    // 优先匹配精确类型，然后匹配 all 类型
+    let codeData = null
+    
+    // 精确匹配
+    const { data: exactMatch } = await supabase
+      .from('activation_codes')
+      .select('*')
+      .eq('feature_type', featureType)
+      .eq('is_used', false)
+      .gte('validity_days', validityDays || 30)
+      .order('validity_days', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (exactMatch) {
+      codeData = exactMatch
+    } else {
+      // 尝试 all 类型
+      const { data: allMatch } = await supabase
+        .from('activation_codes')
+        .select('*')
+        .eq('feature_type', 'all')
+        .eq('is_used', false)
+        .gte('validity_days', validityDays || 30)
+        .order('validity_days', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      
+      if (allMatch) {
+        codeData = allMatch
+      }
+    }
+
+    if (!codeData) {
+      console.error(`[Auto Activate] 无可用激活码: featureType=${featureType}, days=${validityDays}`)
+      return new Response(
+        JSON.stringify({ success: false, error: '库存不足，无可用激活码' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const actualValidityDays = codeData.validity_days || 30
+    const actualFeatureType = codeData.feature_type || featureType
+
+    // 2. 判断需要激活的功能
+    const shouldActivateChat = ['chat', 'both', 'chat_shop', 'all'].includes(actualFeatureType)
+    const shouldActivateKeyboard = ['keyboard', 'both', 'keyboard_shop', 'all'].includes(actualFeatureType)
+    const shouldActivateShop = ['shop', 'chat_shop', 'keyboard_shop', 'all'].includes(actualFeatureType)
+
+    // 3. 查找或创建机器人记录
+    let { data: botRecord } = await supabase
+      .from('bot_activations')
+      .select('*')
+      .eq('bot_token', botToken)
+      .maybeSingle()
+
+    let newChatExpireAt: Date | null = null
+    let newKeyboardExpireAt: Date | null = null
+    let newShopExpireAt: Date | null = null
+
+    // 计算各功能的有效期
+    if (shouldActivateChat) {
+      if (botRecord?.expire_at && new Date(botRecord.expire_at) > new Date()) {
+        newChatExpireAt = new Date(botRecord.expire_at)
+        newChatExpireAt.setDate(newChatExpireAt.getDate() + actualValidityDays)
+      } else {
+        newChatExpireAt = new Date()
+        newChatExpireAt.setDate(newChatExpireAt.getDate() + actualValidityDays)
+      }
+      newChatExpireAt.setHours(23, 59, 59, 999)
+    }
+
+    if (shouldActivateKeyboard) {
+      // 获取当前键盘配置
+      const { data: kbConfig } = await supabase
+        .from('keyboard_configs')
+        .select('keyboard_expire_at')
+        .eq('bot_token', botToken)
+        .maybeSingle()
+
+      if (kbConfig?.keyboard_expire_at && new Date(kbConfig.keyboard_expire_at) > new Date()) {
+        newKeyboardExpireAt = new Date(kbConfig.keyboard_expire_at)
+        newKeyboardExpireAt.setDate(newKeyboardExpireAt.getDate() + actualValidityDays)
+      } else {
+        newKeyboardExpireAt = new Date()
+        newKeyboardExpireAt.setDate(newKeyboardExpireAt.getDate() + actualValidityDays)
+      }
+      newKeyboardExpireAt.setHours(23, 59, 59, 999)
+    }
+
+    if (shouldActivateShop) {
+      // 获取当前商城配置
+      const { data: shopConfig } = await supabase
+        .from('shop_configs')
+        .select('shop_expire_at')
+        .eq('bot_token', botToken)
+        .maybeSingle()
+
+      if (shopConfig?.shop_expire_at && new Date(shopConfig.shop_expire_at) > new Date()) {
+        newShopExpireAt = new Date(shopConfig.shop_expire_at)
+        newShopExpireAt.setDate(newShopExpireAt.getDate() + actualValidityDays)
+      } else {
+        newShopExpireAt = new Date()
+        newShopExpireAt.setDate(newShopExpireAt.getDate() + actualValidityDays)
+      }
+      newShopExpireAt.setHours(23, 59, 59, 999)
+    }
+
+    // 4. 更新或创建 bot_activations 记录
+    if (botRecord && shouldActivateChat) {
+      await supabase
+        .from('bot_activations')
+        .update({
+          expire_at: newChatExpireAt?.toISOString(),
+          is_authorized: true,
+          is_active: true,
+          trial_messages_used: 0,
+          web_enabled: true,
+          app_enabled: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', botRecord.id)
+    } else if (!botRecord && shouldActivateChat) {
+      // 需要验证 bot token 有效性
+      try {
+        const telegramRes = await fetch(`https://api.telegram.org/bot${botToken}/getMe`)
+        const telegramData = await telegramRes.json()
+        
+        if (!telegramData.ok) {
+          return new Response(
+            JSON.stringify({ success: false, error: '无效的机器人 Token' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // 创建新记录
+        const { data: newBot } = await supabase
+          .from('bot_activations')
+          .insert({
+            bot_token: botToken,
+            activation_code: codeData.code,
+            personal_user_id: 'store_auto_activate',
+            expire_at: newChatExpireAt?.toISOString(),
+            is_authorized: true,
+            is_active: true,
+            trial_messages_used: 0,
+            web_enabled: true,
+            app_enabled: true
+          })
+          .select()
+          .single()
+        
+        botRecord = newBot
+      } catch (e) {
+        console.error('[Auto Activate] 验证 Token 失败:', e)
+        return new Response(
+          JSON.stringify({ success: false, error: '验证机器人失败' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // 5. 更新 keyboard_configs
+    if (shouldActivateKeyboard && newKeyboardExpireAt) {
+      await supabase
+        .from('keyboard_configs')
+        .upsert({
+          bot_token: botToken,
+          keyboard_expire_at: newKeyboardExpireAt.toISOString(),
+          keyboard_trial_started_at: null, // 清除试用标记
+          updated_at: new Date().toISOString()
+        } as any, { onConflict: 'bot_token' })
+    }
+
+    // 6. 更新 shop_configs
+    if (shouldActivateShop && newShopExpireAt) {
+      await supabase
+        .from('shop_configs')
+        .upsert({
+          bot_token: botToken,
+          shop_expire_at: newShopExpireAt.toISOString(),
+          shop_trial_started_at: null, // 清除试用标记
+          updated_at: new Date().toISOString()
+        } as any, { onConflict: 'bot_token' })
+    }
+
+    // 7. 标记激活码为已使用
+    const expireAt = newChatExpireAt || newKeyboardExpireAt || newShopExpireAt
+    await supabase
+      .from('activation_codes')
+      .update({
+        is_used: true,
+        used_by_bot_id: botRecord?.id || null,
+        expire_at: expireAt ? expireAt.toISOString() : null
+      })
+      .eq('id', codeData.id)
+
+    // 构建成功消息
+    const activatedFeatures: string[] = []
+    if (newChatExpireAt) activatedFeatures.push(`双向聊天(${newChatExpireAt.toLocaleDateString()})`)
+    if (newKeyboardExpireAt) activatedFeatures.push(`菜单键盘(${newKeyboardExpireAt.toLocaleDateString()})`)
+    if (newShopExpireAt) activatedFeatures.push(`TG商城(${newShopExpireAt.toLocaleDateString()})`)
+
+    console.log(`[Auto Activate] 订单 ${orderNo} 激活成功: ${activatedFeatures.join(', ')}`)
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        orderNo,
+        activatedFeatures,
+        usedCode: codeData.code,
+        message: `已成功激活: ${activatedFeatures.join(', ')}`
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (error: unknown) {
+    console.error('[Auto Activate] 处理异常:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return new Response(
+      JSON.stringify({ success: false, error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})
