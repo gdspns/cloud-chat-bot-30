@@ -479,58 +479,27 @@ export const StorePage = () => {
                         </div>
                       )}
                       
-                      {/* 支付引导 */}
-                      {!paymentLoading && hupiPayUrl && (
-                        <>
-                          {/* 提示信息 */}
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-left">
-                            <p className="text-xs text-yellow-800 font-bold mb-1">
-                              ⚠️ 请在{paymentMethod === 'wechat' ? '微信' : '支付宝'}内打开链接
-                            </p>
-                            <p className="text-[10px] text-yellow-600">
-                              1. 点击下方按钮复制链接<br/>
-                              2. 打开{paymentMethod === 'wechat' ? '微信' : '支付宝'}，粘贴到任意聊天窗口<br/>
-                              3. 点击链接完成支付
-                            </p>
+                      {/* 支付二维码 */}
+                      {!paymentLoading && (hupiQrCodeUrl || hupiPayUrl) && (
+                        <div className="space-y-3">
+                          {/* 直接显示二维码 */}
+                          <div className="flex justify-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm mx-auto w-fit">
+                            <img 
+                              src={hupiQrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(hupiPayUrl || '')}`}
+                              alt="支付二维码"
+                              className="w-[200px] h-[200px]"
+                              onError={(e) => {
+                                // 如果虎皮椒二维码加载失败，使用备用方案
+                                if (hupiPayUrl && e.currentTarget.src !== `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(hupiPayUrl)}`) {
+                                  e.currentTarget.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(hupiPayUrl)}`;
+                                }
+                              }}
+                            />
                           </div>
-                          
-                          {/* 复制链接按钮 */}
-                          <button
-                            onClick={() => copyToClipboard(hupiPayUrl, '支付链接已复制！请在' + (paymentMethod === 'wechat' ? '微信' : '支付宝') + '内打开')}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
-                          >
-                            <Copy size={16} />
-                            复制支付链接
-                          </button>
-                          
-                          {/* 直接跳转按钮（电脑端用） */}
-                          <a 
-                            href={hupiPayUrl} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="block w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-xl font-bold text-sm transition-all active:scale-95"
-                          >
-                            <Smartphone size={14} className="inline mr-1" />
-                            或点击直接跳转
-                          </a>
-                          
-                          {/* 二维码（备用，可用其他手机扫描后转发到微信） */}
-                          <details className="text-left">
-                            <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-600">
-                              显示二维码（仅供保存分享）
-                            </summary>
-                            <div className="flex justify-center bg-white p-2 rounded-xl border border-gray-100 shadow-sm mx-auto w-fit mt-2">
-                              <img 
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(hupiPayUrl)}`}
-                                alt="支付二维码"
-                                className="w-[120px] h-[120px]"
-                              />
-                            </div>
-                            <p className="text-[9px] text-gray-400 mt-1 text-center">
-                              扫码后需在{paymentMethod === 'wechat' ? '微信' : '支付宝'}内打开
-                            </p>
-                          </details>
-                        </>
+                          <p className="text-sm text-gray-600 font-medium">
+                            请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫码支付
+                          </p>
+                        </div>
                       )}
                       
                       <button 
