@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Shield, 
   Settings,
   Edit3,
   Package,
-  Save,
   Loader2,
   Layers,
   ClipboardList,
@@ -15,13 +13,14 @@ import {
   ArrowRightLeft,
   CreditCard,
   Shuffle,
-  Calculator
+  Calculator,
+  RefreshCw
 } from 'lucide-react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useStoreProducts, StoreProduct } from "@/hooks/useStoreProducts";
 
 // --- 全局工具组件 ---
 const ToggleSwitch = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (val: boolean) => void }) => (
@@ -57,19 +56,6 @@ const copyToClipboard = (text: string, successMessage = "复制成功") => {
   }
 };
 
-interface Product {
-  id: number;
-  type: 'card' | 'auto';
-  tags: string[];
-  name: string;
-  duration: number;
-  price: number;
-  usdt: number;
-  trx: number;
-  desc: string;
-  codes: string[];
-}
-
 interface Order {
   orderNo: string;
   botId: string;
@@ -99,24 +85,11 @@ interface Config {
   exchangeRateUsdtCny: number;
 }
 
-const getStockCount = (product: Product) => {
-  if (!product) return 0;
-  if (product.type === 'auto') return 9999; 
-  return (product.codes || []).length;
-};
-
 // --- 初始数据常量 ---
 const CATEGORY_TAGS = [
   { id: 'chat', label: '双向聊天' },
   { id: 'keyboard', label: '菜单键盘' },
   { id: 'mall', label: 'TG商城' }
-];
-
-const DEFAULT_PRODUCTS: Product[] = [
-  { id: 1, type: 'auto', tags: ['chat'], name: '1个月-自动订阅', duration: 30, price: 30, usdt: 5.000, trx: 40.000, desc: '支付后系统全自动激活，有效期30天', codes: [] },
-  { id: 2, type: 'auto', tags: ['keyboard'], name: '3个月-自动订阅', duration: 90, price: 85, usdt: 14.000, trx: 110.000, desc: '季度优惠套餐，系统自动处理', codes: [] },
-  { id: 5, type: 'card', tags: ['mall'], name: '1个月-独立激活码', duration: 30, price: 35, usdt: 6.000, trx: 45.000, desc: '购买后发放独立激活码，可转赠', codes: ['KEY-ADMIN-FIX-888', 'KEY-B2-999'] },
-  { id: 8, type: 'card', tags: ['chat', 'mall'], name: '12个月-年费卡密', duration: 360, price: 320, usdt: 50.000, trx: 400.000, desc: '年度尊享授权，下单即刻发卡', codes: ['YEAR-KING-2026-PRO'] },
 ];
 
 const DEFAULT_CONFIG: Config = {
@@ -152,10 +125,9 @@ export const ProductManagement = () => {
   const { toast } = useToast();
   const [adminTab, setAdminTab] = useState('products'); 
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('app_products_v41');
-    return saved ? JSON.parse(saved) : DEFAULT_PRODUCTS;
-  });
+  // 使用数据库 hook 管理商品
+  const { products, loading, syncing, addProduct, updateProduct, deleteProduct, getStockCount, loadProducts } = useStoreProducts();
+
   const [config, setConfig] = useState<Config>(() => {
     const saved = localStorage.getItem('app_config_v41');
     return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
@@ -167,25 +139,28 @@ export const ProductManagement = () => {
 
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSavingConfig, setIsSavingConfig] = useState(false); 
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newProduct, setNewProduct] = useState<NewProduct>({
     name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: []
   });
   const [orderFilter, setOrderFilter] = useState('all');
 
-  // 实时保存数据
-  useEffect(() => { localStorage.setItem('app_products_v41', JSON.stringify(products)); }, [products]);
+  // 保存配置和订单到 localStorage
   useEffect(() => { localStorage.setItem('app_orders_v41', JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem('app_config_v41', JSON.stringify(config)); }, [config]);
 
+
   // --- 管理逻辑 ---
-  const handleEditClick = (product: Product) => {
+  const handleEditClick = (product: StoreProduct) => {
     setEditingId(product.id);
     setNewProduct({ 
-      ...product, 
+      name: product.name,
+      type: product.type,
+      duration: product.duration,
       price: product.price.toString(),
       usdt: product.usdt.toString(),
       trx: product.trx.toString(),
+      desc: product.desc,
       codesText: (product.codes || []).join('\n'),
       tags: product.tags || [] 
     });
@@ -196,15 +171,14 @@ export const ProductManagement = () => {
     setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
   };
 
-  const handleDeleteProduct = (id: number) => {
+  const handleDeleteProduct = async (id: string) => {
     if (confirm("确定删除此商品？")) {
-      setProducts(prev => prev.filter(p => Number(p.id) !== Number(id)));
-      if (Number(editingId) === Number(id)) handleCancelEdit();
-      toast({ title: "删除成功", description: "商品已删除" });
+      await deleteProduct(id);
+      if (editingId === id) handleCancelEdit();
     }
   };
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!newProduct.name || !newProduct.price) {
       toast({ title: "错误", description: "名称/价格必填", variant: "destructive" });
       return;
@@ -212,25 +186,25 @@ export const ProductManagement = () => {
     const codesArr = newProduct.codesText 
       ? newProduct.codesText.split('\n').map(l => l.trim()).filter(l => l !== "") 
       : [];
-    const formatted: Product = { 
-      id: editingId || Date.now(),
+    
+    const productData = {
       name: newProduct.name,
       type: newProduct.type,
+      tags: newProduct.tags || [],
       duration: Number(newProduct.duration), 
       price: Number(newProduct.price), 
       usdt: Number(newProduct.usdt), 
       trx: Number(newProduct.trx),
       desc: newProduct.desc,
       codes: codesArr,
-      tags: newProduct.tags || []
+      isActive: true
     };
+
     if (editingId) {
-      setProducts(products.map(p => p.id === editingId ? formatted : p));
+      await updateProduct(editingId, productData);
       setEditingId(null);
-      toast({ title: "修改成功", description: "商品已更新" });
     } else {
-      setProducts([formatted, ...products]);
-      toast({ title: "上架成功", description: "商品已添加" });
+      await addProduct(productData);
     }
     setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
   };

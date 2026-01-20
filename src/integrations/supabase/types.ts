@@ -767,6 +767,54 @@ export type Database = {
         }
         Relationships: []
       }
+      store_products: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration: number
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          sort_order: number
+          tags: string[]
+          trx: number
+          type: string
+          updated_at: string
+          usdt: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          price?: number
+          sort_order?: number
+          tags?: string[]
+          trx?: number
+          type?: string
+          updated_at?: string
+          usdt?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          sort_order?: number
+          tags?: string[]
+          trx?: number
+          type?: string
+          updated_at?: string
+          usdt?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

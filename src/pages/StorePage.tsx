@@ -17,21 +17,9 @@ import {
 } from 'lucide-react';
 import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
+import { useStoreProducts, StoreProduct } from "@/hooks/useStoreProducts";
 
 // --- 全局工具函数 ---
-interface Product {
-  id: number;
-  type: 'card' | 'auto';
-  tags: string[];
-  name: string;
-  duration: number;
-  price: number;
-  usdt: number;
-  trx: number;
-  desc: string;
-  codes: string[];
-}
-
 interface Order {
   orderNo: string;
   botId: string;
@@ -56,12 +44,6 @@ interface Config {
   enableAntiCollision: boolean;
   exchangeRateUsdtCny: number;
 }
-
-const getStockCount = (product: Product) => {
-  if (!product) return 0;
-  if (product.type === 'auto') return 9999; 
-  return (product.codes || []).length;
-};
 
 const formatTimeDisplay = (seconds: number) => {
   const m = Math.floor(seconds / 60);
@@ -97,20 +79,6 @@ const CATEGORY_TAGS = [
   { id: 'mall', label: 'TG商城' }
 ];
 
-const DEFAULT_PRODUCTS: Product[] = [
-  // 自动充值商品 - 商品名称需包含功能类型和时长，用于 webhook 解析
-  { id: 1, type: 'auto', tags: ['chat'], name: '双向聊天-1个月', duration: 30, price: 30, usdt: 5.000, trx: 40.000, desc: '支付后系统全自动激活，有效期30天', codes: [] },
-  { id: 2, type: 'auto', tags: ['chat'], name: '双向聊天-3个月', duration: 90, price: 85, usdt: 14.000, trx: 110.000, desc: '季度优惠套餐，系统自动处理', codes: [] },
-  { id: 3, type: 'auto', tags: ['keyboard'], name: '菜单键盘-1个月', duration: 30, price: 30, usdt: 5.000, trx: 40.000, desc: '支付后系统全自动激活，有效期30天', codes: [] },
-  { id: 4, type: 'auto', tags: ['keyboard'], name: '菜单键盘-3个月', duration: 90, price: 85, usdt: 14.000, trx: 110.000, desc: '季度优惠套餐，系统自动处理', codes: [] },
-  { id: 5, type: 'auto', tags: ['mall'], name: 'TG商城-1个月', duration: 30, price: 30, usdt: 5.000, trx: 40.000, desc: '支付后系统全自动激活，有效期30天', codes: [] },
-  { id: 6, type: 'auto', tags: ['mall'], name: 'TG商城-3个月', duration: 90, price: 85, usdt: 14.000, trx: 110.000, desc: '季度优惠套餐，系统自动处理', codes: [] },
-  // 卡密商品 - 购买后直接发放激活码
-  { id: 101, type: 'card', tags: ['chat'], name: '双向聊天-独立激活码-1个月', duration: 30, price: 35, usdt: 6.000, trx: 45.000, desc: '购买后发放独立激活码，可转赠', codes: [] },
-  { id: 102, type: 'card', tags: ['keyboard'], name: '菜单键盘-独立激活码-1个月', duration: 30, price: 35, usdt: 6.000, trx: 45.000, desc: '购买后发放独立激活码，可转赠', codes: [] },
-  { id: 103, type: 'card', tags: ['mall'], name: 'TG商城-独立激活码-1个月', duration: 30, price: 35, usdt: 6.000, trx: 45.000, desc: '购买后发放独立激活码，可转赠', codes: [] },
-];
-
 const DEFAULT_CONFIG: Config = {
   usdtAddress: '', 
   tronGridApiKey: '', 
@@ -125,10 +93,9 @@ const DEFAULT_CONFIG: Config = {
 
 // --- 商城页面组件 ---
 export const StorePage = () => {
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('app_products_v41');
-    return saved ? JSON.parse(saved) : DEFAULT_PRODUCTS;
-  });
+  // 使用数据库 hook 加载商品
+  const { products, loading: productsLoading, getStockCount, loadProducts } = useStoreProducts();
+  
   const [config] = useState<Config>(() => {
     const saved = localStorage.getItem('app_config_v41');
     return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
@@ -142,7 +109,7 @@ export const StorePage = () => {
   const [activeTags, setActiveTags] = useState<string[]>([]); 
   const [botId, setBotId] = useState('');
   const [contactInfo, setContactInfo] = useState(''); 
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null); 
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null); 
   const [paymentMethod, setPaymentMethod] = useState(''); 
   const [paymentStep, setPaymentStep] = useState<'selection' | 'paying' | 'success' | 'expired'>('selection'); 
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null); 
@@ -198,18 +165,8 @@ export const StorePage = () => {
     }, 3000); // 每3秒轮询一次
   };
 
-  // 监听 Storage 变化
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const savedProducts = localStorage.getItem('app_products_v41');
-      if (savedProducts) setProducts(JSON.parse(savedProducts));
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
+  // 保存订单到 localStorage
   useEffect(() => { localStorage.setItem('app_orders_v41', JSON.stringify(orders)); }, [orders]);
-  useEffect(() => { localStorage.setItem('app_products_v41', JSON.stringify(products)); }, [products]);
 
   // 筛选重置
   useEffect(() => {
@@ -297,7 +254,7 @@ export const StorePage = () => {
     if (activeTab === 'auto' && !botId.trim()) {
       return setValidationError("请输入账号ID");
     }
-    const product = products.find(p => Number(p.id) === Number(selectedProductId));
+    const product = products.find(p => p.id === selectedProductId);
     if (!product) return;
     if (product.type === 'card' && getStockCount(product) <= 0) {
       return setValidationError("库存不足");
@@ -450,52 +407,30 @@ export const StorePage = () => {
   };
 
   const completeOrder = async (txId: string) => {
-    const productIdx = products.findIndex(p => Number(p.id) === Number(selectedProductId));
-    if (productIdx === -1) return;
+    const product = products.find(p => p.id === selectedProductId);
+    if (!product) return;
 
-    const product = products[productIdx];
-    
     // 卡密类型商品 - 调用云函数从数据库原子获取卡密
     if (product.type === 'card' && currentOrder) {
       try {
         const { data, error } = await supabase.functions.invoke('deliver-card-key', {
           body: {
             orderNo: currentOrder.orderNo,
-            productId: String(product.id)
+            productId: product.id
           }
         });
 
         if (error || !data?.success) {
-          // 数据库无卡密时回退到本地库存
-          if (product.codes && product.codes.length > 0) {
-            const localCode = product.codes[0];
-            const updatedProducts = [...products];
-            const newCodes = [...product.codes];
-            newCodes.shift();
-            updatedProducts[productIdx] = { ...product, codes: newCodes };
-            setProducts(updatedProducts);
-            updateOrderStatus('paid', localCode);
-          } else {
-            updateOrderStatus('paid', '卡密已售罄，请联系客服');
-          }
+          updateOrderStatus('paid', '卡密已售罄，请联系客服');
         } else {
           // 成功从数据库获取卡密
           updateOrderStatus('paid', data.cardKey);
+          // 刷新商品列表以更新库存显示
+          loadProducts();
         }
       } catch (err) {
         console.error('获取卡密失败:', err);
-        // 回退到本地
-        if (product.codes && product.codes.length > 0) {
-          const localCode = product.codes[0];
-          const updatedProducts = [...products];
-          const newCodes = [...product.codes];
-          newCodes.shift();
-          updatedProducts[productIdx] = { ...product, codes: newCodes };
-          setProducts(updatedProducts);
-          updateOrderStatus('paid', localCode);
-        } else {
-          updateOrderStatus('paid', '系统错误，请联系客服');
-        }
+        updateOrderStatus('paid', '系统错误，请联系客服');
       }
     } else {
       // 自动订阅类型
@@ -693,7 +628,7 @@ export const StorePage = () => {
     );
   };
 
-  const currentProduct = products.find(p => Number(p.id) === Number(selectedProductId));
+  const currentProduct = products.find(p => p.id === selectedProductId);
   let displayPrice = '---';
   if (currentProduct) {
     if (paymentMethod === 'usdt') displayPrice = `${currentProduct.usdt.toFixed(3)} U`;
@@ -785,7 +720,7 @@ export const StorePage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filteredProducts.length > 0 ? (
                   filteredProducts.map(p => {
-                    const isSelected = Number(selectedProductId) === Number(p.id);
+                    const isSelected = selectedProductId === p.id;
                     const stock = getStockCount(p);
                     const isSoldOut = stock <= 0;
                     return (
