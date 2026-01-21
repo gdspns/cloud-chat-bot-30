@@ -256,8 +256,9 @@ export const StorePage = () => {
     }
     const product = products.find(p => p.id === selectedProductId);
     if (!product) return;
-    if (product.type === 'card' && getStockCount(product) <= 0) {
-      return setValidationError("库存不足");
+    // 检查所有商品类型的库存（包括自动充值商品）
+    if (getStockCount(product) <= 0) {
+      return setValidationError("库存不足，暂时无法购买");
     }
     setValidationError(""); 
 
@@ -727,10 +728,10 @@ export const StorePage = () => {
                     const stock = getStockCount(p);
                     const isSoldOut = stock <= 0;
                     return (
-                      <div key={p.id} onClick={() => !isSoldOut && setSelectedProductId(p.id)} className={`relative cursor-pointer p-5 rounded-2xl border transition-all ${isSelected ? 'border-primary bg-primary/5 shadow-md ring-1 ring-primary' : 'border-border bg-background hover:border-primary/50'} ${isSoldOut ? 'opacity-40' : ''}`}>
+                      <div key={p.id} onClick={() => !isSoldOut && setSelectedProductId(p.id)} className={`relative cursor-pointer p-5 rounded-2xl border transition-all ${isSelected ? 'border-primary bg-primary/5 shadow-md ring-1 ring-primary' : 'border-border bg-background hover:border-primary/50'} ${isSoldOut ? 'opacity-40 cursor-not-allowed' : ''}`}>
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="font-bold text-sm leading-tight">{p.name}</h3>
-                          {p.type === 'card' && (<span className={`text-[9px] font-bold px-2 py-0.5 rounded ${stock > 0 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>库存:{stock}</span>)}
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${stock > 0 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>库存:{stock}</span>
                         </div>
                         <div className="flex gap-1 mb-2 flex-wrap">
                           {(p.tags || []).map(tid => {

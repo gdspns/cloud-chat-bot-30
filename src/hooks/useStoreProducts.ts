@@ -233,10 +233,10 @@ export function useStoreProducts() {
     }
   }, [loadProducts, toast]);
 
-  // 获取商品库存（卡密数量）
+  // 获取商品库存（卡密数量） - 包括自动充值商品
   const getStockCount = useCallback((product: StoreProduct) => {
     if (!product) return 0;
-    if (product.type === 'auto') return 9999;
+    // 所有商品都从 codes 数组获取库存（包括 auto 类型）
     return product.codes.length;
   }, []);
 

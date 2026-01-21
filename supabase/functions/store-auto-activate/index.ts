@@ -30,37 +30,34 @@ Deno.serve(async (req) => {
 
     console.log(`[Auto Activate] 处理订单: ${orderNo}, 机器人: ${botToken.slice(-8)}, 功能: ${featureType}`)
 
-    // 1. 从 activation_codes 表获取一个匹配的未使用激活码
-    // 优先匹配精确类型，然后匹配 all 类型
-    let codeData = null
-    
-    // 精确匹配
-    const { data: exactMatch } = await supabase
-      .from('activation_codes')
-      .select('*')
-      .eq('feature_type', featureType)
-      .eq('is_used', false)
-      .gte('validity_days', validityDays || 30)
-      .order('validity_days', { ascending: true })
+    // 1. 从 store_card_keys 表获取一个匹配商品的未使用激活码
+    // 首先需要找到对应功能类型的商品，然后从卡密表获取
+    const { data: matchProduct } = await supabase
+      .from('store_products')
+      .select('id, duration')
+      .eq('type', 'auto')
+      .contains('tags', [featureType])
+      .gte('duration', validityDays || 30)
+      .order('duration', { ascending: true })
       .limit(1)
       .maybeSingle()
 
-    if (exactMatch) {
-      codeData = exactMatch
-    } else {
-      // 尝试 all 类型
-      const { data: allMatch } = await supabase
-        .from('activation_codes')
-        .select('*')
-        .eq('feature_type', 'all')
+    let codeData: { id: string; card_key: string; product_id: string } | null = null
+    let productDuration = validityDays || 30
+
+    if (matchProduct) {
+      // 使用 FOR UPDATE SKIP LOCKED 避免并发问题
+      const { data: cardKey } = await supabase
+        .from('store_card_keys')
+        .select('id, card_key, product_id')
+        .eq('product_id', matchProduct.id)
         .eq('is_used', false)
-        .gte('validity_days', validityDays || 30)
-        .order('validity_days', { ascending: true })
         .limit(1)
         .maybeSingle()
       
-      if (allMatch) {
-        codeData = allMatch
+      if (cardKey) {
+        codeData = cardKey
+        productDuration = matchProduct.duration
       }
     }
 
@@ -72,8 +69,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    const actualValidityDays = codeData.validity_days || 30
-    const actualFeatureType = codeData.feature_type || featureType
+    const actualValidityDays = productDuration
+    const actualFeatureType = featureType
 
     // 2. 判断需要激活的功能
     const shouldActivateChat = ['chat', 'both', 'chat_shop', 'all'].includes(actualFeatureType)
@@ -171,7 +168,7 @@ Deno.serve(async (req) => {
           .from('bot_activations')
           .insert({
             bot_token: botToken,
-            activation_code: codeData.code,
+            activation_code: codeData.card_key,
             personal_user_id: 'store_auto_activate',
             expire_at: newChatExpireAt?.toISOString(),
             is_authorized: true,
@@ -217,14 +214,13 @@ Deno.serve(async (req) => {
         } as any, { onConflict: 'bot_token' })
     }
 
-    // 7. 标记激活码为已使用
-    const expireAt = newChatExpireAt || newKeyboardExpireAt || newShopExpireAt
+    // 7. 标记卡密为已使用（在 store_card_keys 表中）
     await supabase
-      .from('activation_codes')
+      .from('store_card_keys')
       .update({
         is_used: true,
-        used_by_bot_id: botRecord?.id || null,
-        expire_at: expireAt ? expireAt.toISOString() : null
+        order_id: orderNo,
+        updated_at: new Date().toISOString()
       })
       .eq('id', codeData.id)
 
@@ -241,7 +237,7 @@ Deno.serve(async (req) => {
         success: true,
         orderNo,
         activatedFeatures,
-        usedCode: codeData.code,
+        usedCode: codeData.card_key,
         message: `已成功激活: ${activatedFeatures.join(', ')}`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
