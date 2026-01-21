@@ -124,6 +124,47 @@ export const StorePage = () => {
   const paymentTimerRef = useRef<NodeJS.Timeout | null>(null);
   const orderPollingRef = useRef<NodeJS.Timeout | null>(null);
 
+  // --- 安全防护：禁止 F12, Ctrl+Shift+I, 部分右键 ---
+  useEffect(() => {
+    // 处理右键菜单
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // 允许在 INPUT 和 TEXTAREA 元素上使用右键（为了复制粘贴）
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+      // 其他区域禁止右键
+      e.preventDefault();
+    };
+
+    // 处理键盘快捷键
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. 禁止 F12
+      if (e.key === 'F12' || e.keyCode === 123) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      // 2. 禁止 Ctrl+Shift+I (不区分大小写)
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    };
+
+    // 添加全局监听
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+
+    // 组件卸载时移除监听
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+  
   // 停止订单轮询
   const stopOrderPolling = () => {
     if (orderPollingRef.current) {
