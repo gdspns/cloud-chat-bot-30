@@ -293,7 +293,7 @@ export const StorePage = () => {
     if (!selectedProductId) return setValidationError("请先选择商品");
     if (!paymentMethod) return setValidationError("请选择支付方式");
     if (activeTab === 'auto' && !botId.trim()) {
-      return setValidationError("请输入账号ID（从 @BotFather 获取的机器人令牌）");
+      return setValidationError("请输入Bot机器人ID！从 @BotFather 获取的机器人令牌");
     }
     const product = products.find(p => p.id === selectedProductId);
     if (!product) return;
