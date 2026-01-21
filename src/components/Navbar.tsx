@@ -23,17 +23,26 @@ export const Navbar = () => {
         </Link>
         
         {/* 居中导航项 */}
-        <div className="flex flex-wrap items-center justify-center gap-1 md:gap-2 md:absolute md:left-1/2 md:transform md:-translate-x-1/2">
+        <div className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
           <Button 
             variant={location.pathname === "/" ? "default" : "ghost"} 
             size="sm" 
             asChild
-            className="px-2 md:px-3"
+          >
+            <Link to="/">
+              <Home className="h-4 w-4 mr-1" />
+              首页
+            </Link>
+          </Button>
+          
+          <Button 
+            variant={location.pathname === "/" ? "default" : "ghost"} 
+            size="sm" 
+            asChild
           >
             <Link to="/">
               <MessageSquare className="h-4 w-4 mr-1" />
-              <span className="md:hidden">双向</span>
-              <span className="hidden md:inline">双向聊天</span>
+              双向聊天
             </Link>
           </Button>
           
@@ -41,12 +50,10 @@ export const Navbar = () => {
             variant={location.pathname === "/keyboard-menu" ? "default" : "ghost"} 
             size="sm" 
             asChild
-            className="px-2 md:px-3"
           >
             <Link to="/keyboard-menu">
               <Layout className="h-4 w-4 mr-1" />
-              <span className="md:hidden">键盘</span>
-              <span className="hidden md:inline">菜单键盘</span>
+              菜单键盘
             </Link>
           </Button>
           
@@ -54,38 +61,39 @@ export const Navbar = () => {
             variant={location.pathname === "/store" ? "default" : "ghost"} 
             size="sm" 
             asChild
-            className="px-2 md:px-3"
           >
             <Link to="/store">
               <ShoppingCart className="h-4 w-4 mr-1" />
-              <span className="md:hidden">商城</span>
-              <span className="hidden md:inline">自助商城</span>
+              自助商城
             </Link>
           </Button>
         </div>
         
-        <div className="flex items-center gap-1 md:gap-2">
+        <div className="flex items-center gap-2">
           {user ? (
             <>
               <Button 
                 variant={location.pathname === "/user" ? "default" : "ghost"} 
                 size="sm" 
                 asChild
-                className="px-2 md:px-3"
               >
                 <Link to="/user">
-                  <Settings className="h-4 w-4 md:mr-1" />
-                  <span className="hidden md:inline">用户中心</span>
+                  <Settings className="h-4 w-4 mr-1" />
+                  用户中心
                 </Link>
               </Button>
+              {/* <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-muted">
+                <User className="h-4 w-4" />
+                <span className="text-sm font-medium max-w-[120px] truncate">{user.email}</span>
+              </div>
+              */}
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLogout}
-                className="px-2 md:px-3"
               >
-                <LogOut className="h-4 w-4 md:mr-1" />
-                <span className="hidden md:inline">退出</span>
+                <LogOut className="h-4 w-4 mr-1" />
+                退出
               </Button>
             </>
           ) : (
@@ -94,11 +102,10 @@ export const Navbar = () => {
                 variant={location.pathname === "/auth" ? "default" : "ghost"} 
                 size="sm" 
                 asChild
-                className="px-2 md:px-3"
               >
                 <Link to="/auth?mode=register">
-                  <UserPlus className="h-4 w-4 md:mr-1" />
-                  <span className="hidden md:inline">注册</span>
+                  <UserPlus className="h-4 w-4 mr-1" />
+                  注册
                 </Link>
               </Button>
               
@@ -106,11 +113,10 @@ export const Navbar = () => {
                 variant={location.pathname === "/auth" ? "default" : "ghost"} 
                 size="sm" 
                 asChild
-                className="px-2 md:px-3"
               >
                 <Link to="/auth?mode=login">
-                  <LogIn className="h-4 w-4 md:mr-1" />
-                  <span className="hidden md:inline">登录</span>
+                  <LogIn className="h-4 w-4 mr-1" />
+                  登录
                 </Link>
               </Button>
             </>
