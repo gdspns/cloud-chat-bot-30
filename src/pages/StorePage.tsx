@@ -447,7 +447,7 @@ export const StorePage = () => {
   };
 
   const renderPaymentModal = () => {
-    const product = products.find(p => Number(p.id) === Number(selectedProductId));
+    const product = products.find(p => p.id === selectedProductId);
     if (!product) return null;
 
     const isCrypto = paymentMethod === 'usdt' || paymentMethod === 'trx';
@@ -631,9 +631,12 @@ export const StorePage = () => {
   const currentProduct = products.find(p => p.id === selectedProductId);
   let displayPrice = '---';
   if (currentProduct) {
-    if (paymentMethod === 'usdt') displayPrice = `${currentProduct.usdt.toFixed(3)} U`;
-    else if (paymentMethod === 'trx') displayPrice = `${currentProduct.trx.toFixed(3)} T`;
-    else if (paymentMethod === 'wechat' || paymentMethod === 'alipay') displayPrice = `¥${currentProduct.price}`;
+    const priceVal = Number(currentProduct.price) || 0;
+    const usdtVal = Number(currentProduct.usdt) || 0;
+    const trxVal = Number(currentProduct.trx) || 0;
+    if (paymentMethod === 'usdt') displayPrice = `${usdtVal.toFixed(3)} U`;
+    else if (paymentMethod === 'trx') displayPrice = `${trxVal.toFixed(3)} T`;
+    else if (paymentMethod === 'wechat' || paymentMethod === 'alipay') displayPrice = `¥${priceVal.toFixed(2)}`;
     else displayPrice = '0.00';
   }
   
@@ -737,10 +740,10 @@ export const StorePage = () => {
                           })}
                         </div>
                         <div className="flex flex-col gap-1">
-                          <span className="text-xl font-black">¥{p.price}</span>
+                          <span className="text-xl font-black">¥{(Number(p.price) || 0).toFixed(2)}</span>
                           <div className="flex justify-between text-[9px] text-muted-foreground font-bold">
-                            <span>{p.usdt.toFixed(3)} U</span>
-                            <span>{p.trx.toFixed(3)} T</span>
+                            <span>{(Number(p.usdt) || 0).toFixed(3)} U</span>
+                            <span>{(Number(p.trx) || 0).toFixed(3)} T</span>
                           </div>
                         </div>
                       </div>
