@@ -64,7 +64,7 @@ export const Navbar = () => {
           </Button>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           {user ? (
             <>
               <Button 
@@ -74,22 +74,18 @@ export const Navbar = () => {
                 className="px-2 md:px-3"
               >
                 <Link to="/user">
-                  <Settings className="h-4 w-4 mr-1" />
-                  用户中心
+                  <Settings className="h-4 w-4 md:mr-1" />
+                  <span className="hidden md:inline">用户中心</span>
                 </Link>
               </Button>
-              {/* <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-muted">
-                <User className="h-4 w-4" />
-                <span className="text-sm font-medium max-w-[120px] truncate">{user.email}</span>
-              </div>
-              */}
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLogout}
+                className="px-2 md:px-3"
               >
-                <LogOut className="h-4 w-4 mr-1" />
-                退出
+                <LogOut className="h-4 w-4 md:mr-1" />
+                <span className="hidden md:inline">退出</span>
               </Button>
             </>
           ) : (
@@ -101,8 +97,8 @@ export const Navbar = () => {
                 className="px-2 md:px-3"
               >
                 <Link to="/auth?mode=register">
-                  <UserPlus className="h-4 w-4 mr-1" />
-                  注册
+                  <UserPlus className="h-4 w-4 md:mr-1" />
+                  <span className="hidden md:inline">注册</span>
                 </Link>
               </Button>
               
@@ -113,8 +109,8 @@ export const Navbar = () => {
                 className="px-2 md:px-3"
               >
                 <Link to="/auth?mode=login">
-                  <LogIn className="h-4 w-4 mr-1" />
-                  登录
+                  <LogIn className="h-4 w-4 md:mr-1" />
+                  <span className="hidden md:inline">登录</span>
                 </Link>
               </Button>
             </>
