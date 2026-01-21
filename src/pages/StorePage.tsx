@@ -293,7 +293,7 @@ export const StorePage = () => {
     if (!selectedProductId) return setValidationError("请先选择商品");
     if (!paymentMethod) return setValidationError("请选择支付方式");
     if (activeTab === 'auto' && !botId.trim()) {
-      return setValidationError("请输入Bot机器人ID！从 @BotFather 获取的机器人令牌");
+      return setValidationError("请输入账号ID");
     }
     const product = products.find(p => p.id === selectedProductId);
     if (!product) return;
@@ -755,8 +755,8 @@ export const StorePage = () => {
 
             {activeTab === 'auto' && (
               <div className="bg-card p-6 rounded-2xl shadow-sm border">
-                <h2 className="font-bold mb-4 flex items-center gap-2 text-sm"><span className="bg-primary text-primary-foreground w-5 h-5 rounded flex items-center justify-center text-[10px]">01</span> 输入账号 ID</h2>
-                <input type="text" value={botId} onChange={(e) => setBotId(e.target.value)} placeholder="请输入ID" className="w-full p-4 bg-muted border border-border rounded-xl outline-none font-bold text-base focus:border-primary transition-all" />
+                <h2 className="font-bold mb-4 flex items-center gap-2 text-sm"><span className="bg-primary text-primary-foreground w-5 h-5 rounded flex items-center justify-center text-[10px]">01</span> 请输入Bot机器人ID【从 @BotFather 获取的机器人令牌】</h2>
+                <input type="text" value={botId} onChange={(e) => setBotId(e.target.value)} placeholder="例：12345678:AAHryws5h-rIoZzjOMB2mhtcJCMBkKHMbRY" className="w-full p-4 bg-muted border border-border rounded-xl outline-none font-bold text-base focus:border-primary transition-all" />
               </div>
             )}
 
