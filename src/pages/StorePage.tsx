@@ -745,7 +745,7 @@ export const StorePage = () => {
                     type="text" 
                     value={contactInfo} 
                     onChange={(e) => setContactInfo(e.target.value)} 
-                    placeholder="请输入邮箱或手机号 (用于接收卡密)" 
+                    placeholder="请输入邮箱或手机号 (用于后续可查询卡密)" 
                     className="w-full pl-10 pr-4 py-4 bg-muted border border-border rounded-xl outline-none font-bold text-sm focus:border-primary transition-all" 
                   />
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
