@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { DataExportImport } from "@/components/DataExportImport";
 import { ArticleManager } from "@/components/ArticleManager";
 import { ProductManagement } from "@/components/ProductManagement";
+import BatchKeyImport from "@/components/BatchKeyImport";
 
 interface BotActivation {
   id: string;
@@ -1306,6 +1307,10 @@ export const Admin = () => {
               <ShoppingCart className="h-4 w-4 mr-2" />
               商品管理
             </TabsTrigger>
+            <TabsTrigger value="cardkeys">
+              <Key className="h-4 w-4 mr-2" />
+              导入卡密
+            </TabsTrigger>
             <TabsTrigger value="articles">
               <FileText className="h-4 w-4 mr-2" />
               文章管理
@@ -1952,6 +1957,11 @@ export const Admin = () => {
             <Card className="p-6">
               <ProductManagement />
             </Card>
+          </TabsContent>
+
+          {/* 卡密导入 */}
+          <TabsContent value="cardkeys" className="space-y-4">
+            <BatchKeyImport />
           </TabsContent>
 
           {/* 文章管理 */}
