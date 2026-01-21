@@ -712,9 +712,9 @@ export const StorePage = () => {
       <div className="container mx-auto px-4 py-8">
         {/* 顶部切换 */}
         <div className="flex flex-col items-center gap-6 mb-8">
-          <div className="flex items-center gap-4 font-black text-3xl tracking-tighter">
+          {/* <div className="flex items-center gap-4 font-black text-3xl tracking-tighter">
             <Terminal className="text-primary w-8 h-8" /> 自助商城
-          </div>
+          </div> */}
           <div className="flex bg-muted p-2 rounded-2xl border gap-2">
             <button onClick={() => {setActiveTab('auto'); setValidationError(""); setActiveTags([]);}} className={`px-8 py-3 rounded-xl text-lg font-bold transition-all ${activeTab === 'auto' ? 'bg-background text-primary shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}>自动充值</button>
             <button onClick={() => {setActiveTab('card'); setValidationError(""); setActiveTags([]);}} className={`px-8 py-3 rounded-xl text-lg font-bold transition-all ${activeTab === 'card' ? 'bg-background text-primary shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}>购买卡密</button>
