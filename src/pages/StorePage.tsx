@@ -120,9 +120,13 @@ export const StorePage = () => {
   const [hupiPayUrl, setHupiPayUrl] = useState('');
   const [hupiQrCodeUrl, setHupiQrCodeUrl] = useState('');
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [isLoadingCardKey, setIsLoadingCardKey] = useState(false);
+  const [cardKeyRetryCount, setCardKeyRetryCount] = useState(0);
+  const [cardKeyRetryError, setCardKeyRetryError] = useState('');
 
   const paymentTimerRef = useRef<NodeJS.Timeout | null>(null);
   const orderPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const cardKeyPollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // --- 安全防护：禁止 F12, Ctrl+Shift+I, 部分右键 ---
   useEffect(() => {
@@ -173,6 +177,75 @@ export const StorePage = () => {
     }
   };
 
+  // 停止卡密轮询
+  const stopCardKeyPolling = () => {
+    if (cardKeyPollingRef.current) {
+      clearInterval(cardKeyPollingRef.current);
+      cardKeyPollingRef.current = null;
+    }
+  };
+
+  // 卡密获取重试机制 - 处理云函数冷启动延迟
+  const startCardKeyPolling = (orderNo: string) => {
+    stopCardKeyPolling();
+    setIsLoadingCardKey(true);
+    setCardKeyRetryCount(0);
+    setCardKeyRetryError('');
+    
+    let retryCount = 0;
+    const MAX_RETRIES = 5;
+    const RETRY_INTERVAL = 1500; // 1.5秒
+    
+    const poll = async () => {
+      retryCount++;
+      setCardKeyRetryCount(retryCount);
+      
+      try {
+        const { data: dbOrder, error } = await supabase
+          .from('store_orders')
+          .select('status, delivered_code')
+          .eq('order_no', orderNo)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('获取卡密失败:', error);
+          if (retryCount >= MAX_RETRIES) {
+            setIsLoadingCardKey(false);
+            setCardKeyRetryError('发货延迟，请稍后在订单记录中查看');
+            stopCardKeyPolling();
+          }
+          return;
+        }
+        
+        // 检查是否已获取到卡密
+        if (dbOrder?.delivered_code && dbOrder.delivered_code.trim() !== '') {
+          console.log('卡密获取成功:', orderNo, dbOrder.delivered_code.slice(0, 10) + '...');
+          updateOrderStatus('paid', dbOrder.delivered_code);
+          setIsLoadingCardKey(false);
+          stopCardKeyPolling();
+        } else if (retryCount >= MAX_RETRIES) {
+          // 超过最大重试次数
+          console.warn('卡密获取超时:', orderNo);
+          setIsLoadingCardKey(false);
+          setCardKeyRetryError('发货延迟，请稍后在订单记录中查看');
+          stopCardKeyPolling();
+        }
+      } catch (err) {
+        console.error('卡密轮询异常:', err);
+        if (retryCount >= MAX_RETRIES) {
+          setIsLoadingCardKey(false);
+          setCardKeyRetryError('网络异常，请稍后在订单记录中查看');
+          stopCardKeyPolling();
+        }
+      }
+    };
+    
+    // 立即执行第一次
+    poll();
+    // 设置定时轮询
+    cardKeyPollingRef.current = setInterval(poll, RETRY_INTERVAL);
+  };
+
   // 开始轮询订单状态（法币支付时使用）
   const startOrderPolling = (orderNo: string) => {
     stopOrderPolling();
@@ -195,10 +268,22 @@ export const StorePage = () => {
           stopOrderPolling();
           stopMonitoring();
           
-          // 更新本地订单状态并显示成功
-          const code = dbOrder.delivered_code || 'AUTO_OK';
-          updateOrderStatus('paid', code);
-          setPaymentStep('success');
+          // 检查当前商品类型是否为卡密类型
+          const product = products.find(p => p.id === selectedProductId);
+          const isCardProduct = product?.type === 'card';
+          
+          // 如果是卡密商品且没有卡密，启动卡密轮询
+          if (isCardProduct && (!dbOrder.delivered_code || dbOrder.delivered_code.trim() === '')) {
+            // 先显示成功页面，同时开始卡密轮询
+            updateOrderStatus('paid', '');
+            setPaymentStep('success');
+            startCardKeyPolling(orderNo);
+          } else {
+            // 已有卡密或非卡密商品，直接显示
+            const code = dbOrder.delivered_code || 'AUTO_OK';
+            updateOrderStatus('paid', code);
+            setPaymentStep('success');
+          }
         }
       } catch (err) {
         console.error('轮询异常:', err);
@@ -231,9 +316,13 @@ export const StorePage = () => {
       setPaymentStep('expired');
       stopMonitoring();
       stopOrderPolling();
+      stopCardKeyPolling();
       updateOrderStatus('expired');
     }
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      stopCardKeyPolling();
+    };
   }, [paymentStep, timeLeft]);
 
   // --- 逻辑函数 ---
@@ -435,8 +524,17 @@ export const StorePage = () => {
     }
     
     if (dbOrder?.status === 'paid') {
-      // 订单已在后台确认支付，直接完成
-      if (dbOrder.delivered_code) {
+      // 订单已在后台确认支付
+      const product = products.find(p => p.id === selectedProductId);
+      const isCardProduct = product?.type === 'card';
+      
+      // 检查是否是卡密商品且无卡密（云函数冷启动延迟）
+      if (isCardProduct && (!dbOrder.delivered_code || dbOrder.delivered_code.trim() === '')) {
+        // 先显示成功页面，同时开始卡密轮询
+        updateOrderStatus('paid', '');
+        setPaymentStep('success');
+        startCardKeyPolling(currentOrder.orderNo);
+      } else if (dbOrder.delivered_code) {
         updateOrderStatus('paid', dbOrder.delivered_code);
         setPaymentStep('success');
       } else {
@@ -599,14 +697,40 @@ export const StorePage = () => {
                     <div className="bg-white/10 p-3 rounded-lg border border-white/10">
                       <div className="flex justify-between items-center mb-1">
                         <p className="text-[9px] text-gray-400 font-bold uppercase">卡密信息</p>
-                        <button 
-                          onClick={() => copyToClipboard(currentOrder.code, "复制成功")}
-                          className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
-                        >
-                          <Copy size={12} /> 复制
-                        </button>
+                        {!isLoadingCardKey && currentOrder.code && !cardKeyRetryError && (
+                          <button 
+                            onClick={() => copyToClipboard(currentOrder.code, "复制成功")}
+                            className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                          >
+                            <Copy size={12} /> 复制
+                          </button>
+                        )}
                       </div>
-                      <p className="font-mono font-bold text-base text-green-400 break-all">{currentOrder.code}</p>
+                      
+                      {/* 卡密加载中状态 */}
+                      {isLoadingCardKey && (
+                        <div className="flex flex-col items-center justify-center py-4 space-y-3">
+                          <Loader2 size={24} className="text-blue-400 animate-spin" />
+                          <p className="text-blue-400 font-medium text-sm animate-pulse">
+                            正在安全从云端获取卡密，请稍候...
+                          </p>
+                          <p className="text-gray-500 text-xs">
+                            正在进行第 {cardKeyRetryCount} 次尝试
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* 卡密获取失败状态 */}
+                      {!isLoadingCardKey && cardKeyRetryError && (
+                        <div className="py-3">
+                          <p className="text-yellow-400 font-medium text-sm">{cardKeyRetryError}</p>
+                        </div>
+                      )}
+                      
+                      {/* 卡密成功显示 */}
+                      {!isLoadingCardKey && !cardKeyRetryError && currentOrder.code && (
+                        <p className="font-mono font-bold text-base text-green-400 break-all">{currentOrder.code}</p>
+                      )}
                     </div>
                   ) : (<p className="text-green-400 font-bold text-center py-2 text-sm">权益已发放</p>)}
                   <div className="mt-3 pt-3 border-t border-white/10 text-[9px] flex justify-between opacity-60 font-bold">
@@ -614,7 +738,7 @@ export const StorePage = () => {
                     <span>{currentOrder.amount}</span>
                   </div>
                 </div>
-                <button onClick={() => {setPaymentStep('selection'); setBotId(''); setPaymentMethod('');}} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold mt-6 text-sm">确定</button>
+                <button onClick={() => {setPaymentStep('selection'); setBotId(''); setPaymentMethod(''); setIsLoadingCardKey(false); setCardKeyRetryError(''); stopCardKeyPolling();}} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold mt-6 text-sm">确定</button>
               </div>
             )}
           </div>
