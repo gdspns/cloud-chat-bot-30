@@ -195,10 +195,12 @@ export const StorePage = () => {
     let retryCount = 0;
     const MAX_RETRIES = 5;
     const RETRY_INTERVAL = 1500; // 1.5秒
+    const INITIAL_DELAY = 800; // 首次延迟800ms，给云函数启动时间
     
     const poll = async () => {
       retryCount++;
       setCardKeyRetryCount(retryCount);
+      console.log(`[卡密轮询] 第 ${retryCount} 次尝试获取卡密, 订单号:`, orderNo);
       
       try {
         const { data: dbOrder, error } = await supabase
@@ -208,7 +210,7 @@ export const StorePage = () => {
           .maybeSingle();
         
         if (error) {
-          console.error('获取卡密失败:', error);
+          console.error('[卡密轮询] 查询失败:', error);
           if (retryCount >= MAX_RETRIES) {
             setIsLoadingCardKey(false);
             setCardKeyRetryError('发货延迟，请稍后在订单记录中查看');
@@ -217,21 +219,34 @@ export const StorePage = () => {
           return;
         }
         
+        console.log(`[卡密轮询] 查询结果:`, { status: dbOrder?.status, hasCode: !!dbOrder?.delivered_code });
+        
         // 检查是否已获取到卡密
         if (dbOrder?.delivered_code && dbOrder.delivered_code.trim() !== '') {
-          console.log('卡密获取成功:', orderNo, dbOrder.delivered_code.slice(0, 10) + '...');
-          updateOrderStatus('paid', dbOrder.delivered_code);
-          setIsLoadingCardKey(false);
+          const cardKey = dbOrder.delivered_code;
+          console.log('[卡密轮询] 获取成功:', cardKey.slice(0, 10) + '...');
+          
+          // 先停止轮询，再更新状态，避免竞态条件
           stopCardKeyPolling();
+          setIsLoadingCardKey(false);
+          
+          // 更新订单状态和卡密
+          setOrders(prev => prev.map(o => 
+            o.orderNo === orderNo ? { ...o, status: 'paid' as const, code: cardKey } : o
+          ));
+          setCurrentOrder(prev => prev && prev.orderNo === orderNo ? { ...prev, status: 'paid' as const, code: cardKey } : prev);
+          
+          // 刷新商品列表以更新库存
+          loadProducts();
         } else if (retryCount >= MAX_RETRIES) {
           // 超过最大重试次数
-          console.warn('卡密获取超时:', orderNo);
+          console.warn('[卡密轮询] 超时:', orderNo);
           setIsLoadingCardKey(false);
           setCardKeyRetryError('发货延迟，请稍后在订单记录中查看');
           stopCardKeyPolling();
         }
       } catch (err) {
-        console.error('卡密轮询异常:', err);
+        console.error('[卡密轮询] 异常:', err);
         if (retryCount >= MAX_RETRIES) {
           setIsLoadingCardKey(false);
           setCardKeyRetryError('网络异常，请稍后在订单记录中查看');
@@ -240,10 +255,12 @@ export const StorePage = () => {
       }
     };
     
-    // 立即执行第一次
-    poll();
-    // 设置定时轮询
-    cardKeyPollingRef.current = setInterval(poll, RETRY_INTERVAL);
+    // 首次延迟执行，给云函数冷启动时间
+    setTimeout(() => {
+      poll();
+      // 设置定时轮询
+      cardKeyPollingRef.current = setInterval(poll, RETRY_INTERVAL);
+    }, INITIAL_DELAY);
   };
 
   // 开始轮询订单状态（法币支付时使用）
