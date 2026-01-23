@@ -186,7 +186,7 @@ export const StorePage = () => {
   };
 
   // 卡密获取重试机制 - 处理云函数冷启动延迟
-  const startCardKeyPolling = (orderNo: string) => {
+  const startCardKeyPolling = (orderNo: string, productId?: string) => {
     stopCardKeyPolling();
     setIsLoadingCardKey(true);
     setCardKeyRetryCount(0);
@@ -196,6 +196,7 @@ export const StorePage = () => {
     const MAX_RETRIES = 5;
     const RETRY_INTERVAL = 1500; // 1.5秒
     const INITIAL_DELAY = 800; // 首次延迟800ms，给云函数启动时间
+    let lastSeenStatus: 'pending' | 'paid' | 'expired' | undefined;
     
     const poll = async () => {
       retryCount++;
@@ -220,6 +221,7 @@ export const StorePage = () => {
         }
         
         console.log(`[卡密轮询] 查询结果:`, { status: dbOrder?.status, hasCode: !!dbOrder?.delivered_code });
+        lastSeenStatus = (dbOrder?.status as any) ?? lastSeenStatus;
         
         // 检查是否已获取到卡密
         if (dbOrder?.delivered_code && dbOrder.delivered_code.trim() !== '') {
@@ -241,8 +243,35 @@ export const StorePage = () => {
         } else if (retryCount >= MAX_RETRIES) {
           // 超过最大重试次数
           console.warn('[卡密轮询] 超时:', orderNo);
+
+          // 兜底：若订单已确认 paid，但 delivered_code 迟迟未写入，则直接调用发货函数获取卡密
+          // （只在 paid 状态下触发，避免未支付情况下被滥用）
+          if (lastSeenStatus === 'paid') {
+            try {
+              const pid = productId || selectedProductId || undefined;
+              if (pid) {
+                const { data, error } = await supabase.functions.invoke('deliver-card-key', {
+                  body: { orderNo, productId: pid }
+                });
+
+                if (!error && data?.success && data.cardKey) {
+                  stopCardKeyPolling();
+                  setIsLoadingCardKey(false);
+                  setOrders(prev => prev.map(o => 
+                    o.orderNo === orderNo ? { ...o, status: 'paid' as const, code: data.cardKey } : o
+                  ));
+                  setCurrentOrder(prev => prev && prev.orderNo === orderNo ? { ...prev, status: 'paid' as const, code: data.cardKey } : prev);
+                  loadProducts();
+                  return;
+                }
+              }
+            } catch (e) {
+              console.error('[卡密轮询] 兜底发货异常:', e);
+            }
+          }
+
           setIsLoadingCardKey(false);
-          setCardKeyRetryError('发货延迟，请稍后在订单记录中查看');
+          setCardKeyRetryError('发货延迟，请稍后在订单记录中查看（可点击重试）');
           stopCardKeyPolling();
         }
       } catch (err) {
@@ -294,7 +323,7 @@ export const StorePage = () => {
             // 先显示成功页面，同时开始卡密轮询
             updateOrderStatus('paid', '');
             setPaymentStep('success');
-            startCardKeyPolling(orderNo);
+            startCardKeyPolling(orderNo, product?.id);
           } else {
             // 已有卡密或非卡密商品，直接显示
             const code = dbOrder.delivered_code || 'AUTO_OK';
@@ -550,7 +579,7 @@ export const StorePage = () => {
         // 先显示成功页面，同时开始卡密轮询
         updateOrderStatus('paid', '');
         setPaymentStep('success');
-        startCardKeyPolling(currentOrder.orderNo);
+        startCardKeyPolling(currentOrder.orderNo, product?.id);
       } else if (dbOrder.delivered_code) {
         updateOrderStatus('paid', dbOrder.delivered_code);
         setPaymentStep('success');
@@ -741,6 +770,14 @@ export const StorePage = () => {
                       {!isLoadingCardKey && cardKeyRetryError && (
                         <div className="py-3">
                           <p className="text-yellow-400 font-medium text-sm">{cardKeyRetryError}</p>
+                          {currentOrder?.orderNo && (
+                            <button
+                              onClick={() => startCardKeyPolling(currentOrder.orderNo, selectedProductId || undefined)}
+                              className="mt-3 w-full bg-white/10 hover:bg-white/20 border border-white/10 text-white py-2 rounded-lg text-xs font-bold transition-all active:scale-95"
+                            >
+                              手动重试获取卡密
+                            </button>
+                          )}
                         </div>
                       )}
                       
