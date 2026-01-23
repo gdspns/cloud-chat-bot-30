@@ -185,111 +185,95 @@ export const StorePage = () => {
     }
   };
 
-  // 卡密获取重试机制 - 处理云函数冷启动延迟
-  const startCardKeyPolling = (orderNo: string, productId?: string) => {
+  // 直接调用 deliver-card-key 发货（单一入口）
+  const deliverCardKey = async (orderNo: string, productId: string): Promise<string | null> => {
+    console.log('[发货] 调用 deliver-card-key:', { orderNo, productId });
+    try {
+      const { data, error } = await supabase.functions.invoke('deliver-card-key', {
+        body: { orderNo, productId }
+      });
+
+      if (error) {
+        console.error('[发货] 云函数调用失败:', error);
+        return null;
+      }
+
+      if (data?.success && data.cardKey) {
+        console.log('[发货] 成功获取卡密:', data.cardKey.slice(0, 10) + '...');
+        return data.cardKey;
+      } else {
+        console.error('[发货] 返回失败:', data?.error_message || data);
+        return null;
+      }
+    } catch (err) {
+      console.error('[发货] 异常:', err);
+      return null;
+    }
+  };
+
+  // 卡密发货机制 - 检测到 paid 后主动调用发货接口
+  const startCardKeyDelivery = async (orderNo: string, productId: string) => {
     stopCardKeyPolling();
     setIsLoadingCardKey(true);
     setCardKeyRetryCount(0);
     setCardKeyRetryError('');
     
+    const MAX_RETRIES = 3;
+    const RETRY_INTERVAL = 2000; // 2秒
     let retryCount = 0;
-    const MAX_RETRIES = 5;
-    const RETRY_INTERVAL = 1500; // 1.5秒
-    const INITIAL_DELAY = 800; // 首次延迟800ms，给云函数启动时间
-    let lastSeenStatus: 'pending' | 'paid' | 'expired' | undefined;
     
-    const poll = async () => {
+    const tryDeliver = async (): Promise<boolean> => {
       retryCount++;
       setCardKeyRetryCount(retryCount);
-      console.log(`[卡密轮询] 第 ${retryCount} 次尝试获取卡密, 订单号:`, orderNo);
+      console.log(`[卡密发货] 第 ${retryCount} 次尝试, 订单号:`, orderNo);
       
-      try {
-        const { data: dbOrder, error } = await supabase
-          .from('store_orders')
-          .select('status, delivered_code')
-          .eq('order_no', orderNo)
-          .maybeSingle();
+      const cardKey = await deliverCardKey(orderNo, productId);
+      
+      if (cardKey) {
+        stopCardKeyPolling();
+        setIsLoadingCardKey(false);
         
-        if (error) {
-          console.error('[卡密轮询] 查询失败:', error);
-          if (retryCount >= MAX_RETRIES) {
-            setIsLoadingCardKey(false);
-            setCardKeyRetryError('发货延迟，请稍后在订单记录中查看');
-            stopCardKeyPolling();
-          }
-          return;
-        }
+        // 更新订单状态和卡密
+        setOrders(prev => prev.map(o => 
+          o.orderNo === orderNo ? { ...o, status: 'paid' as const, code: cardKey } : o
+        ));
+        setCurrentOrder(prev => prev && prev.orderNo === orderNo ? { ...prev, status: 'paid' as const, code: cardKey } : prev);
         
-        console.log(`[卡密轮询] 查询结果:`, { status: dbOrder?.status, hasCode: !!dbOrder?.delivered_code });
-        lastSeenStatus = (dbOrder?.status as any) ?? lastSeenStatus;
-        
-        // 检查是否已获取到卡密
-        if (dbOrder?.delivered_code && dbOrder.delivered_code.trim() !== '') {
-          const cardKey = dbOrder.delivered_code;
-          console.log('[卡密轮询] 获取成功:', cardKey.slice(0, 10) + '...');
-          
-          // 先停止轮询，再更新状态，避免竞态条件
-          stopCardKeyPolling();
-          setIsLoadingCardKey(false);
-          
-          // 更新订单状态和卡密
-          setOrders(prev => prev.map(o => 
-            o.orderNo === orderNo ? { ...o, status: 'paid' as const, code: cardKey } : o
-          ));
-          setCurrentOrder(prev => prev && prev.orderNo === orderNo ? { ...prev, status: 'paid' as const, code: cardKey } : prev);
-          
-          // 刷新商品列表以更新库存
-          loadProducts();
-        } else if (retryCount >= MAX_RETRIES) {
-          // 超过最大重试次数
-          console.warn('[卡密轮询] 超时:', orderNo);
-
-          // 兜底：若订单已确认 paid，但 delivered_code 迟迟未写入，则直接调用发货函数获取卡密
-          // （只在 paid 状态下触发，避免未支付情况下被滥用）
-          if (lastSeenStatus === 'paid') {
-            try {
-              const pid = productId || selectedProductId || undefined;
-              if (pid) {
-                const { data, error } = await supabase.functions.invoke('deliver-card-key', {
-                  body: { orderNo, productId: pid }
-                });
-
-                if (!error && data?.success && data.cardKey) {
-                  stopCardKeyPolling();
-                  setIsLoadingCardKey(false);
-                  setOrders(prev => prev.map(o => 
-                    o.orderNo === orderNo ? { ...o, status: 'paid' as const, code: data.cardKey } : o
-                  ));
-                  setCurrentOrder(prev => prev && prev.orderNo === orderNo ? { ...prev, status: 'paid' as const, code: data.cardKey } : prev);
-                  loadProducts();
-                  return;
-                }
-              }
-            } catch (e) {
-              console.error('[卡密轮询] 兜底发货异常:', e);
-            }
-          }
-
-          setIsLoadingCardKey(false);
-          setCardKeyRetryError('发货延迟，请稍后在订单记录中查看（可点击重试）');
-          stopCardKeyPolling();
-        }
-      } catch (err) {
-        console.error('[卡密轮询] 异常:', err);
-        if (retryCount >= MAX_RETRIES) {
-          setIsLoadingCardKey(false);
-          setCardKeyRetryError('网络异常，请稍后在订单记录中查看');
-          stopCardKeyPolling();
-        }
+        // 刷新商品列表以更新库存
+        loadProducts();
+        return true;
       }
+      
+      return false;
     };
     
-    // 首次延迟执行，给云函数冷启动时间
-    setTimeout(() => {
-      poll();
-      // 设置定时轮询
-      cardKeyPollingRef.current = setInterval(poll, RETRY_INTERVAL);
-    }, INITIAL_DELAY);
+    // 第一次立即尝试
+    if (await tryDeliver()) return;
+    
+    // 设置重试轮询
+    cardKeyPollingRef.current = setInterval(async () => {
+      if (retryCount >= MAX_RETRIES) {
+        console.warn('[卡密发货] 超过最大重试次数:', orderNo);
+        setIsLoadingCardKey(false);
+        setCardKeyRetryError('发货失败，请点击重试或稍后在订单记录中查看');
+        stopCardKeyPolling();
+        return;
+      }
+      
+      if (await tryDeliver()) {
+        // 成功，已在 tryDeliver 中处理
+      }
+    }, RETRY_INTERVAL);
+  };
+
+  // 手动重试发货
+  const retryCardKeyDelivery = (orderNo: string, productId?: string) => {
+    const pid = productId || selectedProductId;
+    if (!pid) {
+      setCardKeyRetryError('无法获取商品信息，请联系客服');
+      return;
+    }
+    startCardKeyDelivery(orderNo, pid);
   };
 
   // 开始轮询订单状态（法币支付时使用）
@@ -318,13 +302,13 @@ export const StorePage = () => {
           const product = products.find(p => p.id === selectedProductId);
           const isCardProduct = product?.type === 'card';
           
-          // 如果是卡密商品且没有卡密，启动卡密轮询
-          if (isCardProduct && (!dbOrder.delivered_code || dbOrder.delivered_code.trim() === '')) {
-            // 先显示成功页面，同时开始卡密轮询
+          // 如果是卡密商品，主动调用发货接口获取卡密
+          if (isCardProduct && product?.id) {
+            // 先显示成功页面，同时开始发货
             updateOrderStatus('paid', '');
             setPaymentStep('success');
-            startCardKeyPolling(orderNo, product?.id);
-          } else {
+            startCardKeyDelivery(orderNo, product.id);
+          } else if (dbOrder.delivered_code) {
             // 已有卡密或非卡密商品，直接显示
             const code = dbOrder.delivered_code || 'AUTO_OK';
             updateOrderStatus('paid', code);
@@ -574,12 +558,12 @@ export const StorePage = () => {
       const product = products.find(p => p.id === selectedProductId);
       const isCardProduct = product?.type === 'card';
       
-      // 检查是否是卡密商品且无卡密（云函数冷启动延迟）
-      if (isCardProduct && (!dbOrder.delivered_code || dbOrder.delivered_code.trim() === '')) {
-        // 先显示成功页面，同时开始卡密轮询
+      // 卡密商品 - 主动调用发货接口
+      if (isCardProduct && product?.id) {
+        // 先显示成功页面，同时开始发货
         updateOrderStatus('paid', '');
         setPaymentStep('success');
-        startCardKeyPolling(currentOrder.orderNo, product?.id);
+        startCardKeyDelivery(currentOrder.orderNo, product.id);
       } else if (dbOrder.delivered_code) {
         updateOrderStatus('paid', dbOrder.delivered_code);
         setPaymentStep('success');
@@ -772,7 +756,7 @@ export const StorePage = () => {
                           <p className="text-yellow-400 font-medium text-sm">{cardKeyRetryError}</p>
                           {currentOrder?.orderNo && (
                             <button
-                              onClick={() => startCardKeyPolling(currentOrder.orderNo, selectedProductId || undefined)}
+                              onClick={() => retryCardKeyDelivery(currentOrder.orderNo, selectedProductId || undefined)}
                               className="mt-3 w-full bg-white/10 hover:bg-white/20 border border-white/10 text-white py-2 rounded-lg text-xs font-bold transition-all active:scale-95"
                             >
                               手动重试获取卡密
