@@ -53,8 +53,8 @@ const BatchKeyImport = () => {
     loadProducts();
   }, [toast]);
 
-  // 解析输入的文本
-  const handleParse = () => {
+  // 解析输入的文本并与数据库比对
+  const handleParse = async () => {
     if (!selectedProduct) {
       setStatus({ type: 'error', message: '请先选择所属商品！' });
       return;
@@ -65,29 +65,67 @@ const BatchKeyImport = () => {
       return;
     }
 
-    // 按行分割，去除空行和首尾空格
-    const lines = rawText
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
-
-    // 去重逻辑
-    const uniqueLines = [...new Set(lines)];
-    
-    // 生成预览数据
-    const keysToImport: ParsedKey[] = uniqueLines.map(key => ({
-      product_id: selectedProduct,
-      card_key: key,
-      is_used: false,
-    }));
-
-    setParsedKeys(keysToImport);
-    setIsPreviewing(true);
+    setIsLoading(true);
     setStatus(null);
+
+    try {
+      // 按行分割，去除空行和首尾空格
+      const lines = rawText
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      // 1. 前端去重
+      const uniqueLines = [...new Set(lines)];
+      const frontendDuplicates = lines.length - uniqueLines.length;
+
+      // 2. 查询数据库中已存在的卡密
+      const { data: existingKeys, error } = await supabase
+        .from('store_card_keys')
+        .select('card_key')
+        .in('card_key', uniqueLines);
+
+      if (error) throw error;
+
+      const existingSet = new Set(existingKeys?.map(k => k.card_key) || []);
+
+      // 3. 过滤掉数据库中已存在的
+      const newKeys = uniqueLines.filter(key => !existingSet.has(key));
+      const dbDuplicates = uniqueLines.length - newKeys.length;
+
+      // 生成预览数据
+      const keysToImport: ParsedKey[] = newKeys.map(key => ({
+        product_id: selectedProduct,
+        card_key: key,
+        is_used: false,
+      }));
+
+      setParsedKeys(keysToImport);
+      setIsPreviewing(true);
+      
+      // 显示过滤统计
+      if (frontendDuplicates > 0 || dbDuplicates > 0) {
+        setStatus({ 
+          type: 'success', 
+          message: `已过滤：粘贴重复 ${frontendDuplicates} 个，数据库已存在 ${dbDuplicates} 个` 
+        });
+      }
+
+    } catch (error: any) {
+      console.error('解析卡密失败:', error);
+      setStatus({ type: 'error', message: '解析失败，请重试' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // 提交到数据库
   const handleSubmitToDatabase = async () => {
+    if (parsedKeys.length === 0) {
+      setStatus({ type: 'error', message: '没有可导入的新卡密！' });
+      return;
+    }
+
     setIsLoading(true);
     
     try {
@@ -97,14 +135,16 @@ const BatchKeyImport = () => {
 
       if (error) throw error;
 
+      const totalFiltered = rawText.split('\n').filter(l => l.trim()).length - parsedKeys.length;
+      
       setStatus({ 
         type: 'success', 
-        message: `成功导入 ${parsedKeys.length} 个卡密！` 
+        message: `成功添加 ${parsedKeys.length} 个，过滤重复 ${totalFiltered} 个` 
       });
       
       toast({
         title: '导入成功',
-        description: `已成功导入 ${parsedKeys.length} 个卡密`,
+        description: `成功添加 ${parsedKeys.length} 个，过滤重复 ${totalFiltered} 个`,
       });
       
       // 重置表单
@@ -240,11 +280,23 @@ const BatchKeyImport = () => {
           <div className="flex justify-end pt-4">
             <button
               onClick={handleParse}
-              disabled={loadingProducts || products.length === 0}
+              disabled={loadingProducts || products.length === 0 || isLoading}
               className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Plus className="w-4 h-4" />
-              解析并预览
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  正在检测重复...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  解析并预览
+                </>
+              )}
             </button>
           </div>
         </div>

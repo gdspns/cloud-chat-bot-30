@@ -9,7 +9,9 @@ const corsHeaders = {
  * 自助商城支付回调处理
  * 支持虎皮椒 XunHuPay 异步通知
  * 
- * 重构后职责：只负责把订单状态改为 paid，卡密发放由前端调用 deliver-card-key 完成
+ * 职责：
+ * 1. 卡密商品(card): 只把订单状态改为 paid，发货由前端调用 deliver-card-key 完成
+ * 2. 自动充值商品(auto): 更新状态为 paid 后，调用 store-auto-activate 函数完成自动激活
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -83,8 +85,20 @@ Deno.serve(async (req) => {
       console.warn(`[Store Webhook] 金额不匹配: 预期 ${expectedAmount}, 实际 ${totalFee}`)
     }
 
-    // 【重构】只更新订单状态为 paid，不做发货
-    // 卡密发放统一由前端调用 deliver-card-key 云函数完成
+    // 查询商品类型
+    const { data: product } = await supabase
+      .from('store_products')
+      .select('type, tags, duration')
+      .eq('id', order.product_id)
+      .maybeSingle()
+
+    const productType = product?.type || 'card'
+    const productTags = product?.tags || []
+    const productDuration = product?.duration || 30
+
+    console.log(`[Store Webhook] 订单 ${orderNo} 商品类型: ${productType}, 标签: ${JSON.stringify(productTags)}`)
+
+    // 更新订单状态为 paid
     const { error: updateError } = await supabase
       .from('store_orders')
       .update({
@@ -99,7 +113,84 @@ Deno.serve(async (req) => {
       return new Response('fail', { headers: corsHeaders })
     }
 
-    console.log(`[Store Webhook] 订单 ${orderNo} 已标记为 paid，等待前端发货`)
+    console.log(`[Store Webhook] 订单 ${orderNo} 已标记为 paid`)
+
+    // 如果是自动充值商品，调用 store-auto-activate 函数
+    if (productType === 'auto') {
+      // 从订单联系方式中提取 bot_token (格式: bot_xxxxxxx 或直接是 token)
+      const contact = order.contact || ''
+      let botToken = contact
+
+      // 如果联系方式不像 token，尝试从订单备注或其他字段获取
+      if (!botToken || botToken.length < 20) {
+        console.error(`[Store Webhook] 自动充值订单缺少有效的 bot_token: ${orderNo}`)
+        // 仍然返回成功，避免重复回调
+        return new Response('success', { headers: corsHeaders })
+      }
+
+      // 确定功能类型 - 从商品标签推断
+      let featureType = 'both' // 默认双向聊天
+      if (productTags.includes('chat') && productTags.includes('keyboard') && productTags.includes('mall')) {
+        featureType = 'all'
+      } else if (productTags.includes('chat') && productTags.includes('mall')) {
+        featureType = 'chat_shop'
+      } else if (productTags.includes('keyboard') && productTags.includes('mall')) {
+        featureType = 'keyboard_shop'
+      } else if (productTags.includes('keyboard')) {
+        featureType = 'keyboard'
+      } else if (productTags.includes('mall')) {
+        featureType = 'shop'
+      } else if (productTags.includes('chat')) {
+        featureType = 'chat'
+      }
+
+      console.log(`[Store Webhook] 调用自动激活: orderNo=${orderNo}, botToken=${botToken.slice(-8)}, featureType=${featureType}, days=${productDuration}`)
+
+      try {
+        // 调用 store-auto-activate 函数
+        const activateResponse = await fetch(`${supabaseUrl}/functions/v1/store-auto-activate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`
+          },
+          body: JSON.stringify({
+            orderNo,
+            botToken,
+            featureType,
+            validityDays: productDuration
+          })
+        })
+
+        const activateResult = await activateResponse.json()
+        
+        if (activateResult.success) {
+          console.log(`[Store Webhook] 自动激活成功: ${JSON.stringify(activateResult)}`)
+          
+          // 更新订单的发货内容
+          await supabase
+            .from('store_orders')
+            .update({
+              delivered_code: activateResult.message || `已激活: ${activateResult.activatedFeatures?.join(', ')}`,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', order.id)
+        } else {
+          console.error(`[Store Webhook] 自动激活失败: ${activateResult.error}`)
+          
+          // 更新订单备注失败原因
+          await supabase
+            .from('store_orders')
+            .update({
+              delivered_code: `激活失败: ${activateResult.error}`,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', order.id)
+        }
+      } catch (activateError) {
+        console.error('[Store Webhook] 调用自动激活异常:', activateError)
+      }
+    }
 
     // 返回 success 告知虎皮椒处理成功
     return new Response('success', { headers: corsHeaders })
