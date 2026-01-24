@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useStoreProducts, StoreProduct } from "@/hooks/useStoreProducts";
+import { supabase } from "@/integrations/supabase/client";
 
 // --- 全局工具组件 ---
 const ToggleSwitch = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (val: boolean) => void }) => (
@@ -178,35 +179,81 @@ export const ProductManagement = () => {
     }
   };
 
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [saveResultMessage, setSaveResultMessage] = useState('');
+
   const handleSaveProduct = async () => {
     if (!newProduct.name || !newProduct.price) {
       toast({ title: "错误", description: "名称/价格必填", variant: "destructive" });
       return;
     }
-    const codesArr = newProduct.codesText 
-      ? newProduct.codesText.split('\n').map(l => l.trim()).filter(l => l !== "") 
-      : [];
-    
-    const productData = {
-      name: newProduct.name,
-      type: newProduct.type,
-      tags: newProduct.tags || [],
-      duration: Number(newProduct.duration), 
-      price: Number(newProduct.price), 
-      usdt: Number(newProduct.usdt), 
-      trx: Number(newProduct.trx),
-      desc: newProduct.desc,
-      codes: codesArr,
-      isActive: true
-    };
 
-    if (editingId) {
-      await updateProduct(editingId, productData);
-      setEditingId(null);
-    } else {
-      await addProduct(productData);
+    setIsSavingProduct(true);
+    setSaveResultMessage('');
+
+    try {
+      // 解析卡密文本
+      const rawLines = newProduct.codesText 
+        ? newProduct.codesText.split('\n').map(l => l.trim()).filter(l => l !== "") 
+        : [];
+      
+      // 1. 前端去重
+      const uniqueLines = [...new Set(rawLines)];
+      const frontendDuplicates = rawLines.length - uniqueLines.length;
+
+      let finalCodes = uniqueLines;
+      let dbDuplicates = 0;
+
+      // 2. 如果有卡密，与数据库比对
+      if (uniqueLines.length > 0) {
+        const { data: existingKeys } = await supabase
+          .from('store_card_keys')
+          .select('card_key')
+          .in('card_key', uniqueLines);
+
+        const existingSet = new Set(existingKeys?.map(k => k.card_key) || []);
+        finalCodes = uniqueLines.filter(key => !existingSet.has(key));
+        dbDuplicates = uniqueLines.length - finalCodes.length;
+      }
+      
+      const productData = {
+        name: newProduct.name,
+        type: newProduct.type,
+        tags: newProduct.tags || [],
+        duration: Number(newProduct.duration), 
+        price: Number(newProduct.price), 
+        usdt: Number(newProduct.usdt), 
+        trx: Number(newProduct.trx),
+        desc: newProduct.desc,
+        codes: finalCodes,
+        isActive: true
+      };
+
+      if (editingId) {
+        await updateProduct(editingId, productData);
+        setEditingId(null);
+      } else {
+        await addProduct(productData);
+      }
+
+      // 显示结果消息
+      const totalFiltered = frontendDuplicates + dbDuplicates;
+      if (totalFiltered > 0 || finalCodes.length > 0) {
+        const msg = `成功添加 ${finalCodes.length} 个卡密，过滤重复 ${totalFiltered} 个`;
+        setSaveResultMessage(msg);
+        toast({ title: "保存成功", description: msg });
+      } else {
+        toast({ title: "保存成功", description: "商品已保存" });
+      }
+
+      setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
+
+    } catch (error: any) {
+      console.error('保存商品失败:', error);
+      toast({ title: "保存失败", description: error.message || "请重试", variant: "destructive" });
+    } finally {
+      setIsSavingProduct(false);
     }
-    setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
   };
 
   const handleAutoConvert = async () => {
@@ -330,9 +377,16 @@ export const ProductManagement = () => {
               )}
             </div>
             <div className="flex gap-4 mt-6 pt-6 border-t">
-              <Button onClick={handleSaveProduct} className="flex-1">{editingId ? '保存修改' : '确认上架'}</Button>
+              <Button onClick={handleSaveProduct} disabled={isSavingProduct} className="flex-1">
+                {isSavingProduct ? <><Loader2 size={16} className="animate-spin mr-2" /> 检测重复中...</> : (editingId ? '保存修改' : '确认上架')}
+              </Button>
               {editingId && (<Button onClick={handleCancelEdit} variant="outline">取消</Button>)}
             </div>
+            {saveResultMessage && (
+              <div className="mt-4 p-3 bg-green-500/10 text-green-700 dark:text-green-300 rounded-lg text-sm">
+                {saveResultMessage}
+              </div>
+            )}
           </Card>
 
           {/* 商品列表 */}
