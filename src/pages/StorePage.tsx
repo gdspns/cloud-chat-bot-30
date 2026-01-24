@@ -295,24 +295,30 @@ export const StorePage = () => {
         
         if (dbOrder?.status === 'paid') {
           console.log('检测到订单已支付:', orderNo);
-          stopOrderPolling();
           stopMonitoring();
           
-          // 检查当前商品类型是否为卡密类型
           const product = products.find(p => p.id === selectedProductId);
           const isCardProduct = product?.type === 'card';
-          
-          // 如果是卡密商品，主动调用发货接口获取卡密
+
+          // 1) 卡密商品：进入成功页并主动发货
           if (isCardProduct && product?.id) {
-            // 先显示成功页面，同时开始发货
+            stopOrderPolling();
             updateOrderStatus('paid', '');
             setPaymentStep('success');
             startCardKeyDelivery(orderNo, product.id);
-          } else if (dbOrder.delivered_code) {
-            // 已有卡密或非卡密商品，直接显示
-            const code = dbOrder.delivered_code || 'AUTO_OK';
-            updateOrderStatus('paid', code);
-            setPaymentStep('success');
+            return;
+          }
+
+          // 2) 自动充值商品：先进入成功页；delivered_code(激活结果) 可能稍后才写入
+          setPaymentStep('success');
+          if (dbOrder.delivered_code) {
+            stopOrderPolling();
+            updateOrderStatus('paid', dbOrder.delivered_code);
+            // 自动充值成功后库存会在后台扣减，这里刷新商品库存显示
+            loadProducts();
+          } else {
+            // 关键：不要卡在“支付中”页面；先提示处理中，并继续轮询直到 delivered_code 写入
+            updateOrderStatus('paid', 'AUTO_PROCESSING');
           }
         }
       } catch (err) {
@@ -564,11 +570,16 @@ export const StorePage = () => {
         updateOrderStatus('paid', '');
         setPaymentStep('success');
         startCardKeyDelivery(currentOrder.orderNo, product.id);
-      } else if (dbOrder.delivered_code) {
-        updateOrderStatus('paid', dbOrder.delivered_code);
-        setPaymentStep('success');
       } else {
-        completeOrder(`HUPI-CALLBACK-` + Date.now());
+        // 自动充值：支付已确认，但激活结果可能稍后才写回 delivered_code
+        setPaymentStep('success');
+        updateOrderStatus('paid', dbOrder.delivered_code || 'AUTO_PROCESSING');
+        if (!dbOrder.delivered_code) {
+          // 确保轮询继续跑，直到拿到激活结果
+          startOrderPolling(currentOrder.orderNo);
+        } else {
+          loadProducts();
+        }
       }
     } else {
       // 订单未确认支付
@@ -770,7 +781,19 @@ export const StorePage = () => {
                         <p className="font-mono font-bold text-base text-green-400 break-all">{currentOrder.code}</p>
                       )}
                     </div>
-                  ) : (<p className="text-green-400 font-bold text-center py-2 text-sm">权益已发放</p>)}
+                  ) : (
+                    <div className="py-2 text-center">
+                      {currentOrder.code && currentOrder.code !== 'AUTO_PROCESSING' ? (
+                        <p className="text-green-400 font-bold text-sm break-words">{currentOrder.code}</p>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Loader2 size={22} className="text-blue-400 animate-spin" />
+                          <p className="text-gray-300 text-sm font-bold">已支付，正在自动激活中…</p>
+                          <p className="text-gray-500 text-[10px]">一般 5-20 秒完成，请勿关闭页面</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="mt-3 pt-3 border-t border-white/10 text-[9px] flex justify-between opacity-60 font-bold">
                     <span>单号: {currentOrder.orderNo}</span>
                     <span>{currentOrder.amount}</span>

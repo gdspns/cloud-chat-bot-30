@@ -117,14 +117,13 @@ Deno.serve(async (req) => {
 
     // 如果是自动充值商品，调用 store-auto-activate 函数
     if (productType === 'auto') {
-      // 从订单联系方式中提取 bot_token (格式: bot_xxxxxxx 或直接是 token)
-      const contact = order.contact || ''
-      let botToken = contact
+      // ⚠️ 自动充值需要 botToken。订单创建时前端把它写在 store_orders.bot_id
+      // 之前误用 contact 导致回调无法自动激活、库存不扣减。
+      const botToken = (order.bot_id || '').trim()
 
-      // 如果联系方式不像 token，尝试从订单备注或其他字段获取
       if (!botToken || botToken.length < 20) {
-        console.error(`[Store Webhook] 自动充值订单缺少有效的 bot_token: ${orderNo}`)
-        // 仍然返回成功，避免重复回调
+        console.error(`[Store Webhook] 自动充值订单缺少有效的 bot_token(bot_id): ${orderNo}`)
+        // 仍然返回成功，避免支付平台重复回调
         return new Response('success', { headers: corsHeaders })
       }
 
