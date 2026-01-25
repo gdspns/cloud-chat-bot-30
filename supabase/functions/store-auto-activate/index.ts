@@ -258,6 +258,24 @@ Deno.serve(async (req) => {
       })
       .eq('id', codeData.id)
 
+    // 8. 同步更新 activation_codes 表中对应的激活码状态
+    // 这样管理员后台的激活码列表也会显示已使用
+    const { error: acUpdateError } = await supabase
+      .from('activation_codes')
+      .update({
+        is_used: true,
+        used_at: new Date().toISOString(),
+        used_by_bot_token: botToken
+      })
+      .eq('code', codeData.card_key)
+      .eq('is_used', false)
+    
+    if (acUpdateError) {
+      console.log(`[Auto Activate] activation_codes 更新失败或不存在: ${acUpdateError.message}`)
+    } else {
+      console.log(`[Auto Activate] activation_codes 状态已同步: ${codeData.card_key}`)
+    }
+
     // 构建成功消息
     const activatedFeatures: string[] = []
     if (newChatExpireAt) activatedFeatures.push(`双向聊天(${newChatExpireAt.toLocaleDateString()})`)
