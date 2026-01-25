@@ -34,7 +34,7 @@ const ADMIN_ACTIONS = [
   'admin-bind-shop-code',
 ];
 
-// Helper function to verify admin role
+// Helper function to verify admin role with retry logic
 async function verifyAdminRole(req: Request, supabase: any): Promise<{ isAdmin: boolean; userId: string | null; error?: string }> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -53,18 +53,38 @@ async function verifyAdminRole(req: Request, supabase: any): Promise<{ isAdmin: 
 
   const userId = data.claims.sub;
 
-  // Check if user has admin role using the has_role function
-  const { data: hasRole, error: roleError } = await supabase.rpc('has_role', {
-    _user_id: userId,
-    _role: 'admin'
-  });
+  // Check if user has admin role using the has_role function with retry
+  let lastError: any = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { data: hasRole, error: roleError } = await supabase.rpc('has_role', {
+        _user_id: userId,
+        _role: 'admin'
+      });
 
-  if (roleError) {
-    console.error('Role check error:', roleError);
-    return { isAdmin: false, userId, error: '角色验证失败' };
+      if (!roleError) {
+        console.log('Admin verified:', userId);
+        return { isAdmin: hasRole === true, userId };
+      }
+      
+      lastError = roleError;
+      console.error(`Role check attempt ${attempt + 1} failed:`, roleError);
+      
+      // Wait before retry (exponential backoff)
+      if (attempt < 2) {
+        await new Promise(r => setTimeout(r, 100 * (attempt + 1)));
+      }
+    } catch (e) {
+      lastError = e;
+      console.error(`Role check attempt ${attempt + 1} exception:`, e);
+      if (attempt < 2) {
+        await new Promise(r => setTimeout(r, 100 * (attempt + 1)));
+      }
+    }
   }
 
-  return { isAdmin: hasRole === true, userId };
+  console.log('Admin verification failed:', { userId, error: '角色验证失败' });
+  return { isAdmin: false, userId, error: '角色验证失败' };
 }
 
 // Helper function to verify a normal authenticated user
