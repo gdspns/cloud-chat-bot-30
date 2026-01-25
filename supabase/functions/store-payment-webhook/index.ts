@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       console.log(`[Store Webhook] 调用自动激活: orderNo=${orderNo}, botToken=${botToken.slice(-8)}, featureType=${featureType}, days=${productDuration}`)
 
       try {
-        // 调用 store-auto-activate 函数
+        // 调用 store-auto-activate 函数，传入订单的 product_id 确保使用正确的卡密
         const activateResponse = await fetch(`${supabaseUrl}/functions/v1/store-auto-activate`, {
           method: 'POST',
           headers: {
@@ -157,7 +157,8 @@ Deno.serve(async (req) => {
             orderNo,
             botToken,
             featureType,
-            validityDays: productDuration
+            validityDays: productDuration,
+            productId: order.product_id  // 传入订单商品ID，确保使用正确的卡密库存
           })
         })
 

@@ -294,7 +294,7 @@ export const StorePage = () => {
         }
         
         if (dbOrder?.status === 'paid') {
-          console.log('检测到订单已支付:', orderNo);
+          console.log('检测到订单已支付:', orderNo, 'delivered_code:', dbOrder.delivered_code);
           stopMonitoring();
           
           const product = products.find(p => p.id === selectedProductId);
@@ -309,22 +309,46 @@ export const StorePage = () => {
             return;
           }
 
-          // 2) 自动充值商品：先进入成功页；delivered_code(激活结果) 可能稍后才写入
-          setPaymentStep('success');
-          if (dbOrder.delivered_code) {
+          // 2) 自动充值商品：检查 delivered_code 是否已写入
+          if (dbOrder.delivered_code && !dbOrder.delivered_code.includes('激活失败')) {
+            // 激活成功 - 停止轮询，显示结果
+            console.log('[自动充值] 激活成功:', dbOrder.delivered_code);
             stopOrderPolling();
-            updateOrderStatus('paid', dbOrder.delivered_code);
-            // 自动充值成功后库存会在后台扣减，这里刷新商品库存显示
+            setPaymentStep('success');
+            // 同时更新 currentOrder 和 orders 确保UI显示
+            setCurrentOrder(prev => prev && prev.orderNo === orderNo 
+              ? { ...prev, status: 'paid' as const, code: dbOrder.delivered_code } 
+              : prev
+            );
+            setOrders(prev => prev.map(o => 
+              o.orderNo === orderNo ? { ...o, status: 'paid' as const, code: dbOrder.delivered_code } : o
+            ));
             loadProducts();
+          } else if (dbOrder.delivered_code && dbOrder.delivered_code.includes('激活失败')) {
+            // 激活失败 - 停止轮询，显示失败原因
+            console.error('[自动充值] 激活失败:', dbOrder.delivered_code);
+            stopOrderPolling();
+            setPaymentStep('success');
+            setCurrentOrder(prev => prev && prev.orderNo === orderNo 
+              ? { ...prev, status: 'paid' as const, code: dbOrder.delivered_code } 
+              : prev
+            );
           } else {
-            // 关键：不要卡在“支付中”页面；先提示处理中，并继续轮询直到 delivered_code 写入
-            updateOrderStatus('paid', 'AUTO_PROCESSING');
+            // 还在处理中 - 先进入成功页但继续轮询
+            setPaymentStep('success');
+            if (!currentOrder?.code || currentOrder.code === 'AUTO_PROCESSING') {
+              setCurrentOrder(prev => prev && prev.orderNo === orderNo 
+                ? { ...prev, status: 'paid' as const, code: 'AUTO_PROCESSING' } 
+                : prev
+              );
+            }
+            // 继续轮询等待 delivered_code
           }
         }
       } catch (err) {
         console.error('轮询异常:', err);
       }
-    }, 3000); // 每3秒轮询一次
+    }, 2000); // 每2秒轮询一次（加快轮询频率）
   };
 
   // 保存订单到 localStorage
@@ -571,14 +595,31 @@ export const StorePage = () => {
         setPaymentStep('success');
         startCardKeyDelivery(currentOrder.orderNo, product.id);
       } else {
-        // 自动充值：支付已确认，但激活结果可能稍后才写回 delivered_code
+        // 自动充值：支付已确认，检查激活结果
         setPaymentStep('success');
-        updateOrderStatus('paid', dbOrder.delivered_code || 'AUTO_PROCESSING');
-        if (!dbOrder.delivered_code) {
-          // 确保轮询继续跑，直到拿到激活结果
-          startOrderPolling(currentOrder.orderNo);
-        } else {
+        if (dbOrder.delivered_code && !dbOrder.delivered_code.includes('激活失败')) {
+          // 已激活成功 - 直接显示结果
+          setCurrentOrder(prev => prev && prev.orderNo === currentOrder.orderNo 
+            ? { ...prev, status: 'paid' as const, code: dbOrder.delivered_code } 
+            : prev
+          );
+          setOrders(prev => prev.map(o => 
+            o.orderNo === currentOrder.orderNo ? { ...o, status: 'paid' as const, code: dbOrder.delivered_code } : o
+          ));
           loadProducts();
+        } else if (dbOrder.delivered_code && dbOrder.delivered_code.includes('激活失败')) {
+          // 激活失败 - 显示失败原因
+          setCurrentOrder(prev => prev && prev.orderNo === currentOrder.orderNo 
+            ? { ...prev, status: 'paid' as const, code: dbOrder.delivered_code } 
+            : prev
+          );
+        } else {
+          // 还在处理中 - 继续轮询
+          setCurrentOrder(prev => prev && prev.orderNo === currentOrder.orderNo 
+            ? { ...prev, status: 'paid' as const, code: 'AUTO_PROCESSING' } 
+            : prev
+          );
+          startOrderPolling(currentOrder.orderNo);
         }
       }
     } else {

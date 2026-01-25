@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    const { orderNo, botToken, featureType, validityDays } = await req.json()
+    const { orderNo, botToken, featureType, validityDays, productId } = await req.json()
 
     if (!orderNo || !botToken || !featureType) {
       return new Response(
@@ -28,41 +28,75 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log(`[Auto Activate] 处理订单: ${orderNo}, 机器人: ${botToken.slice(-8)}, 功能: ${featureType}`)
+    console.log(`[Auto Activate] 处理订单: ${orderNo}, 机器人: ${botToken.slice(-8)}, 功能: ${featureType}, 商品ID: ${productId || '未提供'}`)
 
     // 1. 从 store_card_keys 表获取一个匹配商品的未使用激活码
-    // 首先需要找到对应功能类型的商品，然后从卡密表获取
-    const { data: matchProduct } = await supabase
-      .from('store_products')
-      .select('id, duration')
-      .eq('type', 'auto')
-      .contains('tags', [featureType])
-      .gte('duration', validityDays || 30)
-      .order('duration', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-
+    // 优先使用传入的 productId（订单关联的商品），否则根据 featureType 查找
     let codeData: { id: string; card_key: string; product_id: string } | null = null
     let productDuration = validityDays || 30
 
-    if (matchProduct) {
-      // 使用 FOR UPDATE SKIP LOCKED 避免并发问题
+    if (productId) {
+      // 直接使用订单的商品ID获取卡密
       const { data: cardKey } = await supabase
         .from('store_card_keys')
         .select('id, card_key, product_id')
-        .eq('product_id', matchProduct.id)
+        .eq('product_id', productId)
         .eq('is_used', false)
         .limit(1)
         .maybeSingle()
       
       if (cardKey) {
         codeData = cardKey
-        productDuration = matchProduct.duration
+        console.log(`[Auto Activate] 使用订单商品的卡密: productId=${productId}`)
+      }
+    }
+
+    // 如果没有找到或没提供 productId，回退到根据 featureType 查询
+    if (!codeData) {
+      // 功能类型到标签的映射（mall -> mall，不是 shop）
+      const featureToTag: Record<string, string[]> = {
+        'chat': ['chat'],
+        'keyboard': ['keyboard'],
+        'shop': ['mall'],
+        'mall': ['mall'],
+        'both': ['chat', 'keyboard'],
+        'chat_shop': ['chat', 'mall'],
+        'keyboard_shop': ['keyboard', 'mall'],
+        'all': ['chat', 'keyboard', 'mall']
+      }
+      
+      const searchTags = featureToTag[featureType] || ['chat']
+      
+      // 找任意一个匹配标签的自动充值商品
+      const { data: matchProduct } = await supabase
+        .from('store_products')
+        .select('id, duration')
+        .eq('type', 'auto')
+        .overlaps('tags', searchTags)
+        .gte('duration', validityDays || 30)
+        .order('duration', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      if (matchProduct) {
+        const { data: cardKey } = await supabase
+          .from('store_card_keys')
+          .select('id, card_key, product_id')
+          .eq('product_id', matchProduct.id)
+          .eq('is_used', false)
+          .limit(1)
+          .maybeSingle()
+        
+        if (cardKey) {
+          codeData = cardKey
+          productDuration = matchProduct.duration
+          console.log(`[Auto Activate] 通过featureType查找卡密: matchProduct=${matchProduct.id}`)
+        }
       }
     }
 
     if (!codeData) {
-      console.error(`[Auto Activate] 无可用激活码: featureType=${featureType}, days=${validityDays}`)
+      console.error(`[Auto Activate] 无可用激活码: featureType=${featureType}, productId=${productId}, days=${validityDays}`)
       return new Response(
         JSON.stringify({ success: false, error: '库存不足，无可用激活码' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -72,10 +106,10 @@ Deno.serve(async (req) => {
     const actualValidityDays = productDuration
     const actualFeatureType = featureType
 
-    // 2. 判断需要激活的功能
+    // 2. 判断需要激活的功能（shop 和 mall 都映射到商城）
     const shouldActivateChat = ['chat', 'both', 'chat_shop', 'all'].includes(actualFeatureType)
     const shouldActivateKeyboard = ['keyboard', 'both', 'keyboard_shop', 'all'].includes(actualFeatureType)
-    const shouldActivateShop = ['shop', 'chat_shop', 'keyboard_shop', 'all'].includes(actualFeatureType)
+    const shouldActivateShop = ['shop', 'mall', 'chat_shop', 'keyboard_shop', 'all'].includes(actualFeatureType)
 
     // 3. 查找或创建机器人记录
     let { data: botRecord } = await supabase
