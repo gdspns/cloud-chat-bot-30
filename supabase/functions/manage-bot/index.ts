@@ -104,6 +104,54 @@ async function verifyUser(req: Request, supabase: any): Promise<{ userId: string
   return { userId: data.claims.sub };
 }
 
+/**
+ * 同步激活码到商城卡密库存
+ * 当激活码被手动激活时，如果该激活码也存在于 store_card_keys 表中，
+ * 需要同步标记为已使用，以确保商品库存准确
+ */
+async function syncActivationCodeToStoreKeys(
+  supabase: any,
+  activationCode: string,
+  botToken: string
+) {
+  try {
+    // 检查该激活码是否也存在于 store_card_keys 表中
+    const { data: storeKey, error: queryError } = await supabase
+      .from('store_card_keys')
+      .select('id, is_used')
+      .eq('card_key', activationCode)
+      .eq('is_used', false)
+      .maybeSingle();
+
+    if (queryError) {
+      console.log('[Sync Store Keys] 查询失败:', queryError.message);
+      return;
+    }
+
+    // 如果找到未使用的卡密，标记为已使用
+    if (storeKey) {
+      const { error: updateError } = await supabase
+        .from('store_card_keys')
+        .update({
+          is_used: true,
+          order_id: `manual_activation_${botToken.slice(-8)}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', storeKey.id);
+
+      if (updateError) {
+        console.log('[Sync Store Keys] 更新失败:', updateError.message);
+      } else {
+        console.log(`[Sync Store Keys] 已同步标记卡密为已使用: ${activationCode}`);
+      }
+    } else {
+      console.log('[Sync Store Keys] 该激活码不在商城库存中，无需同步');
+    }
+  } catch (e) {
+    console.log('[Sync Store Keys] 同步异常:', e);
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -633,6 +681,9 @@ serve(async (req) => {
           })
           .eq('id', codeData.id);
 
+        // 同步更新 store_card_keys 表（如果该激活码也在商城库存中）
+        await syncActivationCodeToStoreKeys(supabase, code, actualBotToken);
+
         // 更新试用记录 (仅对双向聊天)
         if (newChatExpireAt && actualBotToken) {
           await supabase
@@ -789,6 +840,9 @@ serve(async (req) => {
             expire_at: (newChatExpireAt || newKeyboardExpireAt)?.toISOString() || null,
           })
           .eq('id', codeData.id);
+
+        // 同步更新 store_card_keys 表（如果该激活码也在商城库存中）
+        await syncActivationCodeToStoreKeys(supabase, code, botToken);
 
         // 确保 webhook 已设置
         const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
@@ -970,6 +1024,9 @@ serve(async (req) => {
             expire_at: newShopExpireAt.toISOString(),
           })
           .eq('id', codeData.id);
+
+        // 同步更新 store_card_keys 表（如果该激活码也在商城库存中）
+        await syncActivationCodeToStoreKeys(supabase, code, botToken);
 
         console.log('Bind shop code success:', { 
           featureType, 
