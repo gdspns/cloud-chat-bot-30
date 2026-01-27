@@ -21,22 +21,40 @@ interface MismatchedKey {
   actual_feature_type: string;
 }
 
-// feature_type 到 tags 的映射关系
-const featureTypeToTags: Record<string, string[]> = {
-  'chat': ['chat'],
-  'keyboard': ['keyboard'],
-  'shop': ['mall', 'shop'],
-  'both': ['chat', 'keyboard'],
-  'chat_shop': ['chat', 'mall', 'shop'],
-  'keyboard_shop': ['keyboard', 'mall', 'shop'],
-  'all': ['chat', 'keyboard', 'mall', 'shop'],
+// 规范化 tags - mall 和 shop 视为等价，统一为 'shop'
+const normalizeTags = (tags: string[]): string[] => {
+  const normalized = new Set<string>();
+  tags.forEach(tag => {
+    if (tag === 'mall') {
+      normalized.add('shop');
+    } else {
+      normalized.add(tag);
+    }
+  });
+  return Array.from(normalized).sort();
 };
 
-// 检查 feature_type 是否与商品 tags 兼容
+// feature_type 到规范化 tags 的映射（严格对应）
+const featureTypeToNormalizedTags: Record<string, string[]> = {
+  'chat': ['chat'],
+  'keyboard': ['keyboard'],
+  'shop': ['shop'],
+  'both': ['chat', 'keyboard'],
+  'chat_shop': ['chat', 'shop'],
+  'keyboard_shop': ['keyboard', 'shop'],
+  'all': ['chat', 'keyboard', 'shop'],
+};
+
+// 检查 feature_type 是否与商品 tags 严格匹配
 const isFeatureTypeCompatible = (featureType: string, productTags: string[]): boolean => {
-  const allowedTags = featureTypeToTags[featureType] || [];
-  // 检查商品的所有 tags 是否都被 feature_type 覆盖
-  return productTags.every(tag => allowedTags.includes(tag));
+  const requiredTags = featureTypeToNormalizedTags[featureType];
+  if (!requiredTags) return true; // 未知类型允许导入
+  
+  const normalizedProductTags = normalizeTags(productTags);
+  
+  // 严格匹配：商品 tags 必须完全等于 feature_type 需要的 tags
+  if (normalizedProductTags.length !== requiredTags.length) return false;
+  return requiredTags.every(tag => normalizedProductTags.includes(tag));
 };
 
 const BatchKeyImport = () => {
