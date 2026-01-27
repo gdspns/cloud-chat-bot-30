@@ -182,6 +182,42 @@ export const ProductManagement = () => {
   const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [saveResultMessage, setSaveResultMessage] = useState('');
 
+  // 规范化 tags - mall 和 shop 视为等价，统一为 'shop'
+  const normalizeTags = (tags: string[]): string[] => {
+    const normalized = new Set<string>();
+    tags.forEach(tag => {
+      if (tag === 'mall') {
+        normalized.add('shop');
+      } else {
+        normalized.add(tag);
+      }
+    });
+    return Array.from(normalized).sort();
+  };
+
+  // feature_type 到规范化 tags 的映射（严格对应）
+  const featureTypeToNormalizedTags: Record<string, string[]> = {
+    'chat': ['chat'],
+    'keyboard': ['keyboard'],
+    'shop': ['shop'],
+    'both': ['chat', 'keyboard'],
+    'chat_shop': ['chat', 'shop'],
+    'keyboard_shop': ['keyboard', 'shop'],
+    'all': ['chat', 'keyboard', 'shop'],
+  };
+
+  // 检查 feature_type 是否与商品 tags 严格匹配
+  const isFeatureTypeCompatible = (featureType: string, productTags: string[]): boolean => {
+    const requiredTags = featureTypeToNormalizedTags[featureType];
+    if (!requiredTags) return true; // 未知类型允许导入
+    
+    const normalizedProductTags = normalizeTags(productTags);
+    
+    // 严格匹配：商品 tags 必须完全等于 feature_type 需要的 tags
+    if (normalizedProductTags.length !== requiredTags.length) return false;
+    return requiredTags.every(tag => normalizedProductTags.includes(tag));
+  };
+
   const handleSaveProduct = async () => {
     if (!newProduct.name || !newProduct.price) {
       toast({ title: "错误", description: "名称/价格必填", variant: "destructive" });
@@ -203,6 +239,7 @@ export const ProductManagement = () => {
 
       let finalCodes = uniqueLines;
       let dbDuplicates = 0;
+      let mismatchedCount = 0;
 
       // 2. 如果有卡密，与数据库比对
       if (uniqueLines.length > 0) {
@@ -212,8 +249,34 @@ export const ProductManagement = () => {
           .in('card_key', uniqueLines);
 
         const existingSet = new Set(existingKeys?.map(k => k.card_key) || []);
-        finalCodes = uniqueLines.filter(key => !existingSet.has(key));
-        dbDuplicates = uniqueLines.length - finalCodes.length;
+        const newKeys = uniqueLines.filter(key => !existingSet.has(key));
+        dbDuplicates = uniqueLines.length - newKeys.length;
+
+        // 3. 关键词匹配验证 - 查询 activation_codes 表
+        if (newKeys.length > 0 && newProduct.tags.length > 0) {
+          const { data: activationCodes } = await supabase
+            .from('activation_codes')
+            .select('code, feature_type')
+            .in('code', newKeys);
+
+          // 创建卡密到 feature_type 的映射
+          const codeToFeatureType: Record<string, string> = {};
+          (activationCodes || []).forEach(ac => {
+            codeToFeatureType[ac.code] = ac.feature_type || 'both';
+          });
+
+          // 过滤不兼容的卡密
+          finalCodes = newKeys.filter(key => {
+            const featureType = codeToFeatureType[key];
+            // 如果卡密不在 activation_codes 表中，允许导入
+            if (!featureType) return true;
+            return isFeatureTypeCompatible(featureType, newProduct.tags);
+          });
+
+          mismatchedCount = newKeys.length - finalCodes.length;
+        } else {
+          finalCodes = newKeys;
+        }
       }
       
       const productData = {
@@ -237,11 +300,20 @@ export const ProductManagement = () => {
       }
 
       // 显示结果消息
-      const totalFiltered = frontendDuplicates + dbDuplicates;
-      if (totalFiltered > 0 || finalCodes.length > 0) {
-        const msg = `成功添加 ${finalCodes.length} 个卡密，过滤重复 ${totalFiltered} 个`;
+      const messages: string[] = [];
+      if (finalCodes.length > 0) messages.push(`成功添加 ${finalCodes.length} 个`);
+      if (frontendDuplicates > 0) messages.push(`粘贴重复 ${frontendDuplicates} 个`);
+      if (dbDuplicates > 0) messages.push(`库存已存在 ${dbDuplicates} 个`);
+      if (mismatchedCount > 0) messages.push(`关键词不匹配 ${mismatchedCount} 个`);
+
+      if (messages.length > 0) {
+        const msg = messages.join('，');
         setSaveResultMessage(msg);
-        toast({ title: "保存成功", description: msg });
+        toast({ 
+          title: mismatchedCount > 0 ? "保存完成（部分卡密被过滤）" : "保存成功", 
+          description: msg,
+          variant: mismatchedCount > 0 ? "destructive" : "default"
+        });
       } else {
         toast({ title: "保存成功", description: "商品已保存" });
       }
