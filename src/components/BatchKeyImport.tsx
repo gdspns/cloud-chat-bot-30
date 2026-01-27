@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, Database, Plus, X, Save } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Database, Plus, X, Save, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface Product {
   id: string;
   name: string;
+  tags: string[];
 }
 
 interface ParsedKey {
@@ -13,6 +14,30 @@ interface ParsedKey {
   card_key: string;
   is_used: boolean;
 }
+
+interface MismatchedKey {
+  card_key: string;
+  expected_tags: string[];
+  actual_feature_type: string;
+}
+
+// feature_type 到 tags 的映射关系
+const featureTypeToTags: Record<string, string[]> = {
+  'chat': ['chat'],
+  'keyboard': ['keyboard'],
+  'shop': ['mall', 'shop'],
+  'both': ['chat', 'keyboard'],
+  'chat_shop': ['chat', 'mall', 'shop'],
+  'keyboard_shop': ['keyboard', 'mall', 'shop'],
+  'all': ['chat', 'keyboard', 'mall', 'shop'],
+};
+
+// 检查 feature_type 是否与商品 tags 兼容
+const isFeatureTypeCompatible = (featureType: string, productTags: string[]): boolean => {
+  const allowedTags = featureTypeToTags[featureType] || [];
+  // 检查商品的所有 tags 是否都被 feature_type 覆盖
+  return productTags.every(tag => allowedTags.includes(tag));
+};
 
 const BatchKeyImport = () => {
   const { toast } = useToast();
@@ -22,6 +47,7 @@ const BatchKeyImport = () => {
   const [importMode, setImportMode] = useState('text');
   const [rawText, setRawText] = useState('');
   const [parsedKeys, setParsedKeys] = useState<ParsedKey[]>([]);
+  const [mismatchedKeys, setMismatchedKeys] = useState<MismatchedKey[]>([]);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -33,7 +59,7 @@ const BatchKeyImport = () => {
         setLoadingProducts(true);
         const { data, error } = await supabase
           .from('store_products')
-          .select('id, name')
+          .select('id, name, tags')
           .order('sort_order', { ascending: true });
 
         if (error) throw error;
@@ -53,7 +79,7 @@ const BatchKeyImport = () => {
     loadProducts();
   }, [toast]);
 
-  // 解析输入的文本并与数据库比对
+  // 解析输入的文本并与数据库比对，包括关键词验证
   const handleParse = async () => {
     if (!selectedProduct) {
       setStatus({ type: 'error', message: '请先选择所属商品！' });
@@ -67,8 +93,13 @@ const BatchKeyImport = () => {
 
     setIsLoading(true);
     setStatus(null);
+    setMismatchedKeys([]);
 
     try {
+      // 获取选中商品的 tags
+      const selectedProductData = products.find(p => p.id === selectedProduct);
+      const productTags = selectedProductData?.tags || [];
+
       // 按行分割，去除空行和首尾空格
       const lines = rawText
         .split('\n')
@@ -79,7 +110,7 @@ const BatchKeyImport = () => {
       const uniqueLines = [...new Set(lines)];
       const frontendDuplicates = lines.length - uniqueLines.length;
 
-      // 2. 查询数据库中已存在的卡密
+      // 2. 查询数据库中已存在的卡密（store_card_keys）
       const { data: existingKeys, error } = await supabase
         .from('store_card_keys')
         .select('card_key')
@@ -89,25 +120,71 @@ const BatchKeyImport = () => {
 
       const existingSet = new Set(existingKeys?.map(k => k.card_key) || []);
 
-      // 3. 过滤掉数据库中已存在的
+      // 3. 过滤掉 store_card_keys 中已存在的
       const newKeys = uniqueLines.filter(key => !existingSet.has(key));
       const dbDuplicates = uniqueLines.length - newKeys.length;
 
-      // 生成预览数据
-      const keysToImport: ParsedKey[] = newKeys.map(key => ({
-        product_id: selectedProduct,
-        card_key: key,
-        is_used: false,
-      }));
+      // 4. 查询 activation_codes 表，验证关键词匹配
+      const { data: activationCodes, error: acError } = await supabase
+        .from('activation_codes')
+        .select('code, feature_type')
+        .in('code', newKeys);
 
-      setParsedKeys(keysToImport);
+      if (acError) throw acError;
+
+      // 创建卡密到 feature_type 的映射
+      const codeToFeatureType: Record<string, string> = {};
+      (activationCodes || []).forEach(ac => {
+        codeToFeatureType[ac.code] = ac.feature_type || 'both';
+      });
+
+      // 5. 检查每个卡密的关键词兼容性
+      const compatibleKeys: ParsedKey[] = [];
+      const incompatibleKeys: MismatchedKey[] = [];
+
+      newKeys.forEach(key => {
+        const featureType = codeToFeatureType[key];
+        
+        // 如果卡密不在 activation_codes 表中，允许导入（可能是新卡密）
+        if (!featureType) {
+          compatibleKeys.push({
+            product_id: selectedProduct,
+            card_key: key,
+            is_used: false,
+          });
+          return;
+        }
+
+        // 检查兼容性
+        if (isFeatureTypeCompatible(featureType, productTags)) {
+          compatibleKeys.push({
+            product_id: selectedProduct,
+            card_key: key,
+            is_used: false,
+          });
+        } else {
+          incompatibleKeys.push({
+            card_key: key,
+            expected_tags: productTags,
+            actual_feature_type: featureType,
+          });
+        }
+      });
+
+      setParsedKeys(compatibleKeys);
+      setMismatchedKeys(incompatibleKeys);
       setIsPreviewing(true);
       
       // 显示过滤统计
-      if (frontendDuplicates > 0 || dbDuplicates > 0) {
+      const messages: string[] = [];
+      if (frontendDuplicates > 0) messages.push(`粘贴重复 ${frontendDuplicates} 个`);
+      if (dbDuplicates > 0) messages.push(`库存已存在 ${dbDuplicates} 个`);
+      if (incompatibleKeys.length > 0) messages.push(`关键词不匹配 ${incompatibleKeys.length} 个`);
+      
+      if (messages.length > 0) {
         setStatus({ 
-          type: 'success', 
-          message: `已过滤：粘贴重复 ${frontendDuplicates} 个，数据库已存在 ${dbDuplicates} 个` 
+          type: incompatibleKeys.length > 0 ? 'error' : 'success', 
+          message: `已过滤：${messages.join('，')}` 
         });
       }
 
@@ -168,10 +245,13 @@ const BatchKeyImport = () => {
   const handleCancel = () => {
     setIsPreviewing(false);
     setParsedKeys([]);
+    setMismatchedKeys([]);
     setStatus(null);
   };
 
-  const selectedProductName = products.find(p => p.id === selectedProduct)?.name || '';
+  const selectedProductData = products.find(p => p.id === selectedProduct);
+  const selectedProductName = selectedProductData?.name || '';
+  const selectedProductTags = selectedProductData?.tags || [];
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-card rounded-xl shadow-sm border border-border">
@@ -343,6 +423,40 @@ const BatchKeyImport = () => {
             </table>
           </div>
 
+          {/* 关键词不匹配的卡密警告 */}
+          {mismatchedKeys.length > 0 && (
+            <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldAlert className="w-5 h-5 text-destructive" />
+                <h4 className="font-bold text-destructive">关键词不匹配的卡密（已阻止导入）</h4>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                以下卡密的功能类型与目标商品 <span className="font-bold">{selectedProductName}</span> 
+                （标签: {selectedProductTags.join(', ')}）不匹配，无法导入：
+              </p>
+              <div className="max-h-40 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-destructive/5">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-destructive">卡密</th>
+                      <th className="px-3 py-2 text-left text-destructive">实际功能</th>
+                      <th className="px-3 py-2 text-left text-destructive">商品要求</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-destructive/10">
+                    {mismatchedKeys.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-3 py-2 font-mono">{item.card_key}</td>
+                        <td className="px-3 py-2">{item.actual_feature_type}</td>
+                        <td className="px-3 py-2">{item.expected_tags.join(', ')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <button
               onClick={handleCancel}
@@ -353,7 +467,7 @@ const BatchKeyImport = () => {
             </button>
             <button
               onClick={handleSubmitToDatabase}
-              disabled={isLoading}
+              disabled={isLoading || parsedKeys.length === 0}
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
             >
               {isLoading ? (
@@ -367,7 +481,7 @@ const BatchKeyImport = () => {
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  确认导入数据库
+                  确认导入 {parsedKeys.length} 个卡密
                 </>
               )}
             </button>
