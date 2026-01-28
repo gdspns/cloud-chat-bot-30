@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Settings,
   Edit3,
@@ -14,7 +14,8 @@ import {
   CreditCard,
   Shuffle,
   Calculator,
-  RefreshCw
+  RefreshCw,
+  Search
 } from 'lucide-react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -145,6 +146,62 @@ export const ProductManagement = () => {
     name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: []
   });
   const [orderFilter, setOrderFilter] = useState('all');
+  
+  // 查单功能
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Order[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // 从数据库查询订单
+  const handleSearchOrders = useCallback(async () => {
+    if (!searchQuery.trim()) {
+      toast({ title: "提示", description: "请输入联系方式或机器人ID", variant: "destructive" });
+      return;
+    }
+    
+    setIsSearching(true);
+    setHasSearched(true);
+    
+    try {
+      // 查询 store_orders 表，按联系方式或机器人ID搜索
+      const { data, error } = await supabase
+        .from('store_orders')
+        .select('*')
+        .or(`contact.ilike.%${searchQuery.trim()}%,bot_id.ilike.%${searchQuery.trim()}%`)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      
+      if (error) throw error;
+      
+      // 转换为前端格式
+      const results: Order[] = (data || []).map(o => ({
+        orderNo: o.order_no,
+        botId: o.bot_id || '',
+        contact: o.contact || '',
+        productName: o.product_name,
+        amount: `${o.amount} ${o.currency}`,
+        paymentMethod: o.payment_method,
+        code: o.delivered_code || '',
+        type: o.bot_id ? 'auto' : 'card',
+        time: new Date(o.created_at).toLocaleString(),
+        status: o.status as 'pending' | 'paid' | 'expired'
+      }));
+      
+      setSearchResults(results);
+      
+      if (results.length === 0) {
+        toast({ title: "查询结果", description: "未找到相关订单记录" });
+      } else {
+        toast({ title: "查询成功", description: `找到 ${results.length} 条订单记录` });
+      }
+    } catch (error: any) {
+      console.error('查询订单失败:', error);
+      toast({ title: "查询失败", description: error.message || "请稍后重试", variant: "destructive" });
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchQuery, toast]);
 
   // 保存配置和订单到 localStorage
   useEffect(() => { localStorage.setItem('app_orders_v41', JSON.stringify(orders)); }, [orders]);
@@ -503,9 +560,90 @@ export const ProductManagement = () => {
 
       {adminTab === 'orders' && (
         <div className="space-y-6">
+          {/* 查单功能 */}
+          <Card className="p-6">
+            <div className="flex items-center gap-3 border-b pb-4 mb-4">
+              <div className="bg-primary p-2 rounded-lg"><Search size={20} className="text-primary-foreground"/></div>
+              <h4 className="font-bold text-base">订单查询</h4>
+            </div>
+            <div className="flex gap-3">
+              <Input 
+                placeholder="输入联系方式（邮箱/手机）或机器人ID查询..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && handleSearchOrders()}
+                className="flex-1"
+              />
+              <Button onClick={handleSearchOrders} disabled={isSearching}>
+                {isSearching ? <Loader2 size={16} className="animate-spin mr-2"/> : <Search size={16} className="mr-2"/>}
+                查询
+              </Button>
+            </div>
+            
+            {/* 查询结果 */}
+            {hasSearched && (
+              <div className="mt-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h5 className="font-bold text-sm text-muted-foreground">查询结果 ({searchResults.length} 条)</h5>
+                  {searchResults.length > 0 && (
+                    <Button size="sm" variant="ghost" onClick={() => { setSearchResults([]); setHasSearched(false); setSearchQuery(''); }}>
+                      清空结果
+                    </Button>
+                  )}
+                </div>
+                {searchResults.length > 0 ? (
+                  <div className="overflow-x-auto border rounded-lg">
+                    <table className="w-full text-left">
+                      <thead className="bg-muted text-muted-foreground text-xs border-b">
+                        <tr>
+                          <th className="p-3 font-bold">订单号</th>
+                          <th className="p-3 font-bold">商品名称</th>
+                          <th className="p-3 font-bold">支付金额</th>
+                          <th className="p-3 font-bold">联系/账号</th>
+                          <th className="p-3 font-bold">时间</th>
+                          <th className="p-3 font-bold text-center">状态</th>
+                          <th className="p-3 font-bold">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border text-xs">
+                        {searchResults.map(order => (
+                          <tr key={order.orderNo} className="hover:bg-muted/50 transition-colors">
+                            <td className="p-3 font-mono font-bold text-muted-foreground">{order.orderNo}</td>
+                            <td className="p-3 font-bold">{order.productName}</td>
+                            <td className="p-3 font-mono font-bold text-primary">{order.amount}</td>
+                            <td className="p-3 text-muted-foreground">{order.type === 'auto' ? order.botId : order.contact}</td>
+                            <td className="p-3 text-muted-foreground">{order.time}</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                order.status === 'paid' ? 'bg-green-500/20 text-green-600' : 
+                                (order.status === 'expired' ? 'bg-destructive/20 text-destructive' : 'bg-yellow-500/20 text-yellow-600')
+                              }`}>
+                                {order.status === 'paid' ? '已成交' : (order.status === 'expired' ? '已过期' : '待付款')}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              {order.status === 'paid' && order.code && (
+                                <Button size="sm" variant="outline" onClick={() => {copyToClipboard(order.code, '卡密已复制')}}>复制卡密</Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-muted-foreground bg-muted rounded-lg">
+                    未找到相关订单记录
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* 本地订单列表 */}
           <Card className="p-6">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-lg flex items-center gap-3"><ClipboardList size={20} /> 订单管理中心</h3>
+              <h3 className="font-bold text-lg flex items-center gap-3"><ClipboardList size={20} /> 本地订单记录</h3>
               <div className="flex bg-muted p-1 rounded-lg">
                 {['all', 'pending', 'paid', 'expired'].map(status => (
                   <button 
