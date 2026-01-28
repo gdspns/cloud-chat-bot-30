@@ -176,24 +176,20 @@ export function useStoreProducts() {
 
       if (productError) throw productError;
 
-      // 如果是卡密商品且提供了新卡密列表，更新卡密
-      if (updates.type === 'card' && updates.codes !== undefined) {
-        // 删除该商品的所有未使用卡密
-        await supabase
+      // 如果是卡密商品且提供了新卡密列表，追加新卡密（不删除原有的）
+      if (updates.type === 'card' && updates.codes !== undefined && updates.codes.length > 0) {
+        const cardKeysToInsert = updates.codes.map(code => ({
+          product_id: productId,
+          card_key: code,
+          is_used: false
+        }));
+
+        const { error: cardKeyError } = await supabase
           .from('store_card_keys')
-          .delete()
-          .eq('product_id', productId)
-          .eq('is_used', false);
+          .insert(cardKeysToInsert);
 
-        // 插入新卡密
-        if (updates.codes.length > 0) {
-          const cardKeysToInsert = updates.codes.map(code => ({
-            product_id: productId,
-            card_key: code,
-            is_used: false
-          }));
-
-          await supabase.from('store_card_keys').insert(cardKeysToInsert);
+        if (cardKeyError) {
+          console.error('追加卡密失败:', cardKeyError);
         }
       }
 
