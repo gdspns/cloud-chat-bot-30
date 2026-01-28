@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Play, Pause, Calendar, Copy, CheckCircle, XCircle, Key, Globe, Smartphone, List, MessageSquare, Send, LayoutDashboard, Users, Bot, Image as ImageIcon, ChevronDown, ChevronUp, X, ZoomIn, Loader2, Database, RefreshCw, FileText, ShoppingCart } from "lucide-react";
+import { Trash2, Play, Pause, Calendar, Copy, CheckCircle, XCircle, Key, Globe, Smartphone, List, MessageSquare, Send, LayoutDashboard, Users, Bot, Image as ImageIcon, ChevronDown, ChevronUp, X, ZoomIn, Loader2, Database, RefreshCw, FileText, ShoppingCart, CreditCard, ClipboardList } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,8 @@ import { DataExportImport } from "@/components/DataExportImport";
 import { ArticleManager } from "@/components/ArticleManager";
 import { ProductManagement } from "@/components/ProductManagement";
 import BatchKeyImport from "@/components/BatchKeyImport";
+import { OrderCenter } from "@/components/OrderCenter";
+import { GatewayConfig } from "@/components/GatewayConfig";
 
 interface BotActivation {
   id: string;
@@ -1315,6 +1317,14 @@ export const Admin = () => {
               <FileText className="h-4 w-4 mr-2" />
               文章管理
             </TabsTrigger>
+            <TabsTrigger value="orders">
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              订单中心
+            </TabsTrigger>
+            <TabsTrigger value="gateway">
+              <CreditCard className="h-4 w-4 mr-2" />
+              网关配置
+            </TabsTrigger>
           </TabsList>
 
           {/* 仪表盘 */}
@@ -1967,6 +1977,20 @@ export const Admin = () => {
           {/* 文章管理 */}
           <TabsContent value="articles" className="space-y-4">
             <ArticleManager />
+          </TabsContent>
+
+          {/* 订单中心 */}
+          <TabsContent value="orders" className="space-y-4">
+            <Card className="p-6">
+              <OrderCenter />
+            </Card>
+          </TabsContent>
+
+          {/* 网关配置 */}
+          <TabsContent value="gateway" className="space-y-4">
+            <Card className="p-6">
+              <GatewayConfig />
+            </Card>
           </TabsContent>
         </Tabs>
 
