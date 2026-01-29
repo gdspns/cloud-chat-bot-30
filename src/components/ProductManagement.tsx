@@ -78,14 +78,47 @@ export const ProductManagement = () => {
 
   const [isCalculating, setIsCalculating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [loadingExistingCodes, setLoadingExistingCodes] = useState(false);
+  const [existingCodesForEdit, setExistingCodesForEdit] = useState<string[]>([]);
   const [newProduct, setNewProduct] = useState<NewProduct>({
     name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: []
   });
 
+  const normalizeCardKey = (value: string) => value.trim();
+
+  const loadExistingCodesForProduct = async (productId: string) => {
+    setLoadingExistingCodes(true);
+    try {
+      const { data, error } = await supabase
+        .from('store_card_keys')
+        .select('card_key')
+        .eq('product_id', productId)
+        .eq('is_used', false)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      const codes = (data || [])
+        .map((r: any) => normalizeCardKey(r.card_key))
+        .filter(Boolean);
+      setExistingCodesForEdit(codes);
+      return codes;
+    } catch (e) {
+      console.error('加载原库存卡密失败:', e);
+      toast({ title: '加载失败', description: '无法加载该商品原库存卡密', variant: 'destructive' });
+      setExistingCodesForEdit([]);
+      return [];
+    } finally {
+      setLoadingExistingCodes(false);
+    }
+  };
+
   // --- 管理逻辑 ---
-  const handleEditClick = (product: StoreProduct) => {
+  const handleEditClick = async (product: StoreProduct) => {
     setEditingId(product.id);
-    setNewProduct({ 
+    setSaveResultMessage('');
+
+    // 先填充基础信息
+    setNewProduct({
       name: product.name,
       type: product.type,
       duration: product.duration,
@@ -93,13 +126,22 @@ export const ProductManagement = () => {
       usdt: product.usdt.toString(),
       trx: product.trx.toString(),
       desc: product.desc,
-      codesText: '', // 编辑时清空卡密输入框，追加模式
-      tags: product.tags || [] 
+      codesText: '',
+      tags: product.tags || []
     });
+
+    // 卡密商品：加载并回显原库存（未使用）
+    if (product.type === 'card') {
+      const codes = await loadExistingCodesForProduct(product.id);
+      setNewProduct(prev => ({ ...prev, codesText: codes.join('\n') }));
+    } else {
+      setExistingCodesForEdit([]);
+    }
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
+    setExistingCodesForEdit([]);
     setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
   };
 
@@ -160,8 +202,11 @@ export const ProductManagement = () => {
 
     try {
       // 解析卡密文本
-      const rawLines = newProduct.codesText 
-        ? newProduct.codesText.split('\n').map(l => l.trim()).filter(l => l !== "") 
+      const rawLines = newProduct.codesText
+        ? newProduct.codesText
+            .split('\n')
+            .map(l => normalizeCardKey(l))
+            .filter(l => l !== "")
         : [];
       
       // 1. 前端去重
@@ -170,18 +215,27 @@ export const ProductManagement = () => {
 
       let finalCodes = uniqueLines;
       let dbDuplicates = 0;
+      let originalStockDuplicates = 0;
       let mismatchedCount = 0;
 
-      // 2. 如果有卡密，与数据库比对
-      if (uniqueLines.length > 0) {
+      // 1.5 编辑模式：先按“该商品原库存”去重（避免原库存重复插入仍提示成功）
+      if (editingId && newProduct.type === 'card') {
+        const originalSet = new Set((existingCodesForEdit || []).map(normalizeCardKey));
+        const filtered = uniqueLines.filter(k => !originalSet.has(normalizeCardKey(k)));
+        originalStockDuplicates = uniqueLines.length - filtered.length;
+        finalCodes = filtered;
+      }
+
+      // 2. 如果有卡密，与数据库比对（全库去重）
+      if (finalCodes.length > 0) {
         const { data: existingKeys } = await supabase
           .from('store_card_keys')
           .select('card_key')
-          .in('card_key', uniqueLines);
+          .in('card_key', finalCodes);
 
-        const existingSet = new Set(existingKeys?.map(k => k.card_key) || []);
-        const newKeys = uniqueLines.filter(key => !existingSet.has(key));
-        dbDuplicates = uniqueLines.length - newKeys.length;
+        const existingSet = new Set((existingKeys || []).map((k: any) => normalizeCardKey(k.card_key)));
+        const newKeys = finalCodes.filter(key => !existingSet.has(normalizeCardKey(key)));
+        dbDuplicates = finalCodes.length - newKeys.length;
 
         // 3. 关键词匹配验证 - 查询 activation_codes 表
         if (newKeys.length > 0 && newProduct.tags.length > 0) {
@@ -234,6 +288,7 @@ export const ProductManagement = () => {
       const messages: string[] = [];
       if (finalCodes.length > 0) messages.push(`成功添加 ${finalCodes.length} 个`);
       if (frontendDuplicates > 0) messages.push(`粘贴重复 ${frontendDuplicates} 个`);
+      if (originalStockDuplicates > 0) messages.push(`原库存已存在 ${originalStockDuplicates} 个`);
       if (dbDuplicates > 0) messages.push(`库存已存在 ${dbDuplicates} 个`);
       if (mismatchedCount > 0) messages.push(`关键词不匹配 ${mismatchedCount} 个`);
 
@@ -249,6 +304,7 @@ export const ProductManagement = () => {
         toast({ title: "保存成功", description: "商品已保存" });
       }
 
+      setExistingCodesForEdit([]);
       setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
 
     } catch (error: any) {
@@ -354,8 +410,19 @@ export const ProductManagement = () => {
                 <Layers size={14} /> 
                 {editingId ? '追加卡密 (一行一个，保留原有库存)' : '卡密库 (一行一个)'}
               </label>
-              <textarea placeholder="在此粘贴卡密数据..." className="w-full min-h-[120px] p-4 bg-foreground text-green-400 border border-border rounded-lg font-mono text-xs outline-none" value={newProduct.codesText} onChange={e => setNewProduct({...newProduct, codesText: e.target.value})} />
+              <textarea
+                placeholder={loadingExistingCodes ? '正在加载原库存...' : '在此粘贴/编辑卡密数据...'}
+                className="w-full min-h-[120px] p-4 bg-foreground text-green-400 border border-border rounded-lg font-mono text-xs outline-none"
+                value={newProduct.codesText}
+                onChange={e => setNewProduct({ ...newProduct, codesText: e.target.value })}
+                disabled={loadingExistingCodes}
+              />
               <p className="text-xs text-muted-foreground">当前识别: {newProduct.codesText ? newProduct.codesText.split('\n').filter(s => s.trim() !== "").length : 0} 行</p>
+              {editingId && (
+                <p className="text-xs text-muted-foreground">
+                  已回显原库存（未使用）{existingCodesForEdit.length} 个；保存时会按原库存去重，仅追加新卡密。
+                </p>
+              )}
             </div>
           )}
         </div>
