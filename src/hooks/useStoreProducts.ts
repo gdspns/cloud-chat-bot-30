@@ -205,20 +205,27 @@ export function useStoreProducts() {
     }
   }, [loadProducts, toast]);
 
-  // 删除商品
+  // 删除商品（同时删除关联的所有卡密，包括已使用和未使用的）
   const deleteProduct = useCallback(async (productId: string) => {
     try {
       setSyncing(true);
 
-      // 先删除关联的卡密
-      await supabase.from('store_card_keys').delete().eq('product_id', productId);
+      // 先删除关联的所有卡密（不限 is_used 状态）
+      const { error: cardKeyError } = await supabase
+        .from('store_card_keys')
+        .delete()
+        .eq('product_id', productId);
+      
+      if (cardKeyError) {
+        console.error('删除关联卡密失败:', cardKeyError);
+      }
 
       // 再删除商品
       const { error } = await supabase.from('store_products').delete().eq('id', productId);
       if (error) throw error;
 
       await loadProducts();
-      toast({ title: '删除成功', description: '商品已删除' });
+      toast({ title: '删除成功', description: '商品及其所有卡密已删除' });
       return true;
     } catch (error) {
       console.error('删除商品失败:', error);
