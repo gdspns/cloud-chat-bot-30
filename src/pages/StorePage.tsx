@@ -756,6 +756,19 @@ export const StorePage = () => {
                           <p className="text-sm text-gray-600 font-medium">
                             请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫码支付
                           </p>
+                          
+                          {/* 支付宝 - 手机用户跳转按钮 */}
+                          {paymentMethod === 'alipay' && hupiPayUrl && (
+                            <a
+                              href={hupiPayUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-2 w-full bg-[#1677FF] hover:bg-[#0958d9] text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95"
+                            >
+                              <Smartphone size={16} />
+                              手机用户点击打开支付宝
+                            </a>
+                          )}
                         </div>
                       )}
                       
