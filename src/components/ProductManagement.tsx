@@ -7,8 +7,8 @@ import {
   Copy,
   Plus,
   Trash2,
-  Calculator,
-  RefreshCw
+  RefreshCw,
+  TrendingUp
 } from 'lucide-react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useStoreProducts, StoreProduct } from "@/hooks/useStoreProducts";
 import { supabase } from "@/integrations/supabase/client";
+import { useBinanceRates } from "@/hooks/useBinanceRates";
 
 const copyToClipboard = (text: string, successMessage = "复制成功") => {
   if (navigator.clipboard && window.isSecureContext) {
@@ -64,17 +65,8 @@ export const ProductManagement = () => {
   // 使用数据库 hook 管理商品
   const { products, loading, syncing, addProduct, updateProduct, deleteProduct, getStockCount, loadProducts } = useStoreProducts();
 
-  // 从 localStorage 读取汇率配置
-  const getExchangeRate = () => {
-    try {
-      const saved = localStorage.getItem('app_config_v41');
-      if (saved) {
-        const config = JSON.parse(saved);
-        return config.exchangeRateUsdtCny || 7.4;
-      }
-    } catch {}
-    return 7.4;
-  };
+  // 使用币安实时汇率
+  const { rates, loading: ratesLoading, error: ratesError, fetchRates } = useBinanceRates();
 
   const [isCalculating, setIsCalculating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -315,19 +307,60 @@ export const ProductManagement = () => {
     }
   };
 
-  const handleAutoConvert = async () => {
+  // 输入CNY价格时自动获取实时汇率并转换
+  const handlePriceChange = async (priceStr: string) => {
+    setNewProduct(prev => ({ ...prev, price: priceStr }));
+    
+    const price = parseFloat(priceStr);
+    if (!price || isNaN(price)) {
+      setNewProduct(prev => ({ ...prev, usdt: '', trx: '' }));
+      return;
+    }
+
+    // 自动获取并转换
+    setIsCalculating(true);
+    try {
+      let currentRates = rates;
+      if (!currentRates) {
+        currentRates = await fetchRates();
+      }
+      
+      if (currentRates) {
+        const usdtVal = (price / currentRates.usdtCny).toFixed(3);
+        const trxVal = (price / currentRates.usdtCny / currentRates.trxUsdt).toFixed(3);
+        setNewProduct(prev => ({ ...prev, usdt: usdtVal, trx: trxVal }));
+      }
+    } catch (err) {
+      console.error('汇率转换失败:', err);
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  // 手动刷新汇率
+  const handleRefreshRates = async () => {
     if (!newProduct.price) {
-      toast({ title: "提示", description: "请输入CNY价格", variant: "destructive" });
+      toast({ title: "提示", description: "请先输入CNY价格", variant: "destructive" });
       return;
     }
     setIsCalculating(true);
-    setTimeout(() => {
-      const rate = getExchangeRate();
-      const usdtVal = (parseFloat(newProduct.price) / rate).toFixed(3);
-      const trxVal = (parseFloat(usdtVal) / 0.155).toFixed(3);
-      setNewProduct(prev => ({ ...prev, usdt: usdtVal, trx: trxVal }));
+    try {
+      const newRates = await fetchRates();
+      if (newRates) {
+        const price = parseFloat(newProduct.price);
+        const usdtVal = (price / newRates.usdtCny).toFixed(3);
+        const trxVal = (price / newRates.usdtCny / newRates.trxUsdt).toFixed(3);
+        setNewProduct(prev => ({ ...prev, usdt: usdtVal, trx: trxVal }));
+        toast({ 
+          title: "汇率已更新", 
+          description: `1 USDT ≈ ¥${newRates.usdtCny.toFixed(2)} | 1 TRX ≈ $${newRates.trxUsdt.toFixed(4)}` 
+        });
+      } else {
+        toast({ title: "获取汇率失败", description: ratesError || "请稍后重试", variant: "destructive" });
+      }
+    } finally {
       setIsCalculating(false);
-    }, 500);
+    }
   };
 
   const toggleAdminTag = (tagId: string) => {
@@ -388,22 +421,43 @@ export const ProductManagement = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-muted-foreground">定价 (¥)</label>
-              <Input type="number" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
+              <Input 
+                type="number" 
+                value={newProduct.price} 
+                onChange={e => handlePriceChange(e.target.value)}
+                placeholder="输入后自动转换"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                USDT {isCalculating && <Loader2 size={12} className="animate-spin"/>}
+              </label>
+              <div className="relative">
+                <Input type="number" step="0.001" className="font-mono text-primary pr-8" value={newProduct.usdt} onChange={e => setNewProduct({...newProduct, usdt: e.target.value})} />
+                {rates && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">≈¥{rates.usdtCny.toFixed(2)}</span>}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-muted-foreground flex items-center gap-1">
+                TRX {isCalculating && <Loader2 size={12} className="animate-spin"/>}
+              </label>
+              <div className="relative">
+                <Input type="number" step="0.001" className="font-mono text-destructive pr-10" value={newProduct.trx} onChange={e => setNewProduct({...newProduct, trx: e.target.value})} />
+                {rates && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">${rates.trxUsdt.toFixed(4)}</span>}
+              </div>
             </div>
             <div className="flex items-end">
-              <Button onClick={handleAutoConvert} disabled={isCalculating} variant="outline" className="w-full h-10">
-                {isCalculating ? <Loader2 size={14} className="animate-spin mr-2"/> : <Calculator size={14} className="mr-2"/>} 自动算价
+              <Button onClick={handleRefreshRates} disabled={isCalculating || ratesLoading} variant="outline" className="w-full h-10">
+                {(isCalculating || ratesLoading) ? <Loader2 size={14} className="animate-spin mr-2"/> : <TrendingUp size={14} className="mr-2"/>} 
+                刷新汇率
               </Button>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-muted-foreground">USDT</label>
-              <Input type="number" step="0.001" className="font-mono text-primary" value={newProduct.usdt} onChange={e => setNewProduct({...newProduct, usdt: e.target.value})} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-muted-foreground">TRX</label>
-              <Input type="number" step="0.001" className="font-mono text-destructive" value={newProduct.trx} onChange={e => setNewProduct({...newProduct, trx: e.target.value})} />
-            </div>
           </div>
+          {rates && (
+            <p className="text-xs text-muted-foreground">
+              币安实时: 1 USDT ≈ ¥{rates.usdtCny.toFixed(2)} | 1 TRX ≈ ${rates.trxUsdt.toFixed(4)} USDT
+            </p>
+          )}
           {newProduct.type === 'card' && (
             <div className="space-y-2">
               <label className="text-xs font-bold text-primary flex items-center gap-2">
