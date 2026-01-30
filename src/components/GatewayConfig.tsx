@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Database, ArrowRightLeft, CreditCard, Shuffle, Loader2 } from 'lucide-react';
+import { Database, CreditCard, Shuffle, Loader2 } from 'lucide-react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,16 +70,6 @@ export const GatewayConfig = () => {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <Card className="p-6 space-y-6">
-        <div className="flex items-center gap-3 border-b pb-4">
-          <div className="bg-primary p-2 rounded-lg"><ArrowRightLeft size={20} className="text-primary-foreground"/></div>
-          <h4 className="font-bold text-base">汇率设置</h4>
-        </div>
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-muted-foreground">1 USDT = ? CNY</label>
-          <Input type="number" step="0.01" value={config.exchangeRateUsdtCny} onChange={e=>setConfig({...config,exchangeRateUsdtCny:parseFloat(e.target.value)})} className="text-2xl font-bold text-center" />
-        </div>
-      </Card>
 
       <Card className="p-6 space-y-6">
         <div className="flex items-center gap-3 border-b pb-4">
