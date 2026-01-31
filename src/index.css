@@ -103,3 +103,19 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* 全局暗黑模式输入框样式修复 */
+.dark input,
+.dark textarea,
+.dark select,
+.dark [role="combobox"],
+.dark [data-radix-select-trigger],
+.dark [cmdk-input] {
+  @apply bg-background text-foreground;
+}
+
+.dark [data-radix-select-content],
+.dark [data-radix-popper-content-wrapper] [role="listbox"],
+.dark [cmdk-list] {
+  @apply bg-popover text-popover-foreground;
+}
