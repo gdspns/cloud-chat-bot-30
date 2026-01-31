@@ -18,6 +18,7 @@ import {
 import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoreProducts, StoreProduct } from "@/hooks/useStoreProducts";
+import { useLanguage } from "@/hooks/use-language";
 
 // --- 全局工具函数 ---
 interface Order {
@@ -51,34 +52,6 @@ const formatTimeDisplay = (seconds: number) => {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
-const copyToClipboard = (text: string, successMessage = "复制成功") => {
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text).then(() => alert(successMessage)).catch(() => alert("复制失败，请手动复制"));
-  } else {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-9999px";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand('copy');
-      alert(successMessage);
-    } catch (err) {
-      alert("复制失败，请手动复制");
-    }
-    document.body.removeChild(textArea);
-  }
-};
-
-// --- 初始数据 ---
-const CATEGORY_TAGS = [
-  { id: 'chat', label: '双向聊天' },
-  { id: 'keyboard', label: '菜单键盘' },
-  { id: 'mall', label: 'TG商城' }
-];
-
 const DEFAULT_CONFIG: Config = {
   usdtAddress: '', 
   tronGridApiKey: '', 
@@ -93,6 +66,39 @@ const DEFAULT_CONFIG: Config = {
 
 // --- 商城页面组件 ---
 export const StorePage = () => {
+  const { t, language } = useLanguage();
+  
+  // 复制到剪贴板函数
+  const copyToClipboard = (text: string, successMessage?: string) => {
+    const msg = successMessage || t('store.copySuccess');
+    const failMsg = t('store.copyFailed');
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => alert(msg)).catch(() => alert(failMsg));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert(msg);
+      } catch (err) {
+        alert(failMsg);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  // 分类标签 - 使用翻译
+  const CATEGORY_TAGS = [
+    { id: 'chat', label: t('store.chat') },
+    { id: 'keyboard', label: t('store.keyboardMenu') },
+    { id: 'mall', label: t('store.tgMall') }
+  ];
+  
   // 使用数据库 hook 加载商品
   const { products, loading: productsLoading, getStockCount, loadProducts } = useStoreProducts();
   
@@ -437,20 +443,20 @@ export const StorePage = () => {
 
   const handlePayment = async () => {
     if (activeTab === 'card' && !contactInfo.trim()) {
-      return setValidationError("请填写邮箱或手机号，以便后续查询订单卡密！");
+      return setValidationError(t('store.fillContactHint'));
     }
-    if (!selectedProductId) return setValidationError("请先选择商品");
-    if (!paymentMethod) return setValidationError("请选择支付方式");
+    if (!selectedProductId) return setValidationError(t('store.selectProductFirst'));
+    if (!paymentMethod) return setValidationError(t('store.selectPaymentMethod'));
     if (activeTab === 'auto' && !botId.trim()) {
-      return setValidationError("请输入账号ID");
+      return setValidationError(t('store.enterAccountId'));
     }
     const product = products.find(p => p.id === selectedProductId);
     if (!product) return;
     // 检查所有商品类型的库存（包括自动充值商品）
     if (getStockCount(product) <= 0) {
-      return setValidationError("库存不足，暂时无法购买");
+      return setValidationError(t('store.noStock'));
     }
-    setValidationError(""); 
+    setValidationError("");
 
     let basePrice = paymentMethod === 'usdt' ? product.usdt : (paymentMethod === 'trx' ? product.trx : product.price);
     let finalAmount = basePrice;
@@ -480,7 +486,7 @@ export const StorePage = () => {
 
     if (dbError) {
       console.error('创建订单失败:', dbError);
-      return setValidationError("创建订单失败，请稍后重试");
+      return setValidationError(t('store.createOrderFailed'));
     }
 
     setRealPayAmount(finalAmount); 
@@ -490,8 +496,8 @@ export const StorePage = () => {
     
     const newOrder: Order = {
       orderNo,
-      botId: activeTab === 'auto' ? botId : '匿名',
-      contact: contactInfo || '无', 
+      botId: activeTab === 'auto' ? botId : t('store.anonymous'),
+      contact: contactInfo || t('store.none'), 
       productName: product.name,
       amount: `${finalAmount} ${currency}`,
       paymentMethod,
@@ -524,7 +530,7 @@ export const StorePage = () => {
 
   const handleQueryOrder = () => {
     if (!contactInfo.trim()) {
-      return setValidationError("请输入邮箱或手机号以查询订单！");
+      return setValidationError(t('store.queryOrderHint'));
     }
     setValidationError("");
     setShowQueryModal(true);
@@ -579,7 +585,7 @@ export const StorePage = () => {
     
     if (error) {
       console.error('查询订单状态失败:', error);
-      alert('查询订单状态失败，请稍后重试');
+      alert(t('store.queryFailed'));
       return;
     }
     
@@ -624,7 +630,7 @@ export const StorePage = () => {
       }
     } else {
       // 订单未确认支付
-      alert('未检测到支付成功，请确保已完成支付后再试。如已支付请稍等片刻后重试。');
+      alert(t('store.paymentNotDetected'));
     }
   };
 
@@ -643,7 +649,7 @@ export const StorePage = () => {
         });
 
         if (error || !data?.success) {
-          updateOrderStatus('paid', '卡密已售罄，请联系客服');
+          updateOrderStatus('paid', t('store.cardSoldOut'));
         } else {
           // 成功从数据库获取卡密
           updateOrderStatus('paid', data.cardKey);
@@ -652,7 +658,7 @@ export const StorePage = () => {
         }
       } catch (err) {
         console.error('获取卡密失败:', err);
-        updateOrderStatus('paid', '系统错误，请联系客服');
+        updateOrderStatus('paid', t('store.systemError'));
       }
     } else {
       // 自动订阅类型
@@ -678,9 +684,9 @@ export const StorePage = () => {
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in">
         <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden flex flex-col max-h-[90vh]">
           <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-gray-800 text-sm">{paymentStep === 'success' ? '支付成功' : (paymentStep === 'expired' ? '已过期' : '确认支付')}</h3>
-              {paymentStep === 'paying' && (<div className="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-0.5 rounded-full text-xs font-bold border border-red-100"><Clock size={12} /> {formatTimeDisplay(timeLeft)}</div>)}
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-gray-800 text-sm">{paymentStep === 'success' ? t('store.paySuccess') : (paymentStep === 'expired' ? t('store.expired') : t('store.confirmPayment'))}</h3>
+            {paymentStep === 'paying' && (<div className="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-0.5 rounded-full text-xs font-bold border border-red-100"><Clock size={12} /> {formatTimeDisplay(timeLeft)}</div>)}
             </div>
             {paymentStep !== 'success' && (<button onClick={handleClosePayment} className="text-gray-400 hover:text-red-500"><X size={20} /></button>)}
           </div>
@@ -689,11 +695,11 @@ export const StorePage = () => {
               <>
                 <div className="flex flex-col items-center mb-4">
                   <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-3"></div>
-                  <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">已连接支付网关...</p>
+                  <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{t('store.connectedGateway')}</p>
                 </div>
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 space-y-4 shadow-inner">
                   <div className="flex flex-col items-center gap-1">
-                    <span className="text-[10px] text-blue-500 font-bold">请支付精确金额</span>
+                    <span className="text-[10px] text-blue-500 font-bold">{t('store.payAmount')}</span>
                     <div className="flex items-end justify-center gap-1">
                       <span className="text-3xl font-mono font-black text-blue-800">{realPayAmount}</span>
                       <span className="text-[10px] font-bold text-blue-400 mb-1 uppercase">{paymentMethod}</span>
@@ -702,7 +708,7 @@ export const StorePage = () => {
 
                   {isCrypto && (
                     <div className="w-full bg-white/60 py-2 rounded-lg text-[9px] font-black text-blue-900 border border-blue-200 tracking-wide">
-                      当前支付网络协议为 （TRX/TRC20）
+                      {t('store.paymentNetwork')}
                     </div>
                   )}
 
@@ -720,7 +726,7 @@ export const StorePage = () => {
                   {isCrypto && (
                     <div className="flex items-center justify-center gap-2 bg-white/60 py-2 rounded-lg border border-blue-200">
                       <span className="text-[9px] font-mono text-gray-600 truncate max-w-[180px]">{config.usdtAddress}</span>
-                      <button onClick={() => copyToClipboard(config.usdtAddress, '地址已复制')} className="text-blue-600 hover:text-blue-800">
+                      <button onClick={() => copyToClipboard(config.usdtAddress, t('store.addressCopied'))} className="text-blue-600 hover:text-blue-800">
                         <Copy size={12} />
                       </button>
                     </div>
@@ -732,7 +738,7 @@ export const StorePage = () => {
                       {paymentLoading && (
                         <div className="flex flex-col items-center py-4">
                           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                          <p className="text-xs text-gray-500 mt-2">正在获取支付链接...</p>
+                          <p className="text-xs text-gray-500 mt-2">{t('store.gettingPayLink')}</p>
                         </div>
                       )}
                       
@@ -754,7 +760,7 @@ export const StorePage = () => {
                             />
                           </div>
                           <p className="text-sm text-gray-600 font-medium">
-                            请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫码支付
+                            {paymentMethod === 'wechat' ? t('store.wechatScan') : t('store.alipayScan')}
                           </p>
                           
                           {/* 支付宝 - 手机用户跳转按钮 */}
@@ -766,7 +772,7 @@ export const StorePage = () => {
                               className="flex items-center justify-center gap-2 w-full bg-[#1677FF] hover:bg-[#0958d9] text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95"
                             >
                               <Smartphone size={16} />
-                              手机用户点击打开支付宝
+                              {t('store.openAlipay')}
                             </a>
                           )}
                         </div>
@@ -776,7 +782,7 @@ export const StorePage = () => {
                         onClick={confirmHupijiaoPayment}
                         className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95"
                       >
-                        我已完成支付
+                        {t('store.paidDone')}
                       </button>
                     </div>
                   )}
@@ -786,18 +792,18 @@ export const StorePage = () => {
             {paymentStep === 'success' && currentOrder && (
               <div className="animate-in zoom-in duration-300">
                 <div className="w-16 h-16 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto shadow-lg mb-4"><CheckCircle size={32} /></div>
-                <h3 className="text-lg font-bold text-gray-900 mb-4">订单完成</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">{t('store.orderComplete')}</h3>
                 <div className="bg-gray-900 rounded-xl p-4 text-left text-white shadow-xl">
                   {currentOrder.type === 'card' ? (
                     <div className="bg-white/10 p-3 rounded-lg border border-white/10">
                       <div className="flex justify-between items-center mb-1">
-                        <p className="text-[9px] text-gray-400 font-bold uppercase">卡密信息</p>
+                        <p className="text-[9px] text-gray-400 font-bold uppercase">{t('store.cardInfo')}</p>
                         {!isLoadingCardKey && currentOrder.code && !cardKeyRetryError && (
                           <button 
                             onClick={() => copyToClipboard(currentOrder.code, "复制成功")}
                             className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
                           >
-                            <Copy size={12} /> 复制
+                            <Copy size={12} /> {t('store.copy')}
                           </button>
                         )}
                       </div>
@@ -955,8 +961,8 @@ export const StorePage = () => {
             <Terminal className="text-primary w-8 h-8" /> 自助商城
           </div> */}
           <div className="flex bg-muted p-2 rounded-2xl border gap-2">
-            <button onClick={() => {setActiveTab('auto'); setValidationError(""); setActiveTags([]);}} className={`px-8 py-3 rounded-xl text-lg font-bold transition-all ${activeTab === 'auto' ? 'bg-background text-primary shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}>自动充值</button>
-            <button onClick={() => {setActiveTab('card'); setValidationError(""); setActiveTags([]);}} className={`px-8 py-3 rounded-xl text-lg font-bold transition-all ${activeTab === 'card' ? 'bg-background text-primary shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}>购买卡密</button>
+            <button onClick={() => {setActiveTab('auto'); setValidationError(""); setActiveTags([]);}} className={`px-8 py-3 rounded-xl text-lg font-bold transition-all ${activeTab === 'auto' ? 'bg-background text-primary shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}>{t('store.auto')}</button>
+            <button onClick={() => {setActiveTab('card'); setValidationError(""); setActiveTags([]);}} className={`px-8 py-3 rounded-xl text-lg font-bold transition-all ${activeTab === 'card' ? 'bg-background text-primary shadow-lg' : 'text-muted-foreground hover:text-foreground'}`}>{t('store.card')}</button>
           </div>
           
           {/* 分类标签 */}
@@ -977,7 +983,7 @@ export const StorePage = () => {
                     <span className="bg-primary text-primary-foreground w-5 h-5 rounded flex items-center justify-center text-[10px]">01</span> 
                     联系方式
                   </h2>
-                  <button onClick={handleQueryOrder} className="text-xs text-primary font-bold hover:underline flex items-center gap-1"><Search size={12}/> 查询订单</button>
+                  <button onClick={handleQueryOrder} className="text-xs text-primary font-bold hover:underline flex items-center gap-1"><Search size={12}/> {t('store.orderQuery')}</button>
                 </div>
                 <div className="relative">
                   <input 
@@ -1050,7 +1056,7 @@ export const StorePage = () => {
                 {config.enableWechat && <button onClick={()=>setPaymentMethod('wechat')} className={`py-2 rounded-lg border font-bold text-[10px] transition-all ${paymentMethod==='wechat'?'border-green-600 bg-green-50 text-green-600':'border-border bg-muted text-muted-foreground'}`}>微信</button>}
                 {config.enableAlipay && <button onClick={()=>setPaymentMethod('alipay')} className={`py-2 rounded-lg border font-bold text-[10px] transition-all ${paymentMethod==='alipay'?'border-blue-500 bg-blue-50 text-blue-500':'border-border bg-muted text-muted-foreground'}`}>支付宝</button>}
               </div>
-              <button onClick={handlePayment} className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold shadow-lg active:scale-95 transition-all">确认支付</button>
+              <button onClick={handlePayment} className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold shadow-lg active:scale-95 transition-all">{t('store.payNow')}</button>
             </div>
           </div>
         </div>
