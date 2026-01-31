@@ -9,28 +9,27 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Bot, Mail, Lock } from "lucide-react";
+import { useLanguage } from "@/hooks/use-language";
 
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState(searchParams.get('mode') || 'login');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // 监听认证状态变化 - 使用 replace 避免历史记录堆叠
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        // 使用 setTimeout 延迟导航，避免状态更新冲突
         setTimeout(() => {
           navigate('/', { replace: true });
         }, 0);
       }
     });
 
-    // 检查是否已登录
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         navigate('/', { replace: true });
@@ -43,8 +42,8 @@ const Auth = () => {
   const handleLogin = async () => {
     if (!email || !password) {
       toast({
-        title: "错误",
-        description: "请填写邮箱和密码",
+        title: t('common.error'),
+        description: t('auth.fillEmailPassword'),
         variant: "destructive",
       });
       return;
@@ -60,14 +59,14 @@ const Auth = () => {
       if (error) throw error;
 
       toast({
-        title: "登录成功",
-        description: "欢迎回来！",
+        title: t('auth.loginSuccess'),
+        description: t('auth.welcomeBack'),
       });
     } catch (error: any) {
       toast({
-        title: "登录失败",
+        title: t('auth.loginFailed'),
         description: error.message === "Invalid login credentials" 
-          ? "邮箱或密码错误" 
+          ? t('auth.invalidCredentials')
           : error.message,
         variant: "destructive",
       });
@@ -79,8 +78,8 @@ const Auth = () => {
   const handleRegister = async () => {
     if (!email || !password) {
       toast({
-        title: "错误",
-        description: "请填写邮箱和密码",
+        title: t('common.error'),
+        description: t('auth.fillEmailPassword'),
         variant: "destructive",
       });
       return;
@@ -88,8 +87,8 @@ const Auth = () => {
 
     if (password.length < 6) {
       toast({
-        title: "错误",
-        description: "密码至少需要6位字符",
+        title: t('common.error'),
+        description: t('auth.passwordMin'),
         variant: "destructive",
       });
       return;
@@ -108,16 +107,16 @@ const Auth = () => {
       if (error) throw error;
 
       toast({
-        title: "注册成功",
-        description: "已自动登录，开始使用吧！",
+        title: t('auth.registerSuccess'),
+        description: t('auth.autoLogin'),
       });
     } catch (error: any) {
       let message = error.message;
       if (error.message.includes("already registered")) {
-        message = "此邮箱已被注册";
+        message = t('auth.emailRegistered');
       }
       toast({
-        title: "注册失败",
+        title: t('auth.registerFailed'),
         description: message,
         variant: "destructive",
       });
@@ -140,13 +139,13 @@ const Auth = () => {
           
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">登录</TabsTrigger>
-              <TabsTrigger value="register">注册</TabsTrigger>
+              <TabsTrigger value="login">{t('auth.login')}</TabsTrigger>
+              <TabsTrigger value="register">{t('auth.register')}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="login-email">邮箱</Label>
+                <Label htmlFor="login-email">{t('auth.email')}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -161,13 +160,13 @@ const Auth = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="login-password">密码</Label>
+                <Label htmlFor="login-password">{t('auth.password')}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="login-password"
                     type="password"
-                    placeholder="输入密码"
+                    placeholder={t('auth.enterPassword')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
@@ -177,13 +176,13 @@ const Auth = () => {
               </div>
               
               <Button onClick={handleLogin} className="w-full" disabled={isLoading}>
-                {isLoading ? "登录中..." : "登录"}
+                {isLoading ? t('auth.logging') : t('auth.login')}
               </Button>
             </TabsContent>
             
             <TabsContent value="register" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="register-email">邮箱</Label>
+                <Label htmlFor="register-email">{t('auth.email')}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -198,13 +197,13 @@ const Auth = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="register-password">密码</Label>
+                <Label htmlFor="register-password">{t('auth.password')}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="register-password"
                     type="password"
-                    placeholder="至少6位字符"
+                    placeholder={t('auth.minChars')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleRegister()}
@@ -214,13 +213,13 @@ const Auth = () => {
               </div>
               
               <Button onClick={handleRegister} className="w-full" disabled={isLoading}>
-                {isLoading ? "注册中..." : "注册"}
+                {isLoading ? t('auth.registering') : t('auth.register')}
               </Button>
             </TabsContent>
           </Tabs>
           
           <p className="text-xs text-center text-muted-foreground mt-6">
-            无需注册也可在首页试用机器人功能
+            {t('auth.noRegisterTip')}
           </p>
         </Card>
       </div>

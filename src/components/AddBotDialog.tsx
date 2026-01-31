@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Bot, Plus } from "lucide-react";
 import type { BotActivation } from "@/types/bot";
+import { useLanguage } from "@/hooks/use-language";
 
 interface AddBotDialogProps {
   open: boolean;
@@ -17,17 +18,18 @@ interface AddBotDialogProps {
 }
 
 export const AddBotDialog = ({ open, onOpenChange, onBotAdded, userId }: AddBotDialogProps) => {
+  const { t, language } = useLanguage();
   const [botToken, setBotToken] = useState("");
   const [personalUserId, setPersonalUserId] = useState("");
-  const [greetingMessage, setGreetingMessage] = useState("你好！👋 有什么可以帮助你的吗？");
+  const [greetingMessage, setGreetingMessage] = useState(language === 'en' ? "Hello! 👋 How can I help you?" : "你好！👋 有什么可以帮助你的吗？");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async () => {
     if (!botToken || !personalUserId) {
       toast({
-        title: "错误",
-        description: "请填写机器人令牌和个人用户ID",
+        title: t('common.error'),
+        description: t('bot.fillRequired'),
         variant: "destructive",
       });
       return;
@@ -49,8 +51,8 @@ export const AddBotDialog = ({ open, onOpenChange, onBotAdded, userId }: AddBotD
       
       if (!data.ok) {
         toast({
-          title: "添加失败",
-          description: data.error || "添加机器人失败",
+          title: t('bot.addFailed'),
+          description: data.error || t('bot.addFailed'),
           variant: "destructive",
         });
         return;
@@ -59,14 +61,14 @@ export const AddBotDialog = ({ open, onOpenChange, onBotAdded, userId }: AddBotD
       // 重置表单
       setBotToken("");
       setPersonalUserId("");
-      setGreetingMessage("你好！👋 有什么可以帮助你的吗？");
+      setGreetingMessage(language === 'en' ? "Hello! 👋 How can I help you?" : "你好！👋 有什么可以帮助你的吗？");
       onOpenChange(false);
       
       onBotAdded(data.data);
     } catch (error: any) {
       toast({
-        title: "添加失败",
-        description: error.message || "请检查令牌是否正确",
+        title: t('bot.addFailed'),
+        description: error.message || t('bot.checkToken'),
         variant: "destructive",
       });
     } finally {
@@ -80,45 +82,45 @@ export const AddBotDialog = ({ open, onOpenChange, onBotAdded, userId }: AddBotD
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
-            添加 Telegram 机器人
+            {t('bot.addTitle')}
           </DialogTitle>
           <DialogDescription>
-            输入机器人信息即可开始试用，无需注册。免费试用20条消息。
+            {t('bot.addDesc')}
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="botToken">机器人令牌 (Bot Token) *</Label>
+            <Label htmlFor="botToken">{t('bot.token')} *</Label>
             <Input
               id="botToken"
-              placeholder="例如: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+              placeholder={t('bot.tokenPlaceholder')}
               value={botToken}
               onChange={(e) => setBotToken(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              从 @BotFather 获取的机器人令牌，复制浏览器跳转 t.me/BotFather
+              {t('bot.tokenHint')}
             </p>
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="personalUserId">您的 Telegram 用户ID *</Label>
+            <Label htmlFor="personalUserId">{t('bot.userId')} *</Label>
             <Input
               id="personalUserId"
-              placeholder="例如: 123456789"
+              placeholder={t('bot.userIdPlaceholder')}
               value={personalUserId}
               onChange={(e) => setPersonalUserId(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              从 @userinfobot 获取复制ID，复制浏览器跳转 t.me/userinfobot
+              {t('bot.userIdHint')}
             </p>
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="greetingMessage">欢迎语</Label>
+            <Label htmlFor="greetingMessage">{t('bot.greeting')}</Label>
             <Textarea
               id="greetingMessage"
-              placeholder="用户发送 /start 时的自动回复"
+              placeholder={t('bot.greetingPlaceholder')}
               value={greetingMessage}
               onChange={(e) => setGreetingMessage(e.target.value)}
               rows={3}
@@ -128,11 +130,11 @@ export const AddBotDialog = ({ open, onOpenChange, onBotAdded, userId }: AddBotD
         
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={isLoading}>
             <Plus className="h-4 w-4 mr-1" />
-            {isLoading ? "添加中..." : "开始试用"}
+            {isLoading ? t('bot.adding') : t('bot.startTrial')}
           </Button>
         </div>
       </DialogContent>
