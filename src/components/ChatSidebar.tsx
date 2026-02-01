@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { BotActivation, ChatItem } from "@/types/bot";
+import { useLanguage } from "@/hooks/use-language";
 
 interface ChatSidebarProps {
   bots: BotActivation[];
@@ -34,6 +35,7 @@ export const ChatSidebar = ({
   onBotUpdated,
   unreadChats,
 }: ChatSidebarProps) => {
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [bindingBotId, setBindingBotId] = useState<string | null>(null);
   const [activationCode, setActivationCode] = useState("");
@@ -43,8 +45,8 @@ export const ChatSidebar = ({
   const handleResetBinding = async () => {
     if (!selectedBotId) {
       toast({
-        title: "错误",
-        description: "请先选择一个机器人",
+        title: t('sidebar.error'),
+        description: t('sidebar.selectBotFirst'),
         variant: "destructive",
       });
       return;
@@ -66,12 +68,12 @@ export const ChatSidebar = ({
       if (data.error) throw new Error(data.error);
       
       toast({
-        title: "重置成功",
-        description: "机器人Webhook已重新绑定到本系统",
+        title: t('sidebar.resetSuccess'),
+        description: t('sidebar.webhookReset'),
       });
     } catch (error: any) {
       toast({
-        title: "重置失败",
+        title: t('sidebar.resetFailed'),
         description: error.message,
         variant: "destructive",
       });
@@ -88,8 +90,8 @@ export const ChatSidebar = ({
   const handleBindCode = async (botId: string) => {
     if (!activationCode.trim()) {
       toast({
-        title: "错误",
-        description: "请输入激活码",
+        title: t('sidebar.error'),
+        description: t('sidebar.enterCodeError'),
         variant: "destructive",
       });
       return;
@@ -109,8 +111,8 @@ export const ChatSidebar = ({
       if (data.error) throw new Error(data.error);
       
       toast({
-        title: "绑定成功",
-        description: "激活码已成功绑定，机器人已激活",
+        title: t('sidebar.bindSuccess'),
+        description: t('sidebar.codeBindSuccess'),
       });
       setActivationCode("");
       setBindingBotId(null);
@@ -120,7 +122,7 @@ export const ChatSidebar = ({
       }
     } catch (error: any) {
       toast({
-        title: "绑定失败",
+        title: t('sidebar.bindFailed'),
         description: error.message,
         variant: "destructive",
       });
@@ -130,22 +132,22 @@ export const ChatSidebar = ({
   };
 
   const formatExpireDate = (expireAt: string | null) => {
-    if (!expireAt) return '永久';
+    if (!expireAt) return t('user.forever');
     const date = new Date(expireAt);
     const now = new Date();
-    if (date < now) return '已过期';
+    if (date < now) return t('sidebar.expired');
     return date.toLocaleDateString('zh-CN');
   };
 
 
   return (
     <div className="w-full md:w-80 border-r md:border-b-0 border-b bg-muted/30 flex flex-col h-[450px]">
-      {/* 添加机器人和重置绑定按钮 */}
+      {/* Add bot and reset buttons */}
       <div className="p-3 border-b">
         <div className="flex gap-2">
           <Button onClick={onAddBot} className="flex-1" size="sm">
             <Plus className="h-4 w-4 mr-1" />
-            添加机器人
+            {t('sidebar.addBot')}
           </Button>
           <Button 
             onClick={handleResetBinding} 
@@ -155,22 +157,22 @@ export const ChatSidebar = ({
             disabled={isResetting || !selectedBotId}
           >
             <RefreshCw className={cn("h-4 w-4 mr-1", isResetting && "animate-spin")} />
-            重置绑定
+            {t('sidebar.resetBinding')}
           </Button>
         </div>
       </div>
 
-      {/* 机器人列表 */}
+      {/* Bot list */}
       <div className="p-3 border-b">
         <h3 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
           <Bot className="h-3 w-3" />
-          我的机器人
+          {t('sidebar.myBots')}
         </h3>
         <ScrollArea className="h-[180px]">
           <div className="space-y-2">
             {bots.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-2">
-                暂无机器人，点击上方按钮添加
+                {t('sidebar.noBots')}
               </p>
             ) : (
               bots.map((bot) => {
@@ -200,12 +202,12 @@ export const ChatSidebar = ({
                         </span>
                         {!bot.is_authorized && (
                           <Badge variant="outline" className="ml-1 text-[8px] px-1 py-0">
-                            试用
+                            {t('sidebar.trial')}
                           </Badge>
                         )}
                         {isExpired && (
                           <Badge variant="destructive" className="ml-1 text-[8px] px-1 py-0">
-                            过期
+                            {t('sidebar.expired')}
                           </Badge>
                         )}
                         {bot.is_active && !isExpired && !trialExceeded && bot.web_enabled && (
@@ -222,15 +224,15 @@ export const ChatSidebar = ({
                       </Button>
                     </div>
                     
-                    {/* 状态信息和续期按钮 */}
+                    {/* Status info and renew button */}
                     <div className="text-[10px] text-muted-foreground px-2 flex items-center gap-2">
                       <Calendar className="h-3 w-3" />
                       <span className={isExpired ? 'text-destructive' : trialExceeded ? 'text-yellow-600' : ''}>
                         {bot.is_authorized 
-                          ? `有效期: ${formatExpireDate(bot.expire_at)}` 
-                          : `试用: ${bot.trial_messages_used}/${bot.trial_limit}`}
+                          ? `${t('sidebar.validity')}: ${formatExpireDate(bot.expire_at)}` 
+                          : `${t('sidebar.trialUsage')}: ${bot.trial_messages_used}/${bot.trial_limit}`}
                       </span>
-                      {/* 有效期内的机器人显示续期按钮 */}
+                      {/* Renew button for active bots */}
                       {bot.is_authorized && !isExpired && bindingBotId !== bot.id && (
                         <Button
                           size="sm"
@@ -239,18 +241,18 @@ export const ChatSidebar = ({
                           onClick={() => setBindingBotId(bot.id)}
                         >
                           <Key className="h-2.5 w-2.5 mr-0.5" />
-                          续期
+                          {t('sidebar.renew')}
                         </Button>
                       )}
                     </div>
                     
-                    {/* 绑定激活码输入框 - 适用于需要激活的机器人和续期 */}
+                    {/* Activation code input */}
                     {(needsActivation || bindingBotId === bot.id) && (
                       <div className="px-1">
                         {bindingBotId === bot.id ? (
                           <div className="flex gap-1">
                             <Input
-                              placeholder="输入激活码"
+                              placeholder={t('sidebar.enterCode')}
                               value={activationCode}
                               onChange={(e) => setActivationCode(e.target.value)}
                               className="h-6 text-xs flex-1"
@@ -261,7 +263,7 @@ export const ChatSidebar = ({
                               onClick={() => handleBindCode(bot.id)}
                               disabled={isBinding}
                             >
-                              {isBinding ? '...' : '绑定'}
+                              {isBinding ? '...' : t('sidebar.bind')}
                             </Button>
                             <Button 
                               size="sm" 
@@ -272,7 +274,7 @@ export const ChatSidebar = ({
                                 setActivationCode("");
                               }}
                             >
-                              取消
+                              {t('sidebar.cancel')}
                             </Button>
                           </div>
                         ) : needsActivation && (
@@ -283,7 +285,7 @@ export const ChatSidebar = ({
                             onClick={() => setBindingBotId(bot.id)}
                           >
                             <Key className="h-3 w-3 mr-1" />
-                            {isExpired ? '续期激活' : '绑定激活码'}
+                            {isExpired ? t('sidebar.renewActivate') : t('sidebar.bindCode')}
                           </Button>
                         )}
                       </div>
@@ -297,11 +299,11 @@ export const ChatSidebar = ({
         </ScrollArea>
       </div>
 
-      {/* 聊天列表 */}
+      {/* Chat list */}
       <div className="flex flex-col min-h-0 flex-1">
         <h3 className="text-xs font-semibold text-muted-foreground p-3 pb-2 flex items-center gap-1">
           <MessageCircle className="h-3 w-3" />
-          聊天对话
+          {t('sidebar.chatList')}
         </h3>
         <ScrollArea className="flex-1">
           <div className="p-2 pt-0 space-y-1">
@@ -309,7 +311,7 @@ export const ChatSidebar = ({
               <div className="text-center py-4">
                 <User className="h-6 w-6 mx-auto text-muted-foreground/50 mb-2" />
                 <p className="text-xs text-muted-foreground">
-                  {selectedBotId ? "等待用户发送消息..." : "请先选择一个机器人"}
+                  {selectedBotId ? t('sidebar.waitUserMessage') : t('sidebar.selectBotFirst')}
                 </p>
               </div>
             ) : (

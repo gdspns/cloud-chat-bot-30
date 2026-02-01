@@ -6,9 +6,11 @@ import { AddBotDialog } from "@/components/AddBotDialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 import type { BotActivation, Message, ChatItem } from "@/types/bot";
 
 const Index = () => {
+  const { t } = useLanguage();
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
   const [bots, setBots] = useState<BotActivation[]>([]);
@@ -674,7 +676,7 @@ const Index = () => {
     );
   })();
 
-  // 认证加载时显示完整骨架屏，避免白屏
+  // Show loading skeleton during auth loading
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col animate-in fade-in duration-200">
@@ -682,7 +684,7 @@ const Index = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-muted-foreground text-sm">正在加载...</p>
+            <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
           </div>
         </div>
       </div>
@@ -720,29 +722,25 @@ const Index = () => {
         />
       </div>
 
-      {/* 网站介绍 */}
+      {/* Site description */}
       <div className="border-t bg-muted/30">
         <div className="container mx-auto px-4 py-8">
           <div className="grid md:grid-cols-2 gap-8">
             <div>
-              <h2 className="text-2xl font-bold mb-4">关于机器人-激活授权联系QQ：3075554556</h2>
+              <h2 className="text-2xl font-bold mb-4">{t('index.aboutTitle')}</h2>
               <p className="text-muted-foreground leading-relaxed">
-                我们的TG机器人管理平台让您能够轻松管理与用户的对话。
-                支持自动问候、实时消息转发、多机器人同时管理等功能。
-                无论您是个人用户还是企业，都能找到适合您的解决方案。
-                账号就算被限制只要能创建机器人即可用机器人来实现双向聊天充当客服！
-                网页端不用魔法上网也可以在线接收消息跟回复消息！
+                {t('index.aboutDesc')}
               </p>
             </div>
             <div>
-              <h2 className="text-2xl font-bold mb-4">功能特点</h2>
+              <h2 className="text-2xl font-bold mb-4">{t('index.featuresTitle')}</h2>
               <ul className="space-y-2 text-muted-foreground">
-                <li>✓ 20条免费试用消息</li>
-                <li>✓ 实时消息通知提醒</li>
-                <li>✓ 多机器人统一管理</li>
-                <li>✓ 简洁易用的操作界面</li>
-                <li>✓ 支持自定义问候语</li>
-                <li>✓ 支持图片收发</li>
+                <li>{t('index.feature1')}</li>
+                <li>{t('index.feature2')}</li>
+                <li>{t('index.feature3')}</li>
+                <li>{t('index.feature4')}</li>
+                <li>{t('index.feature5')}</li>
+                <li>{t('index.feature6')}</li>
               </ul>
             </div>
           </div>

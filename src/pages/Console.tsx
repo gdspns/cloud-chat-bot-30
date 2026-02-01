@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Send, RefreshCw, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useLanguage } from "@/hooks/use-language";
 
 interface Message {
   id: string;
@@ -33,6 +34,7 @@ interface BotActivation {
 }
 
 export const Console = () => {
+  const { t } = useLanguage();
   const { activationId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -48,7 +50,7 @@ export const Console = () => {
   const [unreadChats, setUnreadChats] = useState<Set<number>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 播放提示音
+  // Play notification sound
   const playNotificationSound = () => {
     if (!enableSound) return;
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -111,7 +113,7 @@ export const Console = () => {
     scrollToBottom();
   }, [messages]);
 
-  // 加载激活信息
+  // Load activation
   useEffect(() => {
     const loadActivation = async () => {
       if (!activationId) {
@@ -129,37 +131,36 @@ export const Console = () => {
         if (error) throw error;
         if (!data) {
           toast({
-            title: "未找到",
-            description: "激活不存在",
+            title: t('console.notFound'),
+            description: t('console.activationNotExist'),
             variant: "destructive",
           });
           navigate("/");
           return;
         }
 
-        // 检查状态
         if (!data.is_active) {
           toast({
-            title: "服务已停止",
-            description: "此机器人服务已被停用",
+            title: t('console.serviceStopped'),
+            description: t('console.botStopped'),
             variant: "destructive",
           });
         }
 
         if (data.expire_at && new Date(data.expire_at) < new Date()) {
           toast({
-            title: "服务已过期",
-            description: "请联系管理员续期",
+            title: t('console.serviceExpired'),
+            description: t('console.contactAdminRenew'),
             variant: "destructive",
           });
         }
 
         setActivation(data as BotActivation);
       } catch (error) {
-        console.error('加载激活信息失败:', error);
+        console.error('Load activation failed:', error);
         toast({
-          title: "加载失败",
-          description: "无法获取激活信息",
+          title: t('console.loadFailed'),
+          description: t('console.cannotGetActivation'),
           variant: "destructive",
         });
       } finally {
@@ -168,9 +169,9 @@ export const Console = () => {
     };
 
     loadActivation();
-  }, [activationId, navigate, toast]);
+  }, [activationId, navigate, toast, t]);
 
-  // 加载消息
+  // Load messages
   useEffect(() => {
     if (!activationId) return;
 
@@ -188,7 +189,7 @@ export const Console = () => {
 
     loadMessages();
 
-    // 订阅实时消息
+    // Subscribe to realtime messages
     const channel = supabase
       .channel('messages-changes')
       .on(
@@ -220,12 +221,12 @@ export const Console = () => {
     };
   }, [activationId]);
 
-  // 发送消息
+  // Send message
   const handleSendMessage = async () => {
     if (!replyText.trim() || !selectedChatId || !activationId) {
       toast({
-        title: "错误",
-        description: "请选择聊天并输入消息",
+        title: t('common.error'),
+        description: t('console.selectChatAndInput'),
         variant: "destructive",
       });
       return;
@@ -252,15 +253,15 @@ export const Console = () => {
 
       setReplyText("");
       toast({
-        title: "发送成功",
-        description: "消息已发送",
+        title: t('console.sendSuccess'),
+        description: t('console.messageSent'),
       });
     } catch (error: any) {
       if (error.message?.includes('Trial limit')) {
         setShowTrialDialog(true);
       } else {
         toast({
-          title: "发送失败",
+          title: t('console.sendFailed'),
           description: error.message,
           variant: "destructive",
         });
@@ -279,7 +280,7 @@ export const Console = () => {
     });
   };
 
-  // 获取唯一聊天列表
+  // Get unique chat list
   const uniqueChats = Array.from(
     new Map(
       messages
@@ -292,7 +293,7 @@ export const Console = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="p-8">
-          <p className="text-muted-foreground">正在加载...</p>
+          <p className="text-muted-foreground">{t('console.loading')}</p>
         </Card>
       </div>
     );
@@ -302,12 +303,12 @@ export const Console = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <Card className="p-8 text-center max-w-md">
-          <h2 className="text-xl font-bold mb-4">访问被拒绝</h2>
+          <h2 className="text-xl font-bold mb-4">{t('console.accessDenied')}</h2>
           <p className="text-muted-foreground mb-6">
-            此机器人服务不可用
+            {t('console.botUnavailable')}
           </p>
           <Button onClick={() => navigate("/")}>
-            返回首页
+            {t('console.goHome')}
           </Button>
         </Card>
       </div>
@@ -321,31 +322,31 @@ export const Console = () => {
       <div className="container mx-auto max-w-4xl">
         <Card className="p-6">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold">Telegram 机器人控制台</h1>
+            <h1 className="text-2xl font-bold">{t('console.title')}</h1>
             <div className="flex items-center gap-2">
               <span className={`px-2 py-1 rounded text-xs font-semibold ${
                 activation.is_active && !isExpired 
                   ? 'bg-green-500/20 text-green-700 dark:text-green-300' 
                   : 'bg-red-500/20 text-red-700 dark:text-red-300'
               }`}>
-                {activation.is_active && !isExpired ? '在线运行中' : '已停止'}
+                {activation.is_active && !isExpired ? t('console.running') : t('console.stopped')}
               </span>
               {!activation.is_authorized && (
                 <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-500/20 text-yellow-700 dark:text-yellow-300">
-                  试用: {activation.trial_messages_used}/{activation.trial_limit}
+                  {t('sidebar.trial')}: {activation.trial_messages_used}/{activation.trial_limit}
                 </span>
               )}
             </div>
           </div>
 
-          {/* 提示音设置 */}
+          {/* Sound settings */}
           <div className="flex items-center gap-2 mb-4">
             <Button
               variant={enableSound ? "default" : "outline"}
               size="sm"
               onClick={() => setEnableSound(!enableSound)}
             >
-              提示音: {enableSound ? "开" : "关"}
+              {t('console.sound')}: {enableSound ? t('console.on') : t('console.off')}
             </Button>
             {enableSound && (
               <Select value={soundType} onValueChange={(value: any) => setSoundType(value)}>
@@ -353,23 +354,23 @@ export const Console = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="qq">QQ音</SelectItem>
-                  <SelectItem value="ding">叮咚</SelectItem>
-                  <SelectItem value="bell">铃铛</SelectItem>
+                  <SelectItem value="qq">{t('chat.qqSound')}</SelectItem>
+                  <SelectItem value="ding">{t('chat.dingSound')}</SelectItem>
+                  <SelectItem value="bell">{t('chat.bellSound')}</SelectItem>
                 </SelectContent>
               </Select>
             )}
             <Button variant="ghost" size="sm" onClick={playNotificationSound}>
-              测试
+              {t('common.test')}
             </Button>
           </div>
 
-          {/* 聊天列表 */}
+          {/* Chat list */}
           <div className="mb-4">
-            <label className="text-sm font-medium mb-2 block">选择聊天对象</label>
+            <label className="text-sm font-medium mb-2 block">{t('console.selectChatTarget')}</label>
             <div className="flex gap-2 flex-wrap">
               {uniqueChats.length === 0 ? (
-                <p className="text-muted-foreground text-sm">暂无聊天记录，等待用户发送消息...</p>
+                <p className="text-muted-foreground text-sm">{t('console.noChat')}</p>
               ) : (
                 uniqueChats.map((chat) => (
                   <Button
@@ -389,7 +390,7 @@ export const Console = () => {
             </div>
           </div>
 
-          {/* 消息列表 */}
+          {/* Message list */}
           <ScrollArea className="h-96 border rounded-lg p-4 mb-4">
             {selectedChatId ? (
               messages
@@ -414,16 +415,16 @@ export const Console = () => {
                 ))
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                请选择一个聊天对象
+                {t('console.selectChatHint')}
               </div>
             )}
             <div ref={messagesEndRef} />
           </ScrollArea>
 
-          {/* 发送消息 */}
+          {/* Send message */}
           <div className="flex gap-2">
             <Input
-              placeholder="输入回复消息..."
+              placeholder={t('console.inputReply')}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -434,43 +435,41 @@ export const Console = () => {
               disabled={!selectedChatId || !activation.is_active || !!isExpired || isSending}
             >
               <Send className="h-4 w-4 mr-2" />
-              {isSending ? "发送中..." : "发送"}
+              {isSending ? t('console.sending') : t('chat.send')}
             </Button>
           </div>
 
-          {/* 状态提示 */}
+          {/* Status alert */}
           {(!activation.is_active || isExpired) && (
             <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               <p className="text-sm text-destructive">
-                {isExpired ? "服务已过期，请联系管理员续期" : "服务已停止，无法发送消息"}
+                {isExpired ? t('chat.serviceExpired') : t('chat.serviceStopped')}
               </p>
             </div>
           )}
 
-          {/* Telegram APP 使用说明 */}
+          {/* Telegram App tip */}
           <div className="mt-4 p-4 bg-muted rounded-lg">
-            <h3 className="font-medium text-sm mb-2">📱 在 Telegram APP 中回复</h3>
+            <h3 className="font-medium text-sm mb-2">{t('console.telegramAppTip')}</h3>
             <p className="text-xs text-muted-foreground">
-              收到转发消息后，直接使用 Telegram 的"回复"功能（长按消息→回复）即可精准回复对应用户。
-              机器人7x24小时在线，即使关闭此网页也能正常工作。
+              {t('console.telegramAppDesc')}
             </p>
           </div>
         </Card>
       </div>
 
-      {/* 试用限制对话框 */}
+      {/* Trial limit dialog */}
       <Dialog open={showTrialDialog} onOpenChange={setShowTrialDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>试用次数已用完</DialogTitle>
+            <DialogTitle>{t('console.trialLimitTitle')}</DialogTitle>
             <DialogDescription>
-              您已使用完 {activation.trial_limit} 条免费试用消息。
-              如需继续使用，请联系管理员开通完整服务。
+              {t('chat.trialExceeded')} {activation.trial_limit} {t('console.trialLimitDesc')}
             </DialogDescription>
           </DialogHeader>
           <Button onClick={() => setShowTrialDialog(false)}>
-            我知道了
+            {t('console.gotIt')}
           </Button>
         </DialogContent>
       </Dialog>
