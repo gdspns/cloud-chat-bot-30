@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/hooks/use-language";
 
-// --- 配置 ---
-const CATEGORIES = ["菜单键盘配置", "TG商城配置"];
+// --- Category config ---
+const CATEGORIES_ZH = ["菜单键盘配置", "TG商城配置"];
+const CATEGORIES_EN = ["Menu Keyboard Config", "TG Shop Config"];
 
 interface Article {
   id: string;
@@ -20,13 +22,17 @@ interface Article {
 }
 
 export const ConfigGuide: React.FC = () => {
+  const { t, language } = useLanguage();
   const [articles, setArticles] = useState<Article[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>('全部');
+  const [activeCategory, setActiveCategory] = useState<string>(t('guide.all'));
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 加载文章
+  const CATEGORIES = language === 'zh' ? CATEGORIES_ZH : CATEGORIES_EN;
+  const allLabel = t('guide.all');
+
+  // Load articles
   const loadArticles = async () => {
     setIsLoading(true);
     try {
@@ -64,8 +70,8 @@ export const ConfigGuide: React.FC = () => {
     };
   }, []);
 
-  // 筛选文章
-  const filteredArticles = activeCategory === '全部'
+  // Filter articles
+  const filteredArticles = activeCategory === allLabel
     ? articles
     : articles.filter(a => a.category === activeCategory);
 
@@ -75,7 +81,7 @@ export const ConfigGuide: React.FC = () => {
       <header className="bg-card border-b px-6 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 text-lg font-bold text-primary">
           <BookOpen className="w-5 h-5" />
-          <span>配置说明</span>
+          <span>{t('guide.title')}</span>
         </div>
         <Button variant="ghost" size="sm" onClick={loadArticles} disabled={isLoading}>
           <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
@@ -86,21 +92,21 @@ export const ConfigGuide: React.FC = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-            <p className="mt-2 text-muted-foreground">加载中...</p>
+            <p className="mt-2 text-muted-foreground">{t('common.loading')}</p>
           </div>
         </div>
       ) : (
         <ScrollArea className="flex-1">
           <div className="max-w-3xl mx-auto px-4 py-8">
-            {/* 分类切换 Tab */}
+            {/* Category tabs */}
             <div className="flex flex-wrap gap-2 mb-8 justify-center">
               <Button
-                variant={activeCategory === '全部' ? 'default' : 'outline'}
+                variant={activeCategory === allLabel ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setActiveCategory('全部')}
+                onClick={() => setActiveCategory(allLabel)}
                 className="rounded-full"
               >
-                全部
+                {allLabel}
               </Button>
               {CATEGORIES.map(cat => (
                 <Button
@@ -115,11 +121,11 @@ export const ConfigGuide: React.FC = () => {
               ))}
             </div>
 
-            {/* 文章列表 */}
+            {/* Article list */}
             <div className="space-y-4">
               {filteredArticles.length === 0 ? (
                 <Card className="p-10 text-center">
-                  <p className="text-muted-foreground">该分类下暂无文章</p>
+                  <p className="text-muted-foreground">{t('guide.noArticles')}</p>
                 </Card>
               ) : (
                 filteredArticles.map(article => (
