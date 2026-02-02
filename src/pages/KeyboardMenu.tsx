@@ -70,9 +70,10 @@ import { TgShopPanel, ConfigGuide } from "@/components/TgShop";
 import { Navbar } from "@/components/Navbar";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/hooks/use-language";
 
-// --- 版本控制 ---
-const APP_VERSION = "v3.32.0"; // 版本号更新
+// --- Version Control ---
+const APP_VERSION = "v3.32.0";
 
 // --- 类型定义 ---
 interface BotProfile {
@@ -178,8 +179,9 @@ const escapeHtml = (unsafe: string) => {
     .replace(/'/g, "&#039;");
 };
 
-// --- 根组件 ---
+// --- Root Component ---
 export default function KeyboardMenu() {
+  const { t } = useLanguage();
   useEffect(() => {
     // 禁用键盘快捷键 (F12, Ctrl+Shift+I/J/C, Ctrl+U)
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -250,30 +252,30 @@ export default function KeyboardMenu() {
   const [menuPages, setMenuPages] = useState<MenuPage[]>([
     {
       id: "main",
-      name: "主菜单 (Main)",
+      name: t('km.keyboard.mainMenu'),
       rows: [
         [
-          { text: "产品列表", actionType: "navigate", actionValue: "products" },
-          { text: "联系客服", actionType: "text" },
+          { text: t('km.default.productList'), actionType: "navigate", actionValue: "products" },
+          { text: t('km.default.contactSupport'), actionType: "text" },
         ],
       ],
     },
     {
       id: "products",
-      name: "产品列表 (Sub)",
+      name: t('km.keyboard.productList'),
       rows: [
         [
-          { text: "软件产品", actionType: "text" },
-          { text: "硬件产品", actionType: "text" },
+          { text: t('km.default.softwareProducts'), actionType: "text" },
+          { text: t('km.default.hardwareProducts'), actionType: "text" },
         ],
-        [{ text: "🔙 返回上级", actionType: "navigate", actionValue: "main" }],
+        [{ text: t('km.default.back'), actionType: "navigate", actionValue: "main" }],
       ],
     },
   ]);
 
   const [commands, setCommands] = useState<BotCommand[]>([
-    { command: "start", description: "开始使用" },
-    { command: "help", description: "获取帮助" },
+    { command: "start", description: t('km.default.start') },
+    { command: "help", description: t('km.default.help') },
   ]);
 
   const showToast = (type: "success" | "error" | "info", message: string) => {
@@ -310,7 +312,7 @@ export default function KeyboardMenu() {
       return data.result;
     } catch (error: any) {
       if (error.message && error.message.includes("Failed to fetch")) {
-        throw new Error("网络请求失败 (CORS)。请确保已开启'代理模式'或检查网络。");
+        throw new Error(t('km.settings.networkFailed'));
       }
       throw error;
     }
@@ -386,9 +388,9 @@ export default function KeyboardMenu() {
       setIsConnected(true);
       checkWebhookStatus(token);
 
-      if (!tokenOverride) showToast("success", `已连接: ${profile.first_name}`);
+      if (!tokenOverride) showToast("success", `${t('km.settings.connected')}: ${profile.first_name}`);
     } catch (err: any) {
-      if (!tokenOverride) showToast("error", "连接失败: " + err.message);
+      if (!tokenOverride) showToast("error", t('km.settings.connectFailed') + ": " + err.message);
     } finally {
       setLoading(false);
     }
@@ -404,7 +406,7 @@ export default function KeyboardMenu() {
     setWebhookInfo(null);
     localStorage.removeItem("keyboard_menu_token");
     localStorage.removeItem("keyboard_menu_userid");
-    showToast("info", "已断开连接并清除本地缓存");
+    showToast("info", t('km.settings.disconnected'));
   };
 
   return (
@@ -459,7 +461,7 @@ function SidebarItem({ icon, label, active, onClick, notification }: any) {
   );
 }
 
-// --- 主工作区 ---
+// --- Main Workspace ---
 function Workspace({
   isConnected,
   botProfile,
@@ -489,6 +491,7 @@ function Workspace({
   commands,
   setCommands,
 }: any) {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"message" | "keyboard" | "commands" | "settings" | "users" | "shop" | "guide">("settings");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
@@ -505,11 +508,11 @@ function Workspace({
   const [autoCleanupEnabled, setAutoCleanupEnabled] = useState(false);
   const [autoCleanupDays, setAutoCleanupDays] = useState(0);
 
-  // 键盘菜单试用状态
+  // Keyboard menu trial status
   const [keyboardTrialExpired, setKeyboardTrialExpired] = useState(false);
   const [keyboardTrialChecked, setKeyboardTrialChecked] = useState(false);
   
-  // 保存过期前的开关状态，用于激活后恢复
+  // Save switch states before expiration for restoration after activation
   const savedSettingsRef = useRef<{ activityLogEnabled: boolean; bilingualButtonEnabled: boolean } | null>(null);
 
   // 检查键盘菜单试用状态 - 从 keyboard_configs 表独立获取
@@ -607,7 +610,7 @@ function Workspace({
   }, [isConnected, botProfile?.token]);
 
   const showTrialExpiredToast = () => {
-    showToast("error", "菜单键盘试用已过期，请激活续费后继续使用");
+    showToast("error", t('km.settings.trialExpired'));
   };
 
   const lastPersistedActivityLogRef = useRef<boolean | null>(null);
@@ -739,7 +742,7 @@ function Workspace({
 
   const syncConfigToCloud = async () => {
     if (!botProfile?.token) {
-      showToast("error", "请先连接机器人");
+      showToast("error", t('km.settings.connectFirst'));
       return;
     }
 
@@ -785,11 +788,11 @@ function Workspace({
       if (error) throw error;
 
       setCloudSyncStatus("synced");
-      showToast("success", "配置已同步到云端，关闭网页后菜单键盘仍可运行");
+      showToast("success", t('km.settings.configSynced'));
     } catch (error: any) {
       console.error("Sync to cloud failed:", error);
       setCloudSyncStatus("error");
-      showToast("error", "同步失败: " + error.message);
+      showToast("error", t('km.settings.syncFailed') + ": " + error.message);
     } finally {
       setIsSyncingToCloud(false);
     }
@@ -821,7 +824,7 @@ function Workspace({
         if ((data as any).auto_cleanup_days !== null && (data as any).auto_cleanup_days !== undefined)
           setAutoCleanupDays((data as any).auto_cleanup_days);
         setCloudSyncStatus("synced");
-        showToast("success", "已从云端加载配置");
+        showToast("success", t('km.settings.configLoaded'));
       }
 
       // 连接机器人后立即确保机器人出现在管理员后台列表
@@ -860,44 +863,44 @@ function Workspace({
       setIsMonitoring(false);
       const urlToRestore = restorableWebhook || localStorage.getItem("keyboard_menu_saved_webhook");
       if (urlToRestore) {
-        try {
-          await callApi("setWebhook", { url: urlToRestore });
-          showToast("success", `已自动恢复 Webhook 连接`);
-          refreshWebhook();
-        } catch (e: any) {
-          showToast("error", `恢复 Webhook 失败: ${e.message}`);
-        }
-        setRestorableWebhook(null);
-      } else {
-        showToast("info", "监听已关闭。");
-        refreshWebhook();
-      }
-    } else {
       try {
-        const info = await callApi("getWebhookInfo", {});
-        if (info && info.url) {
-          setRestorableWebhook(info.url);
-          localStorage.setItem("keyboard_menu_saved_webhook", info.url);
-          await callApi("deleteWebhook", { drop_pending_updates: true });
-          showToast("success", "已备份原 Webhook 并开启监听");
-        } else {
-          const cached = localStorage.getItem("keyboard_menu_saved_webhook");
-          if (cached) {
-            setRestorableWebhook(cached);
-            showToast("success", "安全监听已开启 (已加载历史备份)");
-          } else {
-            showToast("success", "安全监听已开启");
-          }
-          await callApi("deleteWebhook", { drop_pending_updates: true });
-        }
-        setIsMonitoring(true);
+        await callApi("setWebhook", { url: urlToRestore });
+        showToast("success", t('km.toast.webhookRestored'));
         refreshWebhook();
       } catch (e: any) {
-        showToast("error", `开启失败: ${e.message}`);
-        setIsMonitoring(false);
+        showToast("error", `${t('km.toast.webhookRestoreFailed')}: ${e.message}`);
       }
+      setRestorableWebhook(null);
+    } else {
+      showToast("info", t('km.toast.listenClosed'));
+      refreshWebhook();
     }
-  };
+  } else {
+    try {
+        const info = await callApi("getWebhookInfo", {});
+      if (info && info.url) {
+        setRestorableWebhook(info.url);
+        localStorage.setItem("keyboard_menu_saved_webhook", info.url);
+        await callApi("deleteWebhook", { drop_pending_updates: true });
+        showToast("success", t('km.toast.webhookBackupSuccess'));
+      } else {
+        const cached = localStorage.getItem("keyboard_menu_saved_webhook");
+        if (cached) {
+          setRestorableWebhook(cached);
+          showToast("success", t('km.toast.safeListenOnWithBackup'));
+        } else {
+          showToast("success", t('km.toast.safeListenOn'));
+        }
+        await callApi("deleteWebhook", { drop_pending_updates: true });
+      }
+      setIsMonitoring(true);
+        refreshWebhook();
+    } catch (e: any) {
+      showToast("error", `${t('km.toast.startFailed')}: ${e.message}`);
+      setIsMonitoring(false);
+    }
+  }
+};
 
   const rulesRef = useRef(autoReplyRules);
   useEffect(() => {
@@ -1096,12 +1099,12 @@ function Workspace({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `keyboard_config_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast("success", "配置已导出");
+  a.download = `keyboard_config_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("success", t('km.settings.configExported'));
   };
 
   const handleImportConfig = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1127,9 +1130,9 @@ function Workspace({
           setKnownUsers(config.knownUsers);
           localStorage.setItem("keyboard_menu_users", JSON.stringify(config.knownUsers));
         }
-        showToast("success", `配置导入成功`);
+        showToast("success", t('km.settings.configImported'));
       } catch (err) {
-        showToast("error", "配置文件格式错误");
+        showToast("error", t('km.settings.configImportError'));
       }
     };
     reader.readAsText(file);
@@ -1137,7 +1140,7 @@ function Workspace({
   };
 
   useEffect(() => {
-    setChatHistory([{ id: uuid(), sender: "bot", type: "text", content: "系统就绪。", timestamp: getCurrentTime() }]);
+    setChatHistory([{ id: uuid(), sender: "bot", type: "text", content: t('km.default.systemReady'), timestamp: getCurrentTime() }]);
   }, []);
 
   const handleSimulatorInteraction = (text: string) => {
@@ -1158,19 +1161,19 @@ function Workspace({
         for (const btn of row) {
           if (btn.text.toLowerCase() === textNorm && btn.actionType === "navigate" && btn.actionValue) {
             const targetPage = menuPages.find((p: MenuPage) => p.id === btn.actionValue);
-            if (targetPage) {
-              setChatHistory((prev) => [
-                ...prev,
-                {
-                  id: uuid(),
-                  sender: "bot",
-                  type: "text",
-                  content: `(模拟跳转) 切换到菜单: ${targetPage.name}`,
-                  timestamp: getCurrentTime(),
-                },
-              ]);
-              handled = true;
-            }
+          if (targetPage) {
+            setChatHistory((prev) => [
+              ...prev,
+              {
+                id: uuid(),
+                sender: "bot",
+                type: "text",
+                content: `${t('km.default.simulateJump')}: ${targetPage.name}`,
+                timestamp: getCurrentTime(),
+              },
+            ]);
+            handled = true;
+          }
           }
           if (handled) break;
         }
@@ -1208,7 +1211,7 @@ function Workspace({
 
   const handleRealSend = async (msg: MessageData, chatId: string) => {
     if (!botProfile || !chatId) {
-      showToast("error", "未连接或 User ID 为空");
+      showToast("error", t('km.message.notConnectedOrEmpty'));
       return;
     }
     setChatHistory((prev) => [
@@ -1247,20 +1250,20 @@ function Workspace({
         await callApi("sendMessage", body);
       }
     } catch (e: any) {
-      showToast("error", "发送失败: " + e.message);
+      showToast("error", t('km.message.sendFailed') + ": " + e.message);
     }
   };
 
   const handleSendFlow = async (messages: MessageData[]) => {
     if (!targetChatId) {
-      showToast("error", "请先配置 User ID");
+      showToast("error", t('km.message.configUserIdFirst'));
       return;
     }
     for (const msg of messages) {
       await handleRealSend(msg, targetChatId);
       await new Promise((r) => setTimeout(r, 300));
     }
-    showToast("success", `已发送 ${messages.length} 条消息`);
+    showToast("success", `${t('km.message.sentMessages')} ${messages.length}`);
   };
 
   const handlePushMenu = async (userId: number, userName: string) => {
@@ -1269,15 +1272,15 @@ function Workspace({
     try {
       await callApi("sendMessage", {
         chat_id: userId,
-        text: `📂 欢迎使用菜单`,
+        text: t('km.users.welcomeMenu'),
         reply_markup: {
           keyboard: mainPage.rows.map((row: ReplyButton[]) => row.map((btn: ReplyButton) => ({ text: btn.text }))),
           resize_keyboard: true,
         },
       });
-      showToast("success", `已向 ${userName} 推送主菜单`);
+      showToast("success", `${t('km.users.pushSuccess')}: ${userName}`);
     } catch (e: any) {
-      showToast("error", `推送失败: ${e.message}`);
+      showToast("error", `${t('km.users.pushFailed')}: ${e.message}`);
     }
   };
 
@@ -1289,13 +1292,13 @@ function Workspace({
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg">
             <Bot className="w-5 h-5 text-primary-foreground" />
           </div>
-          <span className="font-bold text-lg">菜单键盘</span>
+          <span className="font-bold text-lg">{t('km.sidebar.title')}</span>
         </div>
 
         <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
           <SidebarItem
             icon={<Settings size={18} />}
-            label="ID连接&重置"
+            label={t('km.sidebar.idConnect')}
             active={activeTab === "settings"}
             onClick={() => {
               setActiveTab("settings");
@@ -1305,42 +1308,42 @@ function Workspace({
           />
           <SidebarItem
             icon={<List size={18} />}
-            label="菜单命令管理"
+            label={t('km.sidebar.commandMgmt')}
             active={activeTab === "commands"}
             onClick={() => setActiveTab("commands")}
           />
           <SidebarItem
             icon={<Layout size={18} />}
-            label="底部键盘配置"
+            label={t('km.sidebar.keyboardConfig')}
             active={activeTab === "keyboard"}
             onClick={() => setActiveTab("keyboard")}
           />
           <SidebarItem
             icon={<Layers size={18} />}
-            label="消息推送编辑器"
+            label={t('km.sidebar.messagePush')}
             active={activeTab === "message"}
             onClick={() => setActiveTab("message")}
           />
           <SidebarItem
             icon={<Users size={18} />}
-            label="用户数据"
+            label={t('km.sidebar.userData')}
             active={activeTab === "users"}
             onClick={() => setActiveTab("users")}
           />
           
-          {/* 分隔线 */}
+          {/* Separator */}
           <Separator className="my-4" />
           
-          {/* TG商城入口 */}
+          {/* TG Shop Entry */}
           <SidebarItem
             icon={<ShoppingCart size={18} />}
-            label="TG商城"
+            label={t('km.sidebar.tgShop')}
             active={activeTab === "shop"}
             onClick={() => setActiveTab("shop")}
           />
           <SidebarItem
             icon={<HelpCircle size={18} />}
-            label="配置说明"
+            label={t('km.sidebar.configGuide')}
             active={activeTab === "guide"}
             onClick={() => setActiveTab("guide")}
           />
@@ -1526,6 +1529,7 @@ function ActivationCodeBinder({
   showToast: any;
   onStatusChange?: () => void;
 }) {
+  const { t } = useLanguage();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [activationInfo, setActivationInfo] = useState<KeyboardActivationInfo | null>(null);
@@ -1597,7 +1601,7 @@ function ActivationCodeBinder({
 
   const handleBind = async () => {
     if (!code.trim() || !botToken) {
-      showToast("error", "请输入激活码");
+      showToast("error", t('km.settings.enterCode'));
       return;
     }
     setLoading(true);
@@ -1611,20 +1615,20 @@ function ActivationCodeBinder({
       const featureType = data.featureType || "keyboard";
       const messages: string[] = [];
       if (featureType === "chat" || featureType === "both") {
-        messages.push(`双向聊天: ${data.newExpireAt ? new Date(data.newExpireAt).toLocaleDateString() : "已激活"}`);
+        messages.push(`${t('km.activation.chatExpire')}: ${data.newExpireAt ? new Date(data.newExpireAt).toLocaleDateString() : t('km.activation.success')}`);
       }
       if (featureType === "keyboard" || featureType === "both") {
         messages.push(
-          `菜单键盘: ${data.newKeyboardExpireAt ? new Date(data.newKeyboardExpireAt).toLocaleDateString() : "已激活"}`,
+          `${t('km.activation.keyboardExpire')}: ${data.newKeyboardExpireAt ? new Date(data.newKeyboardExpireAt).toLocaleDateString() : t('km.activation.success')}`,
         );
       }
-      showToast("success", `激活成功 - ${messages.join(", ")}`);
+      showToast("success", `${t('km.activation.success')} - ${messages.join(", ")}`);
       setCode("");
 
       await fetchActivationInfo();
       onStatusChange?.();
     } catch (e: any) {
-      showToast("error", e.message || "绑定失败");
+      showToast("error", e.message || t('km.activation.bindFailed'));
     } finally {
       setLoading(false);
     }
@@ -1635,20 +1639,20 @@ function ActivationCodeBinder({
 
     const now = new Date();
 
-    // 检查键盘菜单激活有效期
+    // Check keyboard menu activation validity
     if (activationInfo.keyboardExpireAt) {
       const keyboardExpire = new Date(activationInfo.keyboardExpireAt);
       if (keyboardExpire > now) {
         const daysLeft = Math.ceil((keyboardExpire.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         return {
           status: "active",
-          text: `✅ 菜单键盘有效期至: ${keyboardExpire.toLocaleDateString()} (${daysLeft}天)`,
+          text: `${t('km.activation.valid')}: ${keyboardExpire.toLocaleDateString()} (${daysLeft}${t('km.activation.days')})`,
           color: "text-green-600",
         };
       }
     }
 
-    // 检查试用状态
+    // Check trial status
     if (activationInfo.keyboardTrialStartedAt) {
       const trialStart = new Date(activationInfo.keyboardTrialStartedAt);
       const trialExpire = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
@@ -1658,28 +1662,28 @@ function ActivationCodeBinder({
         const minutesLeft = totalMinutesLeft % 60;
         return {
           status: "trial",
-          text: `⏳ 菜单键盘试用剩余: ${hoursLeft}小时${minutesLeft > 0 ? minutesLeft + "分钟" : ""}`,
+          text: `${t('km.activation.trial')}: ${hoursLeft}${t('km.activation.hours')}${minutesLeft > 0 ? minutesLeft + t('km.activation.minutes') : ""}`,
           color: "text-amber-600",
         };
       } else {
         return {
           status: "expired",
-          text: "❌ 菜单键盘试用已过期，请激活",
+          text: t('km.activation.expired'),
           color: "text-destructive",
         };
       }
     }
 
-    // 检查是否有过期的激活
+    // Check for expired activation
     if (activationInfo.keyboardExpireAt) {
       return {
         status: "expired",
-        text: "❌ 菜单键盘已过期，请激活",
+        text: t('km.activation.keyboardExpired'),
         color: "text-destructive",
       };
     }
 
-    return { status: "none", text: "💡 首次使用可试用24小时", color: "text-muted-foreground" };
+    return { status: "none", text: t('km.activation.firstUse'), color: "text-muted-foreground" };
   };
 
   const keyboardStatus = getKeyboardStatus();
@@ -1691,7 +1695,7 @@ function ActivationCodeBinder({
           type="text"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder="激活码"
+          placeholder={t('km.settings.activationCode')}
           className="flex-1 bg-muted border rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-primary outline-none"
         />
         <button
@@ -1700,7 +1704,7 @@ function ActivationCodeBinder({
           className="px-2 py-1.5 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 disabled:bg-muted transition flex items-center gap-1"
         >
           {loading ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
-          绑定
+          {t('km.settings.bind')}
         </button>
       </div>
       {/* 始终显示状态，不依赖 activationInfo */}
@@ -1760,6 +1764,7 @@ function SettingsPanel({
   showTrialExpiredToast,
   onActivationStatusChange,
 }: any) {
+  const { t } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [customCleanupDays, setCustomCleanupDays] = useState("");
@@ -1777,16 +1782,16 @@ function SettingsPanel({
     if (!savedUrl) return;
     try {
       await callApi("setWebhook", { url: savedUrl });
-      showToast("success", `已从备份恢复 Webhook`);
+      showToast("success", t('km.toast.backupRestored'));
       refreshWebhook();
     } catch (e: any) {
-      showToast("error", `恢复失败: ${e.message}`);
+      showToast("error", `${t('km.toast.restoreFailed')}: ${e.message}`);
     }
   };
 
   const handleForceReset = async () => {
     setIsResetting(true);
-    showToast("info", "正在执行深度重置...");
+    showToast("info", t('km.settings.deepResetting'));
 
     try {
       const { data, error } = await supabase.functions.invoke("manage-bot", {
@@ -1800,14 +1805,14 @@ function SettingsPanel({
       if (error) throw error;
 
       if (data?.ok) {
-        showToast("success", data.message || `UI 清理完成！已通知 ${data.successCount} 位用户移除键盘。`);
+        showToast("success", data.message || t('km.settings.deepResetSuccess'));
         await syncConfigToCloud?.();
       } else {
-        throw new Error(data?.error || "深度重置失败");
+        throw new Error(data?.error || t('km.settings.deepResetFailed'));
       }
     } catch (e: any) {
       console.error("Deep reset failed:", e);
-      showToast("error", `深度重置失败: ${e.message}`);
+      showToast("error", `${t('km.settings.deepResetFailed')}: ${e.message}`);
     } finally {
       setIsResetting(false);
     }
@@ -1815,15 +1820,15 @@ function SettingsPanel({
 
   const handleTestSend = async () => {
     if (!targetChatId) {
-      showToast("error", "请先输入目标 ID");
+      showToast("error", t('km.settings.inputTargetId'));
       return;
     }
     setTestLoading(true);
     try {
-      await callApi("sendMessage", { chat_id: targetChatId, text: "🔔 这是一条测试消息，验证连接成功！" });
-      showToast("success", "发送成功！");
+      await callApi("sendMessage", { chat_id: targetChatId, text: "🔔 This is a test message, connection verified!" });
+      showToast("success", t('km.settings.testSendSuccess'));
     } catch (e: any) {
-      showToast("error", `发送失败: ${e.message}`);
+      showToast("error", `${t('km.settings.testSendFailed')}: ${e.message}`);
     } finally {
       setTestLoading(false);
     }
@@ -1835,19 +1840,19 @@ function SettingsPanel({
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4">
-        <h2 className="text-2xl font-bold mb-1">ID连接&重置</h2>
-        <p className="text-muted-foreground text-sm">Token 已自动保存。配置安全监听与 Webhook 状态。</p>
+        <h2 className="text-2xl font-bold mb-1">{t('km.settings.title')}</h2>
+        <p className="text-muted-foreground text-sm">{t('km.settings.desc')}</p>
       </div>
       <div className="grid grid-cols-1 gap-6">
         <div className="bg-card p-6 rounded-xl border shadow-sm">
           <h3 className="font-bold mb-4 flex items-center gap-2">
-            <Zap className="text-primary" size={18} /> 连接设置
+            <Zap className="text-primary" size={18} /> {t('km.settings.connectSettings')}
           </h3>
 
           {!isConnected ? (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">BOT机器人ID</label>
+                <label className="block text-sm font-medium mb-1">{t('km.settings.botId')}</label>
                 <input
                   type="password"
                   value={tokenInput}
@@ -1857,12 +1862,12 @@ function SettingsPanel({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">用户ID</label>
+                <label className="block text-sm font-medium mb-1">{t('km.settings.userId')}</label>
                 <input
                   type="text"
                   value={userIdInput}
                   onChange={(e) => setUserIdInput(e.target.value)}
-                  placeholder="例如: 12345678"
+                  placeholder="e.g. 12345678"
                   className="w-full bg-muted border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none font-mono"
                 />
               </div>
@@ -1875,7 +1880,7 @@ function SettingsPanel({
                   className="rounded text-primary focus:ring-primary"
                 />
                 <label htmlFor="useProxy" className="text-xs text-muted-foreground cursor-pointer">
-                  Web 代理模式 (CORS Proxy)
+                  {t('km.settings.proxyMode')}
                 </label>
               </div>
               <button
@@ -1883,7 +1888,7 @@ function SettingsPanel({
                 disabled={loading || !tokenInput}
                 className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground py-2.5 rounded-lg font-bold transition flex items-center justify-center gap-2"
               >
-                {loading ? <Loader2 size={18} className="animate-spin" /> : "验证并连接"}
+                {loading ? <Loader2 size={18} className="animate-spin" /> : t('km.settings.verifyConnect')}
               </button>
             </div>
           ) : (
@@ -1899,7 +1904,7 @@ function SettingsPanel({
               </div>
               <div className="bg-primary/10 p-4 rounded-lg border border-primary/20">
                 <label className="block text-sm font-bold text-primary mb-2 flex items-center gap-2">
-                  <User size={16} /> 用户 ID【接收用户活动记录如发送指令&关键词】
+                  <User size={16} /> {t('km.settings.userIdReceive')}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -1917,13 +1922,13 @@ function SettingsPanel({
                   </button>
                 </div>
               </div>
-              {/* 断开连接 + 激活码绑定 */}
+              {/* Disconnect + Activation Code Binding */}
               <div className="flex gap-2">
                 <button
                   onClick={onLogout}
                   className="flex-1 border border-destructive/20 text-destructive hover:bg-destructive/10 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm"
                 >
-                  <LogOut size={14} /> 断开连接
+                  <LogOut size={14} /> {t('km.settings.disconnect')}
                 </button>
                 <ActivationCodeBinder
                   botToken={botProfile?.token}
@@ -1932,9 +1937,9 @@ function SettingsPanel({
                 />
               </div>
 
-              {/* 云端同步与配置功能 */}
+              {/* Cloud sync and config functions */}
               <div className="border-t pt-4 mt-2 space-y-3">
-                {/* 云端同步按钮 */}
+                {/* Cloud sync button */}
                 <button
                   onClick={handleSyncToCloud}
                   disabled={isSyncingToCloud}
@@ -1948,19 +1953,19 @@ function SettingsPanel({
                 >
                   {isSyncingToCloud ? (
                     <>
-                      <Loader2 size={14} className="animate-spin" /> 同步中...
+                      <Loader2 size={14} className="animate-spin" /> {t('km.settings.syncing')}
                     </>
                   ) : cloudSyncStatus === "synced" ? (
                     <>
-                      <Cloud size={14} /> 已同步到云端
+                      <Cloud size={14} /> {t('km.settings.synced')}
                     </>
                   ) : cloudSyncStatus === "error" ? (
                     <>
-                      <CloudOff size={14} /> 同步失败，点击重试
+                      <CloudOff size={14} /> {t('km.settings.syncFailed')}
                     </>
                   ) : (
                     <>
-                      <Cloud size={14} /> 同步到云端
+                      <Cloud size={14} /> {t('km.settings.cloudSync')}
                     </>
                   )}
                 </button>
@@ -2013,28 +2018,28 @@ function SettingsPanel({
                 </div>
 
 
-                {/* 导出导入 */}
+                {/* Export/Import */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={handleExportConfig}
                     className="flex items-center justify-center gap-2 bg-muted hover:bg-accent text-foreground text-xs py-2.5 rounded-lg transition font-medium"
                   >
-                    <Download size={14} /> 导出配置
+                    <Download size={14} /> {t('km.settings.exportConfig')}
                   </button>
                   <label className="flex items-center justify-center gap-2 bg-muted hover:bg-accent text-foreground text-xs py-2.5 rounded-lg transition cursor-pointer font-medium">
-                    <Upload size={14} /> 导入配置
+                    <Upload size={14} /> {t('km.settings.importConfig')}
                     <input type="file" accept=".json" onChange={handleImportConfig} className="hidden" />
                   </label>
                 </div>
 
-                {/* 深度重置 */}
+                {/* Deep Reset */}
                 <button
                   onClick={handleForceReset}
                   disabled={isResetting}
                   className="w-full bg-destructive/10 border border-destructive/20 text-destructive hover:bg-destructive/20 py-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
                 >
                   {isResetting ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                  深度重置：清理所有用户界面
+                  {t('km.settings.deepReset')}
                 </button>
               </div>
             </div>
@@ -2059,6 +2064,7 @@ function KeyboardEditor({
   keyboardTrialExpired,
   showTrialExpiredToast,
 }: any) {
+  const { t } = useLanguage();
   const [activePageId, setActivePageId] = useState("main");
   const [isPushing, setIsPushing] = useState(false);
   const [dbUsers, setDbUsers] = useState<any[]>([]);
@@ -2366,6 +2372,7 @@ function CommandsEditor({
   showTrialExpiredToast,
   botToken,
 }: any) {
+  const { t } = useLanguage();
   const [newCmd, setNewCmd] = useState({ command: "", description: "" });
   const [isSaving, setIsSaving] = useState(false);
   const [menuBtnType, setMenuBtnType] = useState<"commands" | "web_app">("commands");
@@ -2640,6 +2647,7 @@ function MessageFlowEditor({
   keyboardTrialExpired,
   showTrialExpiredToast,
 }: any) {
+  const { t } = useLanguage();
   const [showLinkInserter, setShowLinkInserter] = useState(false);
   const [linkForm, setLinkForm] = useState({ text: "", url: "" });
   const [showCopyInserter, setShowCopyInserter] = useState(false);
@@ -3268,6 +3276,7 @@ function UsersPanel({
   handlePushMenu,
   botToken,
 }: any) {
+  const { t } = useLanguage();
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
