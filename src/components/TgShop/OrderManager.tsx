@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Eye, Check, Download, RefreshCw, Trash2, Clock, XCircle, CheckCircle } from "lucide-react";
 import { Order } from "./types";
+import { useLanguage } from "@/hooks/use-language";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ interface OrderManagerProps {
 }
 
 export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: OrderManagerProps) {
+  const { t, language } = useLanguage();
   const [activeFilter, setActiveFilter] = useState<OrderFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearingStatus, setClearingStatus] = useState<Order['status'] | null>(null);
@@ -51,15 +53,26 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: Or
     setClearingStatus(null);
   };
 
+  const getStatusLabel = (status: Order['status']) => {
+    switch (status) {
+      case 'paid': return t('tgshop.order.paid');
+      case 'pending': return t('tgshop.order.pending');
+      case 'cancelled': return t('tgshop.order.cancelled');
+      default: return status;
+    }
+  };
+
   const filterTabs: { key: OrderFilter; label: string; icon: React.ReactNode; showClear: boolean }[] = [
-    { key: 'all', label: '全部', icon: null, showClear: false },
-    { key: 'paid', label: '已付款', icon: <CheckCircle size={14} className="text-green-500" />, showClear: true },
-    { key: 'pending', label: '待付款', icon: <Clock size={14} className="text-yellow-500" />, showClear: true },
-    { key: 'cancelled', label: '已过期', icon: <XCircle size={14} className="text-muted-foreground" />, showClear: true },
+    { key: 'all', label: t('tgshop.order.all'), icon: null, showClear: false },
+    { key: 'paid', label: t('tgshop.order.paid'), icon: <CheckCircle size={14} className="text-green-500" />, showClear: true },
+    { key: 'pending', label: t('tgshop.order.pending'), icon: <Clock size={14} className="text-yellow-500" />, showClear: true },
+    { key: 'cancelled', label: t('tgshop.order.cancelled'), icon: <XCircle size={14} className="text-muted-foreground" />, showClear: true },
   ];
 
   const handleExportCSV = () => {
-    const headers = ['订单号', '商品', '用户', '金额', '货币', '状态', '时间'];
+    const headers = language === 'zh' 
+      ? ['订单号', '商品', '用户', '金额', '货币', '状态', '时间']
+      : ['Order No.', 'Product', 'User', 'Amount', 'Currency', 'Status', 'Time'];
     const rows = filteredOrders.map(order => [
       order.orderId,
       order.productName,
@@ -80,20 +93,11 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: Or
     URL.revokeObjectURL(url);
   };
 
-  const getStatusLabel = (status: Order['status']) => {
-    switch (status) {
-      case 'paid': return '已付款';
-      case 'pending': return '待付款';
-      case 'cancelled': return '已过期';
-      default: return status;
-    }
-  };
-
   return (
     <div className="p-8 h-full overflow-y-auto">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-foreground">订单记录</h2>
+          <h2 className="text-2xl font-bold text-foreground">{t('tgshop.order.title')}</h2>
           <div className="flex gap-2">
             {onRefresh && (
               <button 
@@ -101,14 +105,14 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: Or
                 disabled={isLoading}
                 className="bg-card border px-4 py-2 rounded text-sm hover:bg-muted flex items-center gap-2 disabled:opacity-50"
               >
-                <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> 刷新
+                <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> {t('tgshop.order.refresh')}
               </button>
             )}
             <button 
               onClick={handleExportCSV}
               className="bg-card border px-4 py-2 rounded text-sm hover:bg-muted flex items-center gap-2"
             >
-              <Download size={14} /> 导出 CSV
+              <Download size={14} /> {t('tgshop.order.exportCsv')}
             </button>
           </div>
         </div>
@@ -139,7 +143,7 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: Or
                 <button
                   onClick={() => handleClearClick(tab.key as Order['status'])}
                   className="p-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
-                  title={`清空${tab.label}订单`}
+                  title={language === 'zh' ? `清空${tab.label}订单` : `Clear ${tab.label} orders`}
                 >
                   <Trash2 size={16} />
                 </button>
@@ -152,13 +156,13 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: Or
           <table className="w-full text-left">
             <thead className="bg-muted border-b text-muted-foreground text-xs uppercase font-medium">
               <tr>
-                <th className="px-6 py-4">订单号</th>
-                <th className="px-6 py-4">商品</th>
-                <th className="px-6 py-4">用户</th>
-                <th className="px-6 py-4">金额</th>
-                <th className="px-6 py-4">状态</th>
-                <th className="px-6 py-4">时间</th>
-                <th className="px-6 py-4 text-right">操作</th>
+                <th className="px-6 py-4">{t('tgshop.order.orderNo')}</th>
+                <th className="px-6 py-4">{t('tgshop.order.product')}</th>
+                <th className="px-6 py-4">{t('tgshop.order.user')}</th>
+                <th className="px-6 py-4">{t('tgshop.order.amount')}</th>
+                <th className="px-6 py-4">{t('tgshop.order.status')}</th>
+                <th className="px-6 py-4">{t('tgshop.order.time')}</th>
+                <th className="px-6 py-4 text-right">{t('tgshop.order.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -166,8 +170,8 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: Or
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">
                     {activeFilter === 'all' 
-                      ? '暂无订单数据，去模拟器生成一笔吧！' 
-                      : `暂无${getStatusLabel(activeFilter as Order['status'])}订单`}
+                      ? t('tgshop.order.noOrders')
+                      : (language === 'zh' ? `暂无${getStatusLabel(activeFilter as Order['status'])}订单` : `No ${getStatusLabel(activeFilter as Order['status']).toLowerCase()} orders`)}
                   </td>
                 </tr>
               )}
@@ -186,11 +190,11 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: Or
                           : 'bg-muted text-muted-foreground'
                     }`}>
                       {order.status === 'paid' ? <Check size={10}/> : order.status === 'pending' ? <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"/> : <XCircle size={10}/>}
-                      {order.status === 'paid' ? '已付款' : order.status === 'pending' ? '待付款' : '已过期'}
+                      {getStatusLabel(order.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-muted-foreground">
-                    {order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Just now'}
+                    {order.createdAt ? new Date(order.createdAt).toLocaleString() : t('tgshop.order.justNow')}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button className="text-muted-foreground hover:text-primary">
@@ -208,15 +212,17 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: Or
       <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认清空订单</AlertDialogTitle>
+            <AlertDialogTitle>{t('tgshop.order.confirmClear')}</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要清空所有{clearingStatus && getStatusLabel(clearingStatus)}订单吗？此操作不可撤销。
+              {language === 'zh' 
+                ? `确定要清空所有${clearingStatus && getStatusLabel(clearingStatus)}订单吗？此操作不可撤销。`
+                : `Clear all ${clearingStatus && getStatusLabel(clearingStatus).toLowerCase()} orders? This cannot be undone.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('tgshop.order.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmClear} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              确认清空
+              {t('tgshop.order.confirmClearBtn')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
