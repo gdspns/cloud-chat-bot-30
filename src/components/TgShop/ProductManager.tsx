@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen, ChevronDown } from "lucide-react";
 import { Product } from "./types";
+import { useLanguage } from "@/hooks/use-language";
 
 interface ProductManagerProps {
   products: Product[];
@@ -12,18 +13,6 @@ interface ProductManagerProps {
   customCategories?: string[];
 }
 
-const defaultFormData: Omit<Product, 'id' | 'keywordsList'> = {
-  name: 'Netflix 4K 高级独享',
-  price: 10,
-  currency: 'USDT',
-  keywords: 'nf,netflix,奈飞',
-  stockContent: 'user:pass\nuser2:pass2',
-  stockCount: 0,
-  description: '✅ 4K HDR\n✅ 独享账号\n✅ 质保30天',
-  type: 'auto',
-  category: '默认分类'
-};
-
 export function ProductManager({ 
   products, 
   onAddProduct, 
@@ -33,8 +22,23 @@ export function ProductManager({
   isSyncing,
   customCategories = []
 }: ProductManagerProps) {
+  const { t, language } = useLanguage();
+  const defaultCategory = t('tgshop.product.defaultCategory');
+  
+  const getDefaultFormData = (): Omit<Product, 'id' | 'keywordsList'> => ({
+    name: language === 'zh' ? 'Netflix 4K 高级独享' : 'Netflix 4K Premium',
+    price: 10,
+    currency: 'USDT',
+    keywords: language === 'zh' ? 'nf,netflix,奈飞' : 'nf,netflix',
+    stockContent: 'user:pass\nuser2:pass2',
+    stockCount: 0,
+    description: language === 'zh' ? '✅ 4K HDR\n✅ 独享账号\n✅ 质保30天' : '✅ 4K HDR\n✅ Exclusive Account\n✅ 30-day Warranty',
+    type: 'auto',
+    category: defaultCategory
+  });
+
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState(defaultFormData);
+  const [formData, setFormData] = useState<Omit<Product, 'id' | 'keywordsList'>>(getDefaultFormData());
   const [isSaving, setIsSaving] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const categoryInputRef = useRef<HTMLInputElement>(null);
@@ -54,7 +58,7 @@ export function ProductManager({
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      showToast("error", "请输入商品名称");
+      showToast("error", t('tgshop.product.enterName'));
       return;
     }
 
@@ -70,9 +74,9 @@ export function ProductManager({
           updatedAt: now 
         });
         if (success) {
-          showToast("success", "商品已更新并同步到云端");
+          showToast("success", t('tgshop.product.updated'));
         } else {
-          showToast("error", "更新失败，请重试");
+          showToast("error", t('tgshop.product.updateFailed'));
         }
       } else {
         const newProduct = await onAddProduct({
@@ -82,28 +86,28 @@ export function ProductManager({
           updatedAt: now
         });
         if (newProduct) {
-          showToast("success", "商品已创建并同步到云端");
+          showToast("success", t('tgshop.product.created'));
         } else {
-          showToast("error", "创建失败，请重试");
+          showToast("error", t('tgshop.product.createFailed'));
         }
       }
       
       setEditingId(null);
-      setFormData(defaultFormData);
+      setFormData(getDefaultFormData());
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("确定删除吗？此操作不可撤销。")) return;
+    if (!confirm(t('tgshop.product.confirmDelete'))) return;
     
     const success = await onDeleteProduct(id);
     if (success) {
       if (editingId === id) setEditingId(null);
-      showToast("info", "商品已删除");
+      showToast("info", t('tgshop.product.deleted'));
     } else {
-      showToast("error", "删除失败，请重试");
+      showToast("error", t('tgshop.product.deleteFailed'));
     }
   };
 
@@ -118,32 +122,32 @@ export function ProductManager({
       stockCount: 0,
       description: '',
       type: 'auto',
-      category: '默认分类'
+      category: defaultCategory
     });
   };
 
   // 获取所有分类（包含自定义分类）
   const categories = useMemo(() => {
-    const cats = new Set(products.map(p => p.category || '默认分类'));
+    const cats = new Set(products.map(p => p.category || defaultCategory));
     // 添加自定义分类
     customCategories.forEach(cat => cats.add(cat));
     return Array.from(cats).sort((a, b) => {
-      if (a === '默认分类') return -1;
-      if (b === '默认分类') return 1;
+      if (a === defaultCategory) return -1;
+      if (b === defaultCategory) return 1;
       return a.localeCompare(b);
     });
-  }, [products, customCategories]);
+  }, [products, customCategories, defaultCategory]);
 
   // 按分类分组商品
   const productsByCategory = useMemo(() => {
     const grouped: Record<string, Product[]> = {};
     products.forEach(p => {
-      const cat = p.category || '默认分类';
+      const cat = p.category || defaultCategory;
       if (!grouped[cat]) grouped[cat] = [];
       grouped[cat].push(p);
     });
     return grouped;
-  }, [products]);
+  }, [products, defaultCategory]);
 
   // 点击外部关闭下拉框
   useEffect(() => {
@@ -174,12 +178,12 @@ export function ProductManager({
           <div className="p-4 border-b flex justify-between items-center bg-muted rounded-t-lg">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-foreground">
-                {editingId ? '编辑商品' : '新建商品'}
+                {editingId ? t('tgshop.product.editProduct') : t('tgshop.product.newProduct')}
               </h2>
               {isSyncing && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Loader2 size={12} className="animate-spin" />
-                  <span>同步中...</span>
+                  <span>{t('tgshop.product.syncing')}</span>
                 </div>
               )}
             </div>
@@ -196,7 +200,7 @@ export function ProductManager({
           
           <div className="p-4 space-y-4 bg-card rounded-b-lg border border-t-0">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">商品名称</label>
+              <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.product.productName')}</label>
               <input 
                 type="text" 
                 value={formData.name}
@@ -208,7 +212,7 @@ export function ProductManager({
             {/* 分类选择 */}
             <div className="relative">
               <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-1">
-                <Tag size={14} /> 商品分类
+                <Tag size={14} /> {t('tgshop.product.category')}
               </label>
               <div className="relative">
                 <input 
@@ -218,7 +222,7 @@ export function ProductManager({
                   onChange={(e) => setFormData({...formData, category: e.target.value})}
                   onFocus={() => setShowCategoryDropdown(true)}
                   className="w-full p-2.5 pr-10 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none text-sm"
-                  placeholder="输入或选择分类"
+                  placeholder={language === 'zh' ? '输入或选择分类' : 'Enter or select category'}
                 />
                 <button
                   type="button"
@@ -250,12 +254,12 @@ export function ProductManager({
                   ))}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground mt-1">点击输入框选择已有分类或输入新分类名称</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('tgshop.product.selectOrInput')}</p>
             </div>
 
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-foreground mb-1">价格</label>
+                <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.product.price')}</label>
                 <input 
                   type="number" 
                   value={formData.price}
@@ -265,7 +269,7 @@ export function ProductManager({
                 />
               </div>
               <div className="w-28">
-                <label className="block text-sm font-medium text-foreground mb-1">货币</label>
+                <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.product.currency')}</label>
                 <select 
                   value={formData.currency}
                   onChange={(e) => setFormData({...formData, currency: e.target.value as Product['currency']})}
@@ -280,7 +284,7 @@ export function ProductManager({
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">
-                触发关键词 <span className="text-xs text-muted-foreground font-normal">(英文逗号分隔)</span>
+                {t('tgshop.product.keywords')} <span className="text-xs text-muted-foreground font-normal">{t('tgshop.product.keywordsHint')}</span>
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-3 text-muted-foreground" size={16} />
@@ -289,13 +293,13 @@ export function ProductManager({
                   value={formData.keywords}
                   onChange={(e) => setFormData({...formData, keywords: e.target.value})}
                   className="w-full pl-9 p-2.5 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none text-sm"
-                  placeholder="用户输入这些词会自动弹出该商品"
+                  placeholder={t('tgshop.product.keywordsPlaceholder')}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">商品描述</label>
+              <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.product.description')}</label>
               <textarea 
                 rows={3}
                 value={formData.description}
@@ -306,17 +310,17 @@ export function ProductManager({
 
             <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
               <label className="block text-sm font-medium text-foreground mb-1 flex justify-between">
-                <span>虚拟卡密库存 (一行一个)</span>
-                <span className="text-primary font-bold">{formData.stockCount} 个可用</span>
+                <span>{t('tgshop.product.stockTitle')}</span>
+                <span className="text-primary font-bold">{formData.stockCount} {t('tgshop.product.stockCount')}</span>
               </label>
               <textarea 
                 rows={4}
                 value={formData.stockContent}
                 onChange={(e) => setFormData({...formData, stockContent: e.target.value})}
                 className="w-full p-2 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none font-mono text-xs"
-                placeholder="user:pass&#10;code-1234&#10;https://gift.link"
+                placeholder={t('tgshop.product.stockPlaceholder')}
               />
-              <p className="text-xs text-muted-foreground mt-1">系统会自动按行分割，付款成功后自动取出一行发给用户。</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('tgshop.product.stockHint')}</p>
             </div>
 
             <button 
@@ -326,11 +330,11 @@ export function ProductManager({
             >
               {isSaving ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" /> 保存中...
+                  <Loader2 size={16} className="animate-spin" /> {t('tgshop.product.saving')}
                 </>
               ) : (
                 <>
-                  <Cloud size={16} /> 保存并同步到云端
+                  <Cloud size={16} /> {t('tgshop.product.saveAndSync')}
                 </>
               )}
             </button>
@@ -341,18 +345,18 @@ export function ProductManager({
       {/* 商品列表区域 - 右半边 */}
       <div className="flex-1 xl:w-1/2 bg-card flex flex-col order-1 xl:order-2 max-h-[200px] xl:max-h-none">
         <div className="p-4 border-b flex justify-between items-center bg-muted sticky top-0 z-10">
-          <h2 className="font-semibold text-foreground">商品列表</h2>
+          <h2 className="font-semibold text-foreground">{t('tgshop.product.productList')}</h2>
           <button 
             onClick={handleNew} 
             className="p-1.5 hover:bg-primary/10 text-primary rounded flex items-center gap-1 text-sm"
           >
             <Plus size={16} />
-            <span>新建</span>
+            <span>{t('tgshop.product.new')}</span>
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           {products.length === 0 && (
-            <div className="p-4 text-sm text-muted-foreground text-center border rounded-lg bg-muted/50">暂无商品</div>
+            <div className="p-4 text-sm text-muted-foreground text-center border rounded-lg bg-muted/50">{t('tgshop.product.noProducts')}</div>
           )}
           <div className="space-y-4">
             {Object.entries(productsByCategory).map(([category, categoryProducts]) => (
@@ -378,7 +382,7 @@ export function ProductManager({
                             <code className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded font-mono">
                               /buy_{p.id.slice(0, 8)}
                             </code>
-                            <span className="text-xs text-muted-foreground">库存: {p.stockCount || 0}</span>
+                            <span className="text-xs text-muted-foreground">{t('tgshop.product.stock')}: {p.stockCount || 0}</span>
                           </div>
                         </div>
                         <span className="font-bold text-primary text-sm shrink-0 ml-2">{p.price} {p.currency}</span>

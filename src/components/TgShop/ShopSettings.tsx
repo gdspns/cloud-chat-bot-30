@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink, Plus, X, Key, MessageCircle, Globe, Image, Video, Link, Type, Eye, EyeOff, Smile, Languages } from "lucide-react";
 import { ShopConfig } from "./types";
+import { useLanguage } from "@/hooks/use-language";
 
 interface ShopSettingsProps {
   config: ShopConfig;
@@ -10,6 +11,7 @@ interface ShopSettingsProps {
 }
 
 export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettingsProps) {
+  const { t, language } = useLanguage();
   const [localConfig, setLocalConfig] = useState(config);
   const [isVerifying, setIsVerifying] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -26,13 +28,12 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
   const handleVerifyConnection = async () => {
     const token = botToken || localConfig.token;
     if (!token) {
-      showToast("error", "请先填写 Telegram Bot Token");
+      showToast("error", t('tgshop.settings.enterToken'));
       return;
     }
     setIsVerifying(true);
     
     try {
-      // 调用真实的 Telegram API 验证 Bot Token
       const response = await fetch(`https://api.telegram.org/bot${token}/getMe`);
       const data = await response.json();
       
@@ -46,40 +47,36 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
         };
         setLocalConfig(newConfig);
         onSave(newConfig);
-        showToast("success", `连接成功！机器人 @${botInfo.username} 已上线。`);
+        showToast("success", t('tgshop.settings.connectSuccess').replace('{username}', botInfo.username));
       } else {
-        showToast("error", `验证失败: ${data.description || 'Token 无效'}`);
+        showToast("error", `${t('tgshop.settings.verifyFailed')}: ${data.description || t('tgshop.settings.tokenInvalid')}`);
       }
     } catch (error) {
       console.error('Bot verification error:', error);
-      showToast("error", "网络错误，请检查网络连接后重试");
+      showToast("error", t('tgshop.settings.networkError'));
     } finally {
       setIsVerifying(false);
     }
   };
 
   const handleDisconnect = () => {
-    if (!confirm("确定要断开连接吗？\n机器人将停止响应用户的购买指令。")) return;
+    if (!confirm(t('tgshop.settings.confirmDisconnect'))) return;
     
     const newConfig = { ...localConfig, status: 'offline' as const };
     setLocalConfig(newConfig);
     onSave(newConfig);
-    showToast("info", "机器人已断开连接");
+    showToast("info", t('tgshop.settings.disconnected'));
   };
 
-  // 检查是否已过期或试用已结束
   const isExpiredOrTrialEnded = (): boolean => {
-    // 检查有效期
     if (localConfig.shopExpireAt) {
       return new Date(localConfig.shopExpireAt) < new Date();
     }
-    // 检查试用
     if (localConfig.shopTrialStartedAt) {
       const trialStart = new Date(localConfig.shopTrialStartedAt);
       const trialEnd = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
       return new Date() > trialEnd;
     }
-    // 没有有效期也没有试用开始时间，视为未激活（首次使用可以保存来启动试用）
     return false;
   };
 
@@ -87,7 +84,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
 
   const handleSaveClick = () => {
     if (expired) {
-      showToast("error", "商城已过期或试用已结束，请先激活！");
+      showToast("error", t('tgshop.settings.expiredOrTrialEnded'));
       return;
     }
     onSave(localConfig);
@@ -99,11 +96,10 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {
-      showToast("error", "复制失败");
+      showToast("error", t('tgshop.settings.copyFailed'));
     });
   };
 
-  // 生成 Webhook URL
   const getWebhookUrl = () => {
     const token = botToken || localConfig.token;
     if (!token) return '';
@@ -118,26 +114,29 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
     navigator.clipboard.writeText(url).then(() => {
       setWebhookCopied(true);
       setTimeout(() => setWebhookCopied(false), 2000);
-      showToast("success", "Webhook URL 已复制");
+      showToast("success", t('tgshop.settings.webhookCopied'));
     }).catch(() => {
-      showToast("error", "复制失败");
+      showToast("error", t('tgshop.settings.copyFailed'));
     });
   };
 
+  const shopBtnText = localConfig.shopButtonText || t('tgshop.settings.shop');
+  const orderBtnText = localConfig.orderButtonText || t('tgshop.settings.myOrders');
+
   return (
     <div className="p-8 max-w-6xl mx-auto overflow-y-auto h-full pb-20">
-      <h2 className="text-2xl font-bold text-foreground mb-6">商城配置</h2>
+      <h2 className="text-2xl font-bold text-foreground mb-6">{t('tgshop.settings.title')}</h2>
       
       <div className="space-y-6">
         {/* 机器人连接 */}
         <div className="bg-card p-6 rounded-xl border shadow-sm">
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
-            <Bot size={20} className="text-primary"/> 机器人与管理员
+            <Bot size={20} className="text-primary"/> {t('tgshop.settings.botAdmin')}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {!botToken && (
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-foreground mb-1">Telegram Bot Token (必填)</label>
+                <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.settings.botToken')}</label>
                 <input 
                   type="password" 
                   value={localConfig.token}
@@ -152,23 +151,23 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 <label className="block text-sm font-medium text-foreground mb-1">Telegram Bot Token</label>
                 <div className="flex items-center gap-2 p-2 bg-muted border rounded">
                   <span className="font-mono text-sm text-muted-foreground">***{botToken.slice(-8)}</span>
-                  <span className="text-xs text-green-600 bg-green-500/10 px-2 py-0.5 rounded">已从菜单键盘继承</span>
+                  <span className="text-xs text-green-600 bg-green-500/10 px-2 py-0.5 rounded">{t('tgshop.settings.tokenInherited')}</span>
                 </div>
               </div>
             )}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-foreground mb-1">管理员 ID (Admin ID)</label>
+              <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.settings.adminId')}</label>
               <input 
                 type="text" 
                 value={localConfig.adminId}
                 onChange={(e) => handleChange('adminId', e.target.value)}
-                placeholder="例如: 12345678"
+                placeholder={language === 'zh' ? '例如: 12345678' : 'e.g. 12345678'}
                 className="w-full p-2 bg-background border rounded font-mono text-sm focus:ring-2 focus:ring-primary outline-none"
               />
             </div>
           </div>
 
-          {/* 状态与操作区域 - 使用边框分隔 */}
+          {/* 状态与操作区域 */}
           <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
             {/* 左侧：机器人状态 */}
             <div className="p-3 bg-muted rounded-lg border">
@@ -176,7 +175,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 <div className="flex items-center gap-2">
                   <div className={`w-3 h-3 rounded-full ${localConfig.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`}></div>
                   <span className="text-sm font-medium text-foreground">
-                    状态: {localConfig.status === 'online' ? '已连接 (Online)' : '未连接 (Offline)'}
+                    {t('tgshop.settings.status')}: {localConfig.status === 'online' ? t('tgshop.settings.online') : t('tgshop.settings.offline')}
                   </span>
                 </div>
                 
@@ -185,7 +184,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                     onClick={handleDisconnect}
                     className="flex items-center gap-2 text-destructive hover:text-destructive/80 text-xs font-bold border border-destructive/20 bg-background hover:bg-destructive/10 px-3 py-1.5 rounded transition-colors"
                   >
-                    <Power size={12} /> 断开连接
+                    <Power size={12} /> {t('tgshop.settings.disconnect')}
                   </button>
                 ) : (
                   <button 
@@ -194,7 +193,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                     className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-4 py-1.5 rounded transition-colors disabled:opacity-50"
                   >
                     {isVerifying ? <RefreshCw className="animate-spin" size={12}/> : <PlugZap size={12}/>}
-                    {isVerifying ? '验证中...' : '验证并连接'}
+                    {isVerifying ? t('tgshop.settings.verifying') : t('tgshop.settings.verifyConnect')}
                   </button>
                 )}
               </div>
@@ -207,16 +206,15 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   type="text" 
                   value={localConfig.activationCode || ''}
                   onChange={(e) => handleChange('activationCode', e.target.value)}
-                  placeholder="输入激活码绑定..."
+                  placeholder={t('tgshop.settings.enterCode')}
                   className="flex-1 p-2 bg-background border rounded font-mono text-xs focus:ring-2 focus:ring-primary outline-none"
                 />
                 <button 
                   onClick={async () => {
                     if (!localConfig.activationCode?.trim()) {
-                      showToast("error", "请输入激活码");
+                      showToast("error", t('tgshop.settings.enterCodeFirst'));
                       return;
                     }
-                    // 调用后端绑定激活码
                     try {
                       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-bot`, {
                         method: 'POST',
@@ -229,8 +227,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                       });
                       const data = await response.json();
                       if (data.ok) {
-                        showToast("success", data.message || "激活码绑定成功");
-                        // 更新本地状态
+                        showToast("success", data.message || t('tgshop.settings.bindSuccess'));
                         setLocalConfig(prev => ({
                           ...prev,
                           shopExpireAt: data.expireAt,
@@ -238,15 +235,15 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                         }));
                         onSave({ shopExpireAt: data.expireAt });
                       } else {
-                        showToast("error", data.error || "绑定失败");
+                        showToast("error", data.error || t('tgshop.settings.bindFailed'));
                       }
                     } catch (error) {
-                      showToast("error", "绑定失败，请检查网络");
+                      showToast("error", t('tgshop.settings.bindNetworkError'));
                     }
                   }}
                   className="flex items-center gap-1 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-3 py-2 rounded transition-colors"
                 >
-                  <Key size={12} /> 绑定
+                  <Key size={12} /> {t('tgshop.settings.bind')}
                 </button>
               </div>
               {/* 状态提示 */}
@@ -254,11 +251,11 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 {localConfig.shopExpireAt ? (
                   new Date(localConfig.shopExpireAt) > new Date() ? (
                     <span className="text-green-600">
-                      ✅ 有效期至: {new Date(localConfig.shopExpireAt).toLocaleDateString('zh-CN')}
+                      ✅ {t('tgshop.settings.validUntil')}: {new Date(localConfig.shopExpireAt).toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US')}
                     </span>
                   ) : (
                     <span className="text-destructive">
-                      ❌ 已过期 ({new Date(localConfig.shopExpireAt).toLocaleDateString('zh-CN')}) - 请输入激活码续期
+                      ❌ {t('tgshop.settings.expired')} ({new Date(localConfig.shopExpireAt).toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US')}) - {t('tgshop.settings.renewCode')}
                     </span>
                   )
                 ) : localConfig.shopTrialStartedAt ? (
@@ -267,84 +264,23 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                     const trialEnd = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
                     const now = new Date();
                     if (now > trialEnd) {
-                      return <span className="text-destructive">❌ 试用已过期 - 请输入激活码激活</span>;
+                      return <span className="text-destructive">❌ {t('tgshop.settings.trialExpired')}</span>;
                     }
                     const hoursLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60));
-                    return <span className="text-amber-600">⏳ 首次试用中 (剩余 {hoursLeft} 小时)</span>;
+                    return <span className="text-amber-600">⏳ {t('tgshop.settings.trialRemaining').replace('{hours}', hoursLeft.toString())}</span>;
                   })()
                 ) : (
-                  <span className="text-muted-foreground">💡 首次使用可免费试用24小时</span>
+                  <span className="text-muted-foreground">💡 {t('tgshop.settings.trialHint')}</span>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* 支付回调 Webhook - 暂时注释
-        <div className="bg-card p-6 rounded-xl border shadow-sm">
-          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
-            <ExternalLink size={20} className="text-blue-600"/> 支付回调 Webhook
-          </h3>
-          <p className="text-sm text-muted-foreground mb-2">
-            将以下 Webhook URL 配置到您的支付平台，用于接收支付成功通知并自动发货。
-          </p>
-          <p className="text-xs text-green-600 bg-green-500/10 p-2 rounded mb-4">
-            ✅ <strong>USDT/TRX 链上监控已自动启用：</strong>系统已配置 pg_cron 定时任务，每分钟自动调用 TronGrid API 检测链上转账并完成发货。无需手动配置。
-          </p>
-          
-          <div className="space-y-3">
-            <div className="p-3 bg-muted rounded-lg border">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-foreground">USDT/TRX 链上支付</span>
-                <button 
-                  onClick={() => handleCopyWebhook('crypto')}
-                  className="text-xs text-primary hover:underline flex items-center gap-1"
-                >
-                  {webhookCopied ? <Check size={12}/> : <Copy size={12}/>} 复制
-                </button>
-              </div>
-              <code className="text-xs text-muted-foreground break-all block">
-                {getWebhookUrl()}&type=crypto
-              </code>
-            </div>
-            
-            <div className="p-3 bg-muted rounded-lg border">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-foreground">YunGouOS 回调</span>
-                <button 
-                  onClick={() => handleCopyWebhook('yungou')}
-                  className="text-xs text-primary hover:underline flex items-center gap-1"
-                >
-                  <Copy size={12}/> 复制
-                </button>
-              </div>
-              <code className="text-xs text-muted-foreground break-all block">
-                {getWebhookUrl()}&type=yungou
-              </code>
-            </div>
-            
-            <div className="p-3 bg-muted rounded-lg border">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-foreground">虎皮椒 (XunHuPay) 回调</span>
-                <button 
-                  onClick={() => handleCopyWebhook('xunhu')}
-                  className="text-xs text-primary hover:underline flex items-center gap-1"
-                >
-                  <Copy size={12}/> 复制
-                </button>
-              </div>
-              <code className="text-xs text-muted-foreground break-all block">
-                {getWebhookUrl()}&type=xunhu
-              </code>
-            </div>
-          </div>
-        </div>
-        */}
-
         {/* /start 欢迎消息配置 */}
         <div className="bg-card p-6 rounded-xl border shadow-sm">
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
-            <MessageCircle size={20} className="text-green-600"/> 开始消息配置
+            <MessageCircle size={20} className="text-green-600"/> {t('tgshop.settings.startConfig')}
           </h3>
           
           {/* /start 开关 */}
@@ -356,8 +292,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               className="rounded w-4 h-4"
             />
             <div className="flex-1">
-              <div className="text-sm font-medium">/start 开始消息</div>
-              <div className="text-xs text-muted-foreground">开启后，用户在 Telegram 点"开始"时将显示欢迎消息和导航按钮</div>
+              <div className="text-sm font-medium">{t('tgshop.settings.startEnabled')}</div>
+              <div className="text-xs text-muted-foreground">{t('tgshop.settings.startEnabledDesc')}</div>
             </div>
           </div>
 
@@ -366,56 +302,56 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               {/* 自定义按钮文字 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">/shop 按钮文字</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.settings.shopBtnText')}</label>
                   <input 
                     type="text" 
-                    value={localConfig.shopButtonText || '商城'}
+                    value={localConfig.shopButtonText || (language === 'zh' ? '商城' : 'Shop')}
                     onChange={(e) => handleChange('shopButtonText', e.target.value)}
                     className="w-full p-2 bg-background border rounded text-sm"
-                    placeholder="商城"
+                    placeholder={language === 'zh' ? '商城' : 'Shop'}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">/order 按钮文字</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.settings.orderBtnText')}</label>
                   <input 
                     type="text" 
-                    value={localConfig.orderButtonText || '我的订单'}
+                    value={localConfig.orderButtonText || (language === 'zh' ? '我的订单' : 'My Orders')}
                     onChange={(e) => handleChange('orderButtonText', e.target.value)}
                     className="w-full p-2 bg-background border rounded text-sm"
-                    placeholder="我的订单"
+                    placeholder={language === 'zh' ? '我的订单' : 'My Orders'}
                   />
                 </div>
               </div>
               
               {/* 欢迎消息内容 */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">欢迎消息内容</label>
+                <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.settings.welcomeContent')}</label>
                 <textarea
                   value={localConfig.startMessage || ''}
                   onChange={(e) => handleChange('startMessage', e.target.value)}
                   className="w-full p-3 bg-background border rounded text-sm min-h-[120px]"
-                  placeholder="👋 欢迎来到商城！&#10;&#10;请选择您需要的服务："
+                  placeholder={t('tgshop.settings.welcomePlaceholder')}
                 />
               </div>
               
               {/* 媒体类型选择 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">消息类型</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.settings.msgType')}</label>
                   <select
                     value={localConfig.startMessageMediaType || 'text'}
                     onChange={(e) => handleChange('startMessageMediaType', e.target.value)}
                     className="w-full p-2 bg-background border rounded text-sm"
                   >
-                    <option value="text">纯文本</option>
-                    <option value="photo">图文消息</option>
-                    <option value="video">视频消息</option>
+                    <option value="text">{t('tgshop.settings.textOnly')}</option>
+                    <option value="photo">{t('tgshop.settings.photoMsg')}</option>
+                    <option value="video">{t('tgshop.settings.videoMsg')}</option>
                   </select>
                 </div>
                 {(localConfig.startMessageMediaType === 'photo' || localConfig.startMessageMediaType === 'video') && (
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">
-                      {localConfig.startMessageMediaType === 'photo' ? '图片 URL' : '视频 URL'}
+                      {localConfig.startMessageMediaType === 'photo' ? t('tgshop.settings.photoUrl') : t('tgshop.settings.videoUrl')}
                     </label>
                     <input 
                       type="text" 
@@ -437,13 +373,13 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   className="rounded"
                 />
                 <div>
-                  <div className="text-sm font-medium">禁用链接预览</div>
-                  <div className="text-xs text-muted-foreground">关闭消息中 URL 链接的预览卡片</div>
+                  <div className="text-sm font-medium">{t('tgshop.settings.disablePreview')}</div>
+                  <div className="text-xs text-muted-foreground">{t('tgshop.settings.disablePreviewDesc')}</div>
                 </div>
               </div>
               
               <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                💡 开始消息会显示三个按钮：[{localConfig.shopButtonText || '商城'}] [{localConfig.orderButtonText || '我的订单'}] [🌐 语言]。用户点击语言按钮可选择中文或英文，选择英文后所有消息自动转为英文。
+                💡 {t('tgshop.settings.startMsgHint').replace('{shop}', shopBtnText).replace('{order}', orderBtnText)}
               </p>
             </div>
           )}
@@ -455,10 +391,10 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           {/* Telegram 购买命令说明 */}
           <div className="bg-card p-6 rounded-xl border shadow-sm">
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
-              <Bot size={20} className="text-purple-600"/> Telegram 购买命令
+              <Bot size={20} className="text-purple-600"/> {t('tgshop.settings.tgCommands')}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              用户在 Telegram 中与您的机器人对话时，可以使用以下命令直接购买商品。支持自定义中文指令别名（只要匹配到2个中文字符就会发送）：
+              {t('tgshop.settings.tgCommandsDesc')}
             </p>
           
           <div className="space-y-4">
@@ -467,7 +403,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-2">
                   <code className="text-sm font-bold text-primary">/shop</code>
-                  <span className="text-xs text-muted-foreground">查看商品列表</span>
+                  <span className="text-xs text-muted-foreground">{t('tgshop.settings.viewProducts')}</span>
                 </div>
                 <button
                   onClick={() => {
@@ -477,10 +413,10 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   }}
                   className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
                 >
-                  <Plus size={12}/> 添加别名
+                  <Plus size={12}/> {t('tgshop.settings.addAlias')}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground mb-2">显示所有上架商品及价格</p>
+              <p className="text-xs text-muted-foreground mb-2">{t('tgshop.settings.viewProductsDesc')}</p>
               {localConfig.customCommands?.shop?.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {localConfig.customCommands.shop.map((cmd, idx) => (
@@ -493,7 +429,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                           newCommands.shop[idx] = e.target.value;
                           handleChange('customCommands', newCommands);
                         }}
-                        placeholder="例如: 商城"
+                        placeholder={language === 'zh' ? '例如: 商城' : 'e.g. shop'}
                         className="w-16 text-xs bg-transparent outline-none"
                       />
                       <button
@@ -516,8 +452,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <div className="p-3 bg-muted rounded-lg border">
               <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-2">
-                  <code className="text-sm font-bold text-primary">/buy &lt;商品名&gt;</code>
-                  <span className="text-xs text-muted-foreground">购买商品</span>
+                  <code className="text-sm font-bold text-primary">/buy &lt;{language === 'zh' ? '商品名' : 'product'}&gt;</code>
+                  <span className="text-xs text-muted-foreground">{t('tgshop.settings.buyProduct')}</span>
                 </div>
                 <button
                   onClick={() => {
@@ -527,10 +463,10 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   }}
                   className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
                 >
-                  <Plus size={12}/> 添加别名
+                  <Plus size={12}/> {t('tgshop.settings.addAlias')}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground mb-2">例如: <code>/buy VIP会员</code> 或 <code>购买 VIP会员</code></p>
+              <p className="text-xs text-muted-foreground mb-2">{t('tgshop.settings.buyExample')}</p>
               {localConfig.customCommands?.buy?.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {localConfig.customCommands.buy.map((cmd, idx) => (
@@ -543,7 +479,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                           newCommands.buy[idx] = e.target.value;
                           handleChange('customCommands', newCommands);
                         }}
-                        placeholder="例如: 购买"
+                        placeholder={language === 'zh' ? '例如: 购买' : 'e.g. buy'}
                         className="w-16 text-xs bg-transparent outline-none"
                       />
                       <button
@@ -567,7 +503,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-2">
                   <code className="text-sm font-bold text-primary">/order</code>
-                  <span className="text-xs text-muted-foreground">查看我的订单</span>
+                  <span className="text-xs text-muted-foreground">{t('tgshop.settings.viewOrders')}</span>
                 </div>
                 <button
                   onClick={() => {
@@ -577,10 +513,10 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   }}
                   className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
                 >
-                  <Plus size={12}/> 添加别名
+                  <Plus size={12}/> {t('tgshop.settings.addAlias')}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground mb-2">查看已付款订单，支持 <code>/order 订单号</code> 查询特定订单</p>
+              <p className="text-xs text-muted-foreground mb-2">{t('tgshop.settings.viewOrdersDesc')}</p>
               {localConfig.customCommands?.order?.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {localConfig.customCommands.order.map((cmd, idx) => (
@@ -593,7 +529,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                           newCommands.order[idx] = e.target.value;
                           handleChange('customCommands', newCommands);
                         }}
-                        placeholder="例如: 订单"
+                        placeholder={language === 'zh' ? '例如: 订单' : 'e.g. orders'}
                         className="w-16 text-xs bg-transparent outline-none"
                       />
                       <button
@@ -614,26 +550,26 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
           </div>
           
             <p className="text-xs text-green-600 bg-green-500/10 p-2 rounded mt-4">
-              ✅ 这些命令已自动集成到您的 Telegram 机器人。自定义中文指令支持模糊匹配（匹配2个字符即可触发）。
+              ✅ {t('tgshop.settings.commandsAutoIntegrated')}
             </p>
           </div>
 
           {/* 支付说明自定义 */}
           <div className="bg-card p-6 rounded-xl border shadow-sm">
             <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
-              <CreditCard size={20} className="text-blue-600"/> 订单支付说明
+              <CreditCard size={20} className="text-blue-600"/> {t('tgshop.settings.paymentNotice')}
             </h3>
             <p className="text-sm text-muted-foreground mb-3">
-              自定义订单支付详情页面显示的提示信息（在"支付截止时间"下方显示）：
+              {t('tgshop.settings.paymentNoticeDesc')}
             </p>
             <textarea
               value={localConfig.paymentNotice || ''}
               onChange={(e) => handleChange('paymentNotice', e.target.value)}
               className="w-full p-3 bg-background border rounded font-mono text-sm min-h-[200px]"
-              placeholder="请输入支付说明..."
+              placeholder={t('tgshop.settings.paymentNoticePlaceholder')}
             />
             <p className="text-xs text-muted-foreground mt-2">
-              💡 支持 emoji 表情符号，修改后保存即可在 Telegram 订单支付详情中生效
+              💡 {t('tgshop.settings.paymentNoticeHint')}
             </p>
           </div>
         </div>
@@ -641,7 +577,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
         {/* 虚拟货币设置 */}
         <div className="bg-card p-6 rounded-xl border shadow-sm">
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
-            <CreditCard size={20} className="text-green-600"/> 虚拟货币设置 (TRC20)
+            <CreditCard size={20} className="text-green-600"/> {t('tgshop.settings.cryptoSettings')}
           </h3>
           
           <div className="space-y-5">
@@ -649,7 +585,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
               <div className="xl:col-span-2 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">USDT/TRX 收款地址</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.settings.walletAddress')}</label>
                   <div className="flex gap-2">
                     <input 
                       type="text" 
@@ -667,7 +603,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">TronGrid API Key【请看TG商城下面的配置说明】</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.settings.tronGridKey')}</label>
                   <input 
                     type="password" 
                     value={localConfig.tronGridKey}
@@ -687,9 +623,9 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <Coins size={18} className={localConfig.acceptUsdt ? 'text-green-600' : 'text-muted-foreground'}/>
-                    <span className="font-bold text-sm">接收 USDT</span>
+                    <span className="font-bold text-sm">{t('tgshop.settings.acceptUsdt')}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">稳定币，推荐</p>
+                  <p className="text-xs text-muted-foreground">{t('tgshop.settings.stablecoin')}</p>
                 </div>
                 
                 <div 
@@ -700,9 +636,9 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <Coins size={18} className={localConfig.acceptTrx ? 'text-primary' : 'text-muted-foreground'}/>
-                    <span className="font-bold text-sm">接收 TRX</span>
+                    <span className="font-bold text-sm">{t('tgshop.settings.acceptTrx')}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">波场原生代币</p>
+                  <p className="text-xs text-muted-foreground">{t('tgshop.settings.nativeToken')}</p>
                 </div>
               </div>
             </div>
@@ -715,8 +651,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 className="rounded"
               />
               <div>
-                <div className="text-sm font-medium">随机小数防撞单</div>
-                <div className="text-xs text-muted-foreground">自动在金额后添加随机小数，避免多用户同时付款时撞单</div>
+                <div className="text-sm font-medium">{t('tgshop.settings.randomDecimals')}</div>
+                <div className="text-xs text-muted-foreground">{t('tgshop.settings.randomDecimalsDesc')}</div>
               </div>
             </div>
           </div>
@@ -725,7 +661,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
         {/* 法币支付配置 */}
         <div className="bg-card p-6 rounded-xl border shadow-sm">
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-foreground">
-            <Wallet size={20} className="text-purple-600"/> 法币支付设置 (CNY)
+            <Wallet size={20} className="text-purple-600"/> {t('tgshop.settings.fiatSettings')}
           </h3>
           
           <div className="space-y-6">
@@ -735,12 +671,12 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               <div className="p-4 bg-muted rounded-lg border">
                 <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span> 
-                  虎皮椒 - 微信支付【推荐！注册申请门槛低！】
+                  {t('tgshop.settings.xunhuWechat')}
                 </h4>
-                <p className="text-xs text-muted-foreground mb-3">官网：www.xunhupay.com</p>
+                <p className="text-xs text-muted-foreground mb-3">{t('tgshop.settings.xunhuSite')}</p>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">应用 App ID</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('tgshop.settings.appId')}</label>
                     <input 
                       type="text" 
                       value={localConfig.xunhuId}
@@ -749,7 +685,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 App Secret</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('tgshop.settings.appSecret')}</label>
                     <input 
                       type="password" 
                       value={localConfig.xunhuSecret}
@@ -764,9 +700,9 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               <div className="p-4 bg-muted rounded-lg border">
                 <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span> 
-                  虎皮椒 - 支付宝【推荐！注册申请门槛低！】
+                  {t('tgshop.settings.xunhuAlipay')}
                 </h4>
-                <p className="text-xs text-muted-foreground mb-3">官网：www.xunhupay.com</p>
+                <p className="text-xs text-muted-foreground mb-3">{t('tgshop.settings.xunhuSite')}</p>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 p-2 bg-background rounded-lg border">
                     <input 
@@ -776,12 +712,12 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                       className="rounded shrink-0"
                     />
                     <div>
-                      <div className="text-xs font-medium">启用 H5 支付</div>
-                      <div className="text-[10px] text-muted-foreground">营业执照注册的支付渠道可用</div>
+                      <div className="text-xs font-medium">{t('tgshop.settings.enableH5')}</div>
+                      <div className="text-[10px] text-muted-foreground">{t('tgshop.settings.h5Hint')}</div>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">应用 App ID</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('tgshop.settings.appId')}</label>
                     <input 
                       type="text" 
                       value={localConfig.xunhuAlipayId}
@@ -790,7 +726,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 App Secret</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('tgshop.settings.appSecret')}</label>
                     <input 
                       type="password" 
                       value={localConfig.xunhuAlipaySecret}
@@ -808,22 +744,22 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               <div className="p-4 bg-muted rounded-lg border">
                 <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span> 
-                  YunGouOS - 微信支付【不推荐！申请麻烦！有注册的联系我们修改接口】
+                  {t('tgshop.settings.yungouWechat')}
                 </h4>
-                <p className="text-xs text-muted-foreground mb-3">官网：www.yungouos.com</p>
+                <p className="text-xs text-muted-foreground mb-3">{t('tgshop.settings.yungouSite')}</p>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">商户号 (Merchant ID)</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('tgshop.settings.merchantId')}</label>
                     <input 
                       type="text" 
                       value={localConfig.yungouWechatId}
                       onChange={(e) => handleChange('yungouWechatId', e.target.value)}
                       className="w-full p-2 bg-background border rounded text-sm"
-                      placeholder="例如: 1234567890"
+                      placeholder={language === 'zh' ? '例如: 1234567890' : 'e.g. 1234567890'}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 (Key)</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('tgshop.settings.merchantKey')}</label>
                     <input 
                       type="password" 
                       value={localConfig.yungouWechatKey}
@@ -838,9 +774,9 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               <div className="p-4 bg-muted rounded-lg border">
                 <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span> 
-                  YunGouOS - 支付宝【不推荐！申请麻烦！有注册的联系我们修改接口】
+                  {t('tgshop.settings.yungouAlipay')}
                 </h4>
-                <p className="text-xs text-muted-foreground mb-3">官网：www.yungouos.com</p>
+                <p className="text-xs text-muted-foreground mb-3">{t('tgshop.settings.yungouSite')}</p>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 p-2 bg-background rounded-lg border">
                     <input 
@@ -850,22 +786,22 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                       className="rounded shrink-0"
                     />
                     <div>
-                      <div className="text-xs font-medium">启用 H5 支付</div>
-                      <div className="text-[10px] text-muted-foreground">营业执照注册的支付渠道可用</div>
+                      <div className="text-xs font-medium">{t('tgshop.settings.enableH5')}</div>
+                      <div className="text-[10px] text-muted-foreground">{t('tgshop.settings.h5Hint')}</div>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">商户号 (Merchant ID)</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('tgshop.settings.merchantId')}</label>
                     <input 
                       type="text" 
                       value={localConfig.yungouAlipayId}
                       onChange={(e) => handleChange('yungouAlipayId', e.target.value)}
                       className="w-full p-2 bg-background border rounded text-sm"
-                      placeholder="例如: 1234567890"
+                      placeholder={language === 'zh' ? '例如: 1234567890' : 'e.g. 1234567890'}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">密钥 (Key)</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">{t('tgshop.settings.merchantKey')}</label>
                     <input 
                       type="password" 
                       value={localConfig.yungouAlipayKey}
@@ -879,14 +815,14 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
 
             {/* 支付渠道开关 */}
             <div className="p-4 bg-muted rounded-lg border">
-              <h4 className="font-bold text-sm text-foreground mb-3">启用支付渠道【开启按钮的时候点下方选择接口的收款平台】</h4>
+              <h4 className="font-bold text-sm text-foreground mb-3">{t('tgshop.settings.enableChannels')}</h4>
               <div className="grid grid-cols-2 gap-3">
                 <div className={`p-3 rounded-lg border flex flex-col gap-2 ${
                   localConfig.enableAlipay ? 'bg-blue-500/10 border-blue-500' : 'bg-card border-border'
                 }`}>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                      <div className="w-5 h-5 bg-blue-500 text-white rounded flex items-center justify-center text-[10px]">支</div> 支付宝
+                      <div className="w-5 h-5 bg-blue-500 text-white rounded flex items-center justify-center text-[10px]">{language === 'zh' ? '支' : 'A'}</div> {t('tgshop.settings.alipay')}
                     </div>
                     <button 
                       onClick={() => handleChange('enableAlipay', !localConfig.enableAlipay)}
@@ -905,8 +841,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                       onChange={(e) => handleChange('alipayProvider', e.target.value as 'yungou' | 'xunhu')}
                       className="w-full text-xs p-1 border rounded bg-background"
                     >
-                      <option value="xunhu">使用 虎皮椒</option>
-                      <option value="yungou">使用 YunGouOS</option>
+                      <option value="xunhu">{t('tgshop.settings.useXunhu')}</option>
+                      <option value="yungou">{t('tgshop.settings.useYungou')}</option>
                     </select>
                   )}
                 </div>
@@ -916,7 +852,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 }`}>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                      <div className="w-5 h-5 bg-green-500 text-white rounded flex items-center justify-center text-[10px]">微</div> 微信
+                      <div className="w-5 h-5 bg-green-500 text-white rounded flex items-center justify-center text-[10px]">{language === 'zh' ? '微' : 'W'}</div> {t('tgshop.settings.wechat')}
                     </div>
                     <button 
                       onClick={() => handleChange('enableWechat', !localConfig.enableWechat)}
@@ -935,8 +871,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                       onChange={(e) => handleChange('wechatProvider', e.target.value as 'yungou' | 'xunhu')}
                       className="w-full text-xs p-1 border rounded bg-background"
                     >
-                      <option value="xunhu">使用 虎皮椒</option>
-                      <option value="yungou">使用 YunGouOS</option>
+                      <option value="xunhu">{t('tgshop.settings.useXunhu')}</option>
+                      <option value="yungou">{t('tgshop.settings.useYungou')}</option>
                     </select>
                   )}
                 </div>
@@ -952,8 +888,8 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             <div className="flex items-center gap-2 text-destructive">
               <span className="text-lg">⚠️</span>
               <div>
-                <div className="font-bold">商城已过期或试用已结束</div>
-                <div className="text-sm">请在上方输入激活码绑定以继续使用商城功能</div>
+                <div className="font-bold">{t('tgshop.settings.expiredWarning')}</div>
+                <div className="text-sm">{t('tgshop.settings.expiredWarningDesc')}</div>
               </div>
             </div>
           </div>
@@ -968,7 +904,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
               : 'bg-primary hover:bg-primary/90 text-primary-foreground'
           }`}
         >
-          {expired ? '请先激活商城' : '保存所有配置'}
+          {expired ? t('tgshop.settings.activateFirst') : t('tgshop.settings.saveAll')}
         </button>
       </div>
     </div>
