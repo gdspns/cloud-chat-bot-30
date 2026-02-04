@@ -2069,7 +2069,7 @@ function KeyboardEditor({
   const [isPushing, setIsPushing] = useState(false);
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   // 安全获取activePage，确保始终有有效值
-  const defaultPage: MenuPage = { id: 'main', name: '主菜单', rows: [] };
+  const defaultPage: MenuPage = { id: 'main', name: t('km.keyboard.mainMenu'), rows: [] };
   const activePage = (menuPages.length > 0 
     ? (menuPages.find((p: MenuPage) => p.id === activePageId) || menuPages[0])
     : defaultPage);
@@ -2088,7 +2088,7 @@ function KeyboardEditor({
 
   const addPage = () => {
     const newId = `page_${uuid().substring(0, 6)}`;
-    setMenuPages([...menuPages, { id: newId, name: `新页面`, rows: [[{ text: "按钮1", actionType: "text" }]] }]);
+    setMenuPages([...menuPages, { id: newId, name: t('km.keyboard.newPageName'), rows: [[{ text: t('km.keyboard.newButton'), actionType: "text" }]] }]);
     setActivePageId(newId);
   };
   const deletePage = (id: string) => {
@@ -2100,7 +2100,7 @@ function KeyboardEditor({
   const addRow = () => {
     setMenuPages(
       menuPages.map((p: MenuPage) =>
-        p.id === activePageId ? { ...p, rows: [...p.rows, [{ text: "新按钮", actionType: "text" }]] } : p,
+        p.id === activePageId ? { ...p, rows: [...p.rows, [{ text: t('km.keyboard.newButton'), actionType: "text" }]] } : p,
       ),
     );
   };
@@ -2127,7 +2127,7 @@ function KeyboardEditor({
       menuPages.map((p: MenuPage) => {
         if (p.id !== activePageId) return p;
         const newRows = [...p.rows];
-        if (newRows[rIdx].length < 3) newRows[rIdx].push({ text: "新按钮", actionType: "text" });
+        if (newRows[rIdx].length < 3) newRows[rIdx].push({ text: t('km.keyboard.newButton'), actionType: "text" });
         return { ...p, rows: newRows };
       }),
     );
@@ -2150,14 +2150,14 @@ function KeyboardEditor({
       return;
     }
     if (!isConnected || !targetChatId) {
-      showToast("error", "请先连接机器人并配置 User ID");
+      showToast("error", t('km.keyboard.connectAndConfigUserId'));
       return;
     }
     setIsPushing(true);
     try {
       await callApi("sendMessage", {
         chat_id: targetChatId,
-        text: `🔄 菜单更新: ${activePage.name}`,
+        text: `${t('km.keyboard.menuUpdate')}: ${activePage.name}`,
         reply_markup: {
           keyboard: activePage.rows.map((row: ReplyButton[]) => row.map((btn: ReplyButton) => ({ text: btn.text }))),
           resize_keyboard: true,
@@ -2165,10 +2165,10 @@ function KeyboardEditor({
           is_persistent: true,
         },
       });
-      showToast("success", `已推送页面 "${activePage.name}"`);
+      showToast("success", `${t('km.keyboard.pushSuccess')} "${activePage.name}"`);
       syncConfigToCloud?.();
     } catch (e: any) {
-      showToast("error", "推送失败: " + e.message);
+      showToast("error", `${t('km.keyboard.pushFailed')}: ${e.message}`);
     } finally {
       setIsPushing(false);
     }
@@ -2180,21 +2180,21 @@ function KeyboardEditor({
       return;
     }
     if (!isConnected) {
-      showToast("error", "请先连接机器人");
+      showToast("error", t('km.settings.connectFirst'));
       return;
     }
     if (dbUsers.length === 0) {
-      showToast("error", "暂无用户数据，请先让用户发送消息给机器人");
+      showToast("error", t('km.keyboard.noUsers'));
       return;
     }
     setIsPushing(true);
-    showToast("info", `开始向 ${dbUsers.length} 位用户推送底部键盘...`);
+    showToast("info", `${t('km.keyboard.broadcastStart')} ${dbUsers.length} ${t('km.users.users')}...`);
     let success = 0;
     for (const user of dbUsers) {
       try {
         await callApi("sendMessage", {
           chat_id: user.telegram_user_id,
-          text: `🔄 菜单更新: ${activePage.name}`,
+          text: `${t('km.keyboard.menuUpdate')}: ${activePage.name}`,
           reply_markup: {
             keyboard: activePage.rows.map((row: ReplyButton[]) => row.map((btn: ReplyButton) => ({ text: btn.text }))),
             resize_keyboard: true,
@@ -2206,7 +2206,7 @@ function KeyboardEditor({
       await new Promise((r) => setTimeout(r, 100));
     }
     setIsPushing(false);
-    showToast("success", `群发完成：${success}/${dbUsers.length} 成功`);
+    showToast("success", `${t('km.keyboard.broadcastComplete')}: ${success}/${dbUsers.length} ${t('km.keyboard.success')}`);
     syncConfigToCloud?.();
   };
 
@@ -2214,14 +2214,14 @@ function KeyboardEditor({
     <div className="space-y-6">
       <div className="border-b pb-4 flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold mb-1">多级菜单配置</h2>
-          <p className="text-xs text-muted-foreground">创建多个菜单页，通过"跳转"按钮链接它们。</p>
+          <h2 className="text-2xl font-bold mb-1">{t('km.keyboard.title')}</h2>
+          <p className="text-xs text-muted-foreground">{t('km.keyboard.desc')}</p>
         </div>
         <button
           onClick={addPage}
           className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 font-bold flex items-center gap-1"
         >
-          <Plus size={14} /> 新建菜单页
+          <Plus size={14} /> {t('km.keyboard.newPage')}
         </button>
       </div>
 
@@ -2257,7 +2257,7 @@ function KeyboardEditor({
               setMenuPages(menuPages.map((p: MenuPage) => (p.id === activePageId ? { ...p, name: e.target.value } : p)))
             }
             className="font-bold outline-none w-full bg-transparent"
-            placeholder="菜单页名称"
+            placeholder={t('km.keyboard.menuPageName')}
           />
         </div>
 
@@ -2282,22 +2282,22 @@ function KeyboardEditor({
                     value={btn.text}
                     onChange={(e) => updateBtn(rIdx, cIdx, "text", e.target.value)}
                     className="w-full text-center text-xs font-bold border-b pb-1 outline-none bg-transparent"
-                    placeholder="中文按钮文字"
+                    placeholder={t('km.keyboard.btnTextCn')}
                   />
                   <input
                     type="text"
                     value={btn.textEn || ""}
                     onChange={(e) => updateBtn(rIdx, cIdx, "textEn", e.target.value)}
                     className="w-full text-center text-[10px] text-muted-foreground border-b pb-1 outline-none bg-transparent"
-                    placeholder="English (可选)"
+                    placeholder={t('km.keyboard.btnTextEn')}
                   />
                   <select
                     value={btn.actionType}
                     onChange={(e) => updateBtn(rIdx, cIdx, "actionType", e.target.value)}
                     className="w-full text-[10px] bg-muted border rounded px-1 py-0.5 outline-none font-medium"
                   >
-                    <option value="text">💬 发送文本</option>
-                    <option value="navigate">📂 跳转菜单</option>
+                    <option value="text">{t('km.keyboard.sendText')}</option>
+                    <option value="navigate">{t('km.keyboard.navigateMenu')}</option>
                   </select>
                   {btn.actionType === "navigate" && (
                     <select
@@ -2305,7 +2305,7 @@ function KeyboardEditor({
                       onChange={(e) => updateBtn(rIdx, cIdx, "actionValue", e.target.value)}
                       className="w-full text-[10px] bg-primary/10 text-primary border border-primary/20 px-1 py-0.5 rounded outline-none"
                     >
-                      <option value="">选择目标页...</option>
+                      <option value="">{t('km.keyboard.selectTarget')}</option>
                       {menuPages.map((p: MenuPage) => (
                         <option key={p.id} value={p.id}>
                           {p.name}
@@ -2336,7 +2336,7 @@ function KeyboardEditor({
           onClick={addRow}
           className="w-full py-2 border-2 border-dashed rounded-lg text-muted-foreground font-bold hover:border-primary hover:text-primary transition flex items-center justify-center gap-2 text-sm"
         >
-          <Plus size={16} /> 添加新行
+          <Plus size={16} /> {t('km.keyboard.addNewRow')}
         </button>
         <div className="border-t pt-4 mt-2 grid grid-cols-2 gap-3">
           <button
@@ -2344,14 +2344,14 @@ function KeyboardEditor({
             disabled={isPushing}
             className="w-full bg-foreground text-background py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-foreground/90 transition disabled:opacity-50"
           >
-            {isPushing ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />} 推送给当前 ID
+            {isPushing ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />} {t('km.keyboard.pushCurrent')}
           </button>
           <button
             onClick={pushToAllUsers}
             disabled={isPushing}
             className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition disabled:opacity-50"
           >
-            {isPushing ? <Loader2 size={18} className="animate-spin" /> : <RadioReceiver size={18} />} 群发更新
+            {isPushing ? <Loader2 size={18} className="animate-spin" /> : <RadioReceiver size={18} />} {t('km.keyboard.broadcastUpdate')}
           </button>
         </div>
       </div>
@@ -2398,7 +2398,7 @@ function CommandsEditor({
       return;
     }
     if (!isConnected) {
-      showToast("error", "请先连接机器人");
+      showToast("error", t('km.settings.connectFirst'));
       return;
     }
     setIsSaving(true);
@@ -2502,7 +2502,7 @@ function CommandsEditor({
         }
       }
 
-      showToast("success", `菜单命令已同步${validCommands.length === 0 ? ' (已清除所有命令)' : ''}`);
+      showToast("success", validCommands.length === 0 ? t('km.commands.menuConfigCleared') : t('km.commands.menuSyncSuccess'));
       syncConfigToCloud?.();
     } catch (e: any) {
       showToast("error", e.message);
@@ -2514,12 +2514,12 @@ function CommandsEditor({
   return (
     <div className="space-y-6">
       <div className="border-b pb-4">
-        <h2 className="text-2xl font-bold mb-1">菜单命令管理</h2>
+        <h2 className="text-2xl font-bold mb-1">{t('km.commands.title')}</h2>
       </div>
 
       <div className="bg-card p-5 rounded-xl border shadow-sm">
         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-          <Layout size={16} className="text-primary" /> 左下角菜单按钮配置
+          <Layout size={16} className="text-primary" /> {t('km.commands.menuBtnConfig')}
         </h3>
         <div className="flex gap-4 mb-3">
           <label className="flex items-center gap-2 cursor-pointer text-sm">
@@ -2529,7 +2529,7 @@ function CommandsEditor({
               onChange={() => setMenuBtnType("commands")}
               className="text-primary"
             />
-            显示指令列表 (默认)
+            {t('km.commands.showCommandList')}
           </label>
           <label className="flex items-center gap-2 cursor-pointer text-sm">
             <input
@@ -2538,7 +2538,7 @@ function CommandsEditor({
               onChange={() => setMenuBtnType("web_app")}
               className="text-primary"
             />
-            打开 Web App
+            {t('km.commands.openWebApp')}
           </label>
         </div>
         {menuBtnType === "web_app" && (
@@ -2546,13 +2546,13 @@ function CommandsEditor({
             <input
               value={webAppText}
               onChange={(e) => setWebAppText(e.target.value)}
-              placeholder="按钮文字"
+              placeholder={t('km.commands.btnText')}
               className="border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <input
               value={webAppUrl}
               onChange={(e) => setWebAppUrl(e.target.value)}
-              placeholder="Web App URL"
+              placeholder={t('km.commands.webAppUrl')}
               className="border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </div>
@@ -2562,7 +2562,7 @@ function CommandsEditor({
       {menuBtnType !== "web_app" && (
         <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
           <h3 className="text-sm font-bold flex items-center gap-2">
-            <List size={16} /> 指令列表
+            <List size={16} /> {t('km.commands.commandList')}
           </h3>
           <div className="space-y-2">
             {commands.map((c: BotCommand, i: number) => (
@@ -2593,14 +2593,14 @@ function CommandsEditor({
               <input
                 value={newCmd.command}
                 onChange={(e) => setNewCmd({ ...newCmd, command: e.target.value })}
-                placeholder="new_cmd"
+                placeholder={t('km.commands.newCmd')}
                 className="w-full pl-5 pr-2 py-1 border rounded text-sm outline-none"
               />
             </div>
             <input
               value={newCmd.description}
               onChange={(e) => setNewCmd({ ...newCmd, description: e.target.value })}
-              placeholder="description"
+              placeholder={t('km.commands.description')}
               className="flex-1 border rounded px-2 py-1 text-sm outline-none"
             />
             <button onClick={addCommand} className="bg-muted hover:bg-accent px-3 rounded">
@@ -2612,7 +2612,7 @@ function CommandsEditor({
             disabled={isSaving}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-2 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2"
           >
-            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 同步至 Telegram
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {t('km.commands.syncToTelegram')}
           </button>
         </div>
       )}
@@ -2624,7 +2624,7 @@ function CommandsEditor({
             disabled={isSaving}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-2 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 shadow-sm"
           >
-            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 保存 Web App 配置
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {t('km.commands.saveWebApp')}
           </button>
         </div>
       )}
@@ -2872,13 +2872,13 @@ function MessageFlowEditor({
 
   const addInlineRow = () => {
     const currentKb = activeMsg.inlineKeyboard || [];
-    updateActiveMsg("inlineKeyboard", [...currentKb, [{ text: "新按钮", type: "url", value: "" }]]);
+    updateActiveMsg("inlineKeyboard", [...currentKb, [{ text: t('km.keyboard.newButton'), type: "url", value: "" }]]);
   };
 
   const addInlineCol = (rIdx: number) => {
     const currentKb = [...(activeMsg.inlineKeyboard || [])];
     if (currentKb[rIdx].length < 3) {
-      currentKb[rIdx].push({ text: "新按钮", type: "url", value: "" });
+      currentKb[rIdx].push({ text: t('km.keyboard.newButton'), type: "url", value: "" });
       updateActiveMsg("inlineKeyboard", currentKb);
     }
   };
@@ -2912,21 +2912,21 @@ function MessageFlowEditor({
       for (let cIdx = 0; cIdx < row.length; cIdx++) {
         const btn = row[cIdx];
         if (!btn.text || !btn.text.trim()) {
-          return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮缺少按钮文字`;
+          return `${t('km.message.row')} ${rIdx + 1} ${t('km.message.column')} ${cIdx + 1} ${t('km.message.btn')} ${t('km.message.btnMissingText')}`;
         }
         if (!btn.value || !btn.value.trim()) {
           if (btn.type === "url") {
-            return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮 "${btn.text}" 缺少链接地址`;
+            return `${t('km.message.row')} ${rIdx + 1} ${t('km.message.column')} ${cIdx + 1} ${t('km.message.btn')} "${btn.text}" ${t('km.message.btnMissingUrl')}`;
           } else if (btn.type === "callback_data") {
-            return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮 "${btn.text}" 缺少回调指令/关键词`;
+            return `${t('km.message.row')} ${rIdx + 1} ${t('km.message.column')} ${cIdx + 1} ${t('km.message.btn')} "${btn.text}" ${t('km.message.btnMissingCallback')}`;
           } else if (btn.type === "web_app") {
-            return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮 "${btn.text}" 缺少 Web App 网址`;
+            return `${t('km.message.row')} ${rIdx + 1} ${t('km.message.column')} ${cIdx + 1} ${t('km.message.btn')} "${btn.text}" ${t('km.message.btnMissingWebApp')}`;
           }
         }
         // 额外验证 URL 格式
         if (btn.type === "url" || btn.type === "web_app") {
           if (btn.value && !btn.value.startsWith("http://") && !btn.value.startsWith("https://")) {
-            return `第 ${rIdx + 1} 行第 ${cIdx + 1} 个按钮 "${btn.text}" 的网址必须以 http:// 或 https:// 开头`;
+            return `${t('km.message.row')} ${rIdx + 1} ${t('km.message.column')} ${cIdx + 1} ${t('km.message.btn')} "${btn.text}" ${t('km.message.urlMustStartWith')}`;
           }
         }
       }
@@ -2971,7 +2971,7 @@ function MessageFlowEditor({
       }
       return [...prev, newRule];
     });
-    showToast("success", `已保存为自动回复: ${trigger}`);
+    showToast("success", `${t('km.message.savedAsAutoReply')}: ${trigger}`);
     // 自动同步到云端
     setTimeout(() => {
       syncConfigToCloud?.();
@@ -2991,14 +2991,14 @@ function MessageFlowEditor({
     <div className="space-y-6">
       <div className="border-b pb-4 flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold mb-1">消息推送编辑器</h2>
-          <p className="text-xs text-muted-foreground">编辑消息并保存为自动回复规则</p>
+          <h2 className="text-2xl font-bold mb-1">{t('km.message.title')}</h2>
+          <p className="text-xs text-muted-foreground">{t('km.message.desc')}</p>
         </div>
         <button
           onClick={addMessage}
           className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 font-bold flex items-center gap-1"
         >
-          <Plus size={14} /> 新增消息
+          <Plus size={14} /> {t('km.message.newMessage')}
         </button>
       </div>
 
@@ -3010,7 +3010,7 @@ function MessageFlowEditor({
             className={`px-3 py-1.5 rounded-lg cursor-pointer text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-colors ${activeMsgId === m.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}
           >
             <Hash size={12} />
-            {m.label || "消息"}
+            {m.label || t('km.message.message')}
           </div>
         ))}
       </div>
@@ -3022,7 +3022,7 @@ function MessageFlowEditor({
             value={activeMsg.label || ""}
             onChange={(e) => updateActiveMsg("label", e.target.value)}
             className="font-bold outline-none flex-1 bg-transparent"
-            placeholder="/start 或 关键词"
+            placeholder={t('km.message.triggerLabel')}
           />
           {messages.length > 1 && (
             <button onClick={removeActiveMessage} className="text-destructive hover:bg-destructive/10 p-1 rounded">
@@ -3038,9 +3038,9 @@ function MessageFlowEditor({
               onChange={(e) => updateActiveMsg("type", e.target.value)}
               className="border rounded-lg px-3 py-2 text-sm outline-none"
             >
-              <option value="text">📝 文本消息</option>
-              <option value="photo">🖼️ 图片消息</option>
-              <option value="video">🎥 视频消息</option> {/* 新增选项 */}
+              <option value="text">{t('km.message.textMsg')}</option>
+              <option value="photo">{t('km.message.photoMsg')}</option>
+              <option value="video">{t('km.message.videoMsg')}</option>
             </select>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <input
@@ -3049,7 +3049,7 @@ function MessageFlowEditor({
                 onChange={(e) => updateActiveMsg("disableWebPagePreview", e.target.checked)}
                 className="rounded"
               />
-              禁用链接预览
+              {t('km.message.disableLinkPreview')}
             </div>
           </div>
 
@@ -3057,17 +3057,16 @@ function MessageFlowEditor({
             <input
               value={activeMsg.mediaUrl || ""}
               onChange={(e) => updateActiveMsg("mediaUrl", e.target.value)}
-              placeholder="图片 URL"
+              placeholder={t('km.message.photoUrl')}
               className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
             />
           )}
 
-          {/* 新增视频 URL 输入框 */}
           {activeMsg.type === "video" && (
             <input
               value={activeMsg.mediaUrl || ""}
               onChange={(e) => updateActiveMsg("mediaUrl", e.target.value)}
-              placeholder="视频 URL (mp4)"
+              placeholder={t('km.message.videoUrl')}
               className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
             />
           )}
@@ -3076,33 +3075,33 @@ function MessageFlowEditor({
             <textarea
               value={activeMsg.content}
               onChange={(e) => updateActiveMsg("content", e.target.value)}
-              placeholder="消息内容 (支持 HTML)"
+              placeholder={t('km.message.content')}
               className="w-full h-32 border rounded-lg px-3 py-2 text-sm outline-none resize-none font-mono"
             />
             <div className="absolute bottom-2 right-2 flex gap-1">
               <button
                 onClick={openLinkInserter}
                 className="px-2 py-1 bg-muted hover:bg-accent rounded text-muted-foreground flex items-center gap-1 text-[10px]"
-                title="插入链接"
+                title={t('km.message.link')}
               >
                 <LinkIcon size={12} />
-                <span>链接</span>
+                <span>{t('km.message.link')}</span>
               </button>
               <button
                 onClick={openCopyInserter}
                 className="px-2 py-1 bg-muted hover:bg-accent rounded text-muted-foreground flex items-center gap-1 text-[10px]"
-                title="插入可复制文本"
+                title={t('km.message.copyableText')}
               >
                 <Copy size={12} />
-                <span>复制</span>
+                <span>{t('km.message.copy')}</span>
               </button>
               <button
                 onClick={openEmojiPicker}
                 className="px-2 py-1 bg-muted hover:bg-accent rounded text-muted-foreground flex items-center gap-1 text-[10px]"
-                title="插入表情"
+                title={t('km.message.selectEmoji')}
               >
                 <Smile size={12} />
-                <span>表情</span>
+                <span>{t('km.message.emoji')}</span>
               </button>
             </div>
           </div>
@@ -3112,13 +3111,13 @@ function MessageFlowEditor({
               <input
                 value={linkForm.text}
                 onChange={(e) => setLinkForm({ ...linkForm, text: e.target.value })}
-                placeholder="链接文字"
+                placeholder={t('km.message.linkText')}
                 className="w-full border rounded px-2 py-1 text-sm outline-none"
               />
               <input
                 value={linkForm.url}
                 onChange={(e) => setLinkForm({ ...linkForm, url: e.target.value })}
-                placeholder="链接地址 (https://...)"
+                placeholder={t('km.message.linkUrl')}
                 className="w-full border rounded px-2 py-1 text-sm outline-none"
               />
               <div className="flex gap-2">
@@ -3126,13 +3125,13 @@ function MessageFlowEditor({
                   onClick={confirmInsertLink}
                   className="bg-primary text-primary-foreground px-3 py-1 rounded text-xs font-bold"
                 >
-                  插入
+                  {t('km.message.insert')}
                 </button>
                 <button
                   onClick={() => setShowLinkInserter(false)}
                   className="bg-muted-foreground/20 px-3 py-1 rounded text-xs"
                 >
-                  取消
+                  {t('km.message.cancel')}
                 </button>
               </div>
             </div>
@@ -3143,7 +3142,7 @@ function MessageFlowEditor({
               <input
                 value={copyText}
                 onChange={(e) => setCopyText(e.target.value)}
-                placeholder="可复制文本"
+                placeholder={t('km.message.copyableText')}
                 className="w-full border rounded px-2 py-1 text-sm outline-none"
               />
               <div className="flex gap-2">
@@ -3151,13 +3150,13 @@ function MessageFlowEditor({
                   onClick={confirmInsertCopy}
                   className="bg-primary text-primary-foreground px-3 py-1 rounded text-xs font-bold"
                 >
-                  插入
+                  {t('km.message.insert')}
                 </button>
                 <button
                   onClick={() => setShowCopyInserter(false)}
                   className="bg-muted-foreground/20 px-3 py-1 rounded text-xs"
                 >
-                  取消
+                  {t('km.message.cancel')}
                 </button>
               </div>
             </div>
@@ -3166,7 +3165,7 @@ function MessageFlowEditor({
           {showEmojiPicker && (
             <div className="bg-muted p-3 rounded-lg animate-in fade-in">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-bold text-muted-foreground">选择表情</span>
+                <span className="text-xs font-bold text-muted-foreground">{t('km.message.selectEmoji')}</span>
                 <button
                   onClick={() => setShowEmojiPicker(false)}
                   className="text-muted-foreground hover:text-foreground"
@@ -3191,12 +3190,12 @@ function MessageFlowEditor({
 
         <div className="border-t pt-4">
           <div className="flex justify-between items-center mb-3">
-            <h4 className="text-sm font-bold">内联按钮</h4>
+            <h4 className="text-sm font-bold">{t('km.message.inlineButtons')}</h4>
             <button
               onClick={addInlineRow}
               className="text-xs bg-muted hover:bg-accent px-2 py-1 rounded flex items-center gap-1"
             >
-              <Plus size={12} /> 添加行
+              <Plus size={12} /> {t('km.message.addRow')}
             </button>
           </div>
           <div className="space-y-2">
@@ -3209,7 +3208,7 @@ function MessageFlowEditor({
                         value={btn.text}
                         onChange={(e) => updateBtn(rIdx, cIdx, "text", e.target.value)}
                         className="w-full text-xs font-bold outline-none bg-transparent"
-                        placeholder="按钮文字"
+                        placeholder={t('km.message.btnText')}
                       />
                       <button onClick={() => removeInlineBtn(rIdx, cIdx)} className="text-destructive">
                         <X size={12} />
@@ -3220,14 +3219,14 @@ function MessageFlowEditor({
                       onChange={(e) => updateBtn(rIdx, cIdx, "type", e.target.value)}
                       className="w-full text-[10px] bg-muted border rounded px-1 py-0.5 outline-none"
                     >
-                      <option value="url">🔗 链接</option>
-                      <option value="callback_data">⚡ 回调</option>
-                      <option value="web_app">🌐 Web App</option>
+                      <option value="url">{t('km.message.urlType')}</option>
+                      <option value="callback_data">{t('km.message.callbackType')}</option>
+                      <option value="web_app">{t('km.message.webAppType')}</option>
                     </select>
                     <input
                       value={btn.value}
                       onChange={(e) => updateBtn(rIdx, cIdx, "value", e.target.value)}
-                      placeholder="值"
+                      placeholder={t('km.message.value')}
                       className="w-full text-[10px] border rounded px-1 py-0.5 outline-none"
                     />
                   </div>
@@ -3250,14 +3249,14 @@ function MessageFlowEditor({
             onClick={saveAsAutoCommand}
             className="w-full bg-muted hover:bg-accent py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2"
           >
-            <Save size={16} /> 保存为自动回复
+            <Save size={16} /> {t('km.message.saveAsAutoReply')}
           </button>
           <button
             onClick={() => handleSendFlow()}
             disabled={!isConnected || !targetChatId}
             className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2"
           >
-            <Send size={16} /> 发送至目标
+            <Send size={16} /> {t('km.message.sendToTarget')}
           </button>
         </div>
       </div>
@@ -3338,9 +3337,9 @@ function UsersPanel({
 
       if (error) throw error;
       setDbUsers((prev) => prev.filter((u) => u.id !== userId));
-      showToast("success", `已删除用户 ID: ${telegramUserId}`);
+      showToast("success", `${t('km.users.deleted')}: ${telegramUserId}`);
     } catch (e: any) {
-      showToast("error", "删除失败: " + e.message);
+      showToast("error", `${t('km.users.deleteFailed')}: ${e.message}`);
     } finally {
       setDeleting(null);
     }
@@ -3353,9 +3352,9 @@ function UsersPanel({
     <div className="space-y-6">
       <div className="border-b pb-4 flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold mb-1">用户数据</h2>
+          <h2 className="text-2xl font-bold mb-1">{t('km.users.title')}</h2>
           <p className="text-xs text-muted-foreground">
-            共 {allUsers.length} 位用户 {botToken ? "(实时同步)" : "(未连接机器人)"}
+            {t('km.users.total')} {allUsers.length} {t('km.users.users')} {botToken ? t('km.users.realTimeSync') : t('km.users.notConnected')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -3364,44 +3363,44 @@ function UsersPanel({
             disabled={loading}
             className="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded flex items-center gap-1"
           >
-            <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> 刷新
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> {t('km.users.refresh')}
           </button>
           <button
             onClick={async () => {
               if (!botToken) {
-                showToast("error", "请先连接机器人");
+                showToast("error", t('km.users.connectFirst'));
                 return;
               }
-              if (!confirm("确定要清空所有用户数据吗？")) return;
+              if (!confirm(t('km.users.confirmClear'))) return;
               try {
                 const { error } = await supabase.from("bot_users").delete().eq("bot_token", botToken);
                 if (error) throw error;
                 setDbUsers([]);
-                showToast("info", "已清空用户数据");
+                showToast("info", t('km.users.cleared'));
               } catch (e: any) {
-                showToast("error", "清空失败: " + e.message);
+                showToast("error", `${t('km.users.clearFailed')}: ${e.message}`);
               }
             }}
             className="text-xs text-destructive hover:bg-destructive/10 px-2 py-1 rounded"
           >
-            清空数据
+            {t('km.users.clearData')}
           </button>
         </div>
       </div>
 
       <div className="bg-card p-6 rounded-xl border shadow-sm">
         <h4 className="font-bold mb-4 flex items-center gap-2">
-          <List size={18} /> 用户列表
+          <List size={18} /> {t('km.users.userList')}
         </h4>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
               <tr>
-                <th className="px-4 py-3">User ID</th>
-                <th className="px-4 py-3">昵称 / 用户名</th>
-                <th className="px-4 py-3">首次发现</th>
-                <th className="px-4 py-3">最后活跃</th>
-                <th className="px-4 py-3 text-right">操作</th>
+                <th className="px-4 py-3">{t('km.users.userId')}</th>
+                <th className="px-4 py-3">{t('km.users.nickname')}</th>
+                <th className="px-4 py-3">{t('km.users.firstSeen')}</th>
+                <th className="px-4 py-3">{t('km.users.lastActive')}</th>
+                <th className="px-4 py-3 text-right">{t('km.users.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -3409,13 +3408,13 @@ function UsersPanel({
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                     <Loader2 size={20} className="animate-spin mx-auto mb-2" />
-                    加载中...
+                    {t('km.users.loading')}
                   </td>
                 </tr>
               ) : allUsers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                    暂无数据。当用户发送消息给机器人时会自动抓取。
+                    {t('km.users.noData')}
                   </td>
                 </tr>
               ) : (
@@ -3440,25 +3439,25 @@ function UsersPanel({
                         <button
                           onClick={() => {
                             setTargetChatId(u.telegram_user_id.toString());
-                            showToast("success", `已锁定目标用户: ${u.first_name}`);
+                            showToast("success", `${t('km.users.locked')}: ${u.first_name}`);
                           }}
                           className="flex items-center gap-1 bg-muted hover:bg-accent px-2 py-1.5 rounded text-xs transition"
-                          title="设为目标 ID"
+                          title={t('km.users.lock')}
                         >
-                          <Target size={14} /> 锁定
+                          <Target size={14} /> {t('km.users.lock')}
                         </button>
                         <button
                           onClick={() => handlePushMenu(u.telegram_user_id, u.first_name)}
                           className="flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary px-2 py-1.5 rounded text-xs transition font-medium"
-                          title="推送主菜单"
+                          title={t('km.users.push')}
                         >
-                          <SendHorizontal size={14} /> 推送
+                          <SendHorizontal size={14} /> {t('km.users.push')}
                         </button>
                         <button
                           onClick={() => deleteUser(u.id, u.telegram_user_id)}
                           disabled={deleting === u.id}
                           className="flex items-center gap-1 bg-destructive/10 hover:bg-destructive/20 text-destructive px-2 py-1.5 rounded text-xs transition"
-                          title="删除用户"
+                          title={t('common.delete')}
                         >
                           {deleting === u.id ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
                         </button>
