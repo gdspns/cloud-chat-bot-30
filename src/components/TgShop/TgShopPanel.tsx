@@ -7,6 +7,7 @@ import { CategoryManager } from "./CategoryManager";
 import { OrderManager } from "./OrderManager";
 import { ShopSettings } from "./ShopSettings";
 import { useShopData } from "./hooks/useShopData";
+import { useLanguage } from "@/hooks/use-language";
 
 interface TgShopPanelProps {
   botToken?: string;
@@ -16,6 +17,7 @@ interface TgShopPanelProps {
 export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
   const [activeTab, setActiveTab] = useState<ShopTab>('settings');
   const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const { t } = useLanguage();
   
   const {
     products,
@@ -37,22 +39,22 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
   const handleClearOrders = async (status: 'pending' | 'paid' | 'cancelled') => {
     const success = await clearOrdersByStatus(status);
     if (success) {
-      showToast("success", "订单已清空");
+      showToast("success", t('tgshop.panel.ordersCleared'));
     } else {
-      showToast("error", "清空失败，请重试");
+      showToast("error", t('tgshop.panel.clearFailed'));
     }
   };
 
   const handleSaveConfig = async (newConfig: Parameters<typeof saveConfig>[0]) => {
     const success = await saveConfig(newConfig);
     if (success) {
-      showToast("success", "配置已保存并同步到云端");
+      showToast("success", t('tgshop.panel.configSaved'));
     } else {
-      showToast("error", "保存失败，请重试");
+      showToast("error", t('tgshop.panel.saveFailed'));
     }
   };
 
-  // 自定义分类管理
+  // Custom category management
   const handleAddCustomCategory = useCallback((category: string) => {
     setCustomCategories(prev => {
       if (prev.includes(category)) return prev;
@@ -63,7 +65,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
   const handleRemoveCustomCategory = useCallback((category: string) => {
     setCustomCategories(prev => prev.filter(c => c !== category));
   }, []);
-  // 如果没有 botToken，显示提示
+  // Show prompt if no botToken
   if (!botToken) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-muted/30 p-8">
@@ -71,16 +73,16 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
           <div className="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
             <CloudOff className="w-8 h-8 text-muted-foreground" />
           </div>
-          <h2 className="text-xl font-bold text-foreground">未连接机器人</h2>
+          <h2 className="text-xl font-bold text-foreground">{t('tgshop.panel.notConnected')}</h2>
           <p className="text-sm text-muted-foreground">
-            请先在左侧"菜单键盘"中连接一个 Telegram 机器人，然后再使用 TG 商城功能。
+            {t('tgshop.panel.connectHint')}
             <br />
-            商城数据将与该机器人绑定，确保数据隔离。
+            {t('tgshop.panel.dataIsolation')}
           </p>
           <div className="pt-4">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-lg text-sm text-primary">
               <Activity size={16} />
-              <span>请先连接机器人</span>
+              <span>{t('tgshop.panel.connectFirst')}</span>
             </div>
           </div>
         </div>
@@ -90,39 +92,39 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* 顶部导航栏 */}
+      {/* Top navigation bar */}
       <header className="bg-card border-b px-6 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 pr-4 border-r">
             <Activity className="text-primary" />
             <div>
-              <h1 className="text-lg font-bold leading-none">TG 商城</h1>
-              <p className="text-[10px] text-muted-foreground mt-0.5">自动售货后台</p>
+              <h1 className="text-lg font-bold leading-none">{t('tgshop.panel.title')}</h1>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('tgshop.panel.subtitle')}</p>
             </div>
           </div>
           
           <nav className="flex items-center gap-2">
             <ShopNavButton 
               icon={<Settings size={16}/>} 
-              label="系统配置" 
+              label={t('tgshop.panel.navSettings')} 
               active={activeTab === 'settings'} 
               onClick={() => setActiveTab('settings')} 
             />
             <ShopNavButton 
               icon={<Package size={16}/>} 
-              label="商品管理" 
+              label={t('tgshop.panel.navProducts')} 
               active={activeTab === 'products'} 
               onClick={() => setActiveTab('products')} 
             />
             <ShopNavButton 
               icon={<Tag size={16}/>} 
-              label="分类管理" 
+              label={t('tgshop.panel.navCategories')} 
               active={activeTab === 'categories'} 
               onClick={() => setActiveTab('categories')} 
             />
             <ShopNavButton 
               icon={<ShoppingCart size={16}/>} 
-              label="订单中心" 
+              label={t('tgshop.panel.navOrders')} 
               active={activeTab === 'orders'} 
               onClick={() => setActiveTab('orders')} 
             />
@@ -130,17 +132,17 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* 同步状态指示器 */}
+          {/* Sync status indicator */}
           <div className="flex items-center gap-2">
             {isSyncing ? (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <RefreshCw size={12} className="animate-spin" />
-                <span>同步中...</span>
+                <span>{t('tgshop.panel.syncing')}</span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 text-xs text-green-600">
                 <Cloud size={12} />
-                <span>已同步</span>
+                <span>{t('tgshop.panel.synced')}</span>
               </div>
             )}
           </div>
@@ -149,7 +151,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
             onClick={refreshData}
             disabled={isLoading || isSyncing}
             className="p-1.5 rounded hover:bg-muted transition-colors disabled:opacity-50"
-            title="刷新数据"
+            title={t('tgshop.panel.refreshData')}
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
           </button>
@@ -163,23 +165,23 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
               config.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'
             }`} />
             <span className="text-xs font-medium">
-              {config.status === 'online' ? 'Bot 已配置' : 'Bot 未配置'}
+              {config.status === 'online' ? t('tgshop.panel.botConfigured') : t('tgshop.panel.botNotConfigured')}
             </span>
           </div>
         </div>
       </header>
 
-      {/* 加载状态 */}
+      {/* Loading state */}
       {isLoading && (
         <div className="flex-1 flex items-center justify-center bg-muted/30">
           <div className="flex flex-col items-center gap-3">
             <RefreshCw className="w-8 h-8 animate-spin text-primary" />
-            <span className="text-sm text-muted-foreground">加载数据中...</span>
+            <span className="text-sm text-muted-foreground">{t('tgshop.panel.loading')}</span>
           </div>
         </div>
       )}
 
-      {/* 主内容区 */}
+      {/* Main content area */}
       {!isLoading && (
         <main className="flex-1 overflow-hidden">
           <div className="h-full bg-muted/30">
