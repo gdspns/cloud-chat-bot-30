@@ -490,8 +490,8 @@ const Index = () => {
     setShowAddBot(false);
     
     toast({
-      title: "添加成功",
-      description: `机器人已添加，可免费试用 ${newBot.trial_limit} 条消息`,
+      title: t('user.addSuccess'),
+      description: `${t('user.canTrial')} ${newBot.trial_limit} ${t('user.messages')}`,
     });
   };
 
@@ -529,12 +529,12 @@ const Index = () => {
       }
       
       toast({
-        title: "删除成功",
-        description: "机器人已从列表中移除",
+        title: t('user.deleteSuccess'),
+        description: t('user.botRemoved'),
       });
     } catch (error: any) {
       toast({
-        title: "删除失败",
+        title: t('user.deleteFailed'),
         description: error.message,
         variant: "destructive",
       });
@@ -549,7 +549,7 @@ const Index = () => {
   // 发送消息
   const handleSendMessage = async (message: string, photoBase64?: string): Promise<{ trialExceeded?: boolean; error?: string }> => {
     if (!selectedBotId || !selectedChatId) {
-      return { error: "请选择聊天对象" };
+      return { error: t('chat.selectChat') };
     }
 
     const currentBot = bots.find(b => b.id === selectedBotId);
@@ -581,7 +581,7 @@ const Index = () => {
       }
       
       if (data.webDisabled) {
-        return { error: "Web端口已关闭" };
+        return { error: t('user.webPortClosed') };
       }
       
       if (data.error) {

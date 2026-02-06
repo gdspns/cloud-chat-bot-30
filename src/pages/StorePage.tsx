@@ -261,7 +261,7 @@ export const StorePage = () => {
       if (retryCount >= MAX_RETRIES) {
         console.warn('[卡密发货] 超过最大重试次数:', orderNo);
         setIsLoadingCardKey(false);
-        setCardKeyRetryError('发货失败，请点击重试或稍后在订单记录中查看');
+        setCardKeyRetryError(t('store.deliveryFailed'));
         stopCardKeyPolling();
         return;
       }
@@ -276,7 +276,7 @@ export const StorePage = () => {
   const retryCardKeyDelivery = (orderNo: string, productId?: string) => {
     const pid = productId || selectedProductId;
     if (!pid) {
-      setCardKeyRetryError('无法获取商品信息，请联系客服');
+      setCardKeyRetryError(t('store.cannotGetProduct'));
       return;
     }
     startCardKeyDelivery(orderNo, pid);
@@ -800,7 +800,7 @@ export const StorePage = () => {
                         <p className="text-[9px] text-gray-400 font-bold uppercase">{t('store.cardInfo')}</p>
                         {!isLoadingCardKey && currentOrder.code && !cardKeyRetryError && (
                           <button 
-                            onClick={() => copyToClipboard(currentOrder.code, "复制成功")}
+                            onClick={() => copyToClipboard(currentOrder.code, t('store.copySuccess'))}
                             className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
                           >
                             <Copy size={12} /> {t('store.copy')}
@@ -813,10 +813,10 @@ export const StorePage = () => {
                         <div className="flex flex-col items-center justify-center py-4 space-y-3">
                           <Loader2 size={24} className="text-blue-400 animate-spin" />
                           <p className="text-blue-400 font-medium text-sm animate-pulse">
-                            正在安全从云端获取卡密，请稍候...
+                            {t('store.loadingCardFromCloud')}
                           </p>
                           <p className="text-gray-500 text-xs">
-                            正在进行第 {cardKeyRetryCount} 次尝试
+                            {language === 'zh' ? `正在进行第 ${cardKeyRetryCount} 次尝试` : `Attempt ${cardKeyRetryCount}`}
                           </p>
                         </div>
                       )}
@@ -830,7 +830,7 @@ export const StorePage = () => {
                               onClick={() => retryCardKeyDelivery(currentOrder.orderNo, selectedProductId || undefined)}
                               className="mt-3 w-full bg-white/10 hover:bg-white/20 border border-white/10 text-white py-2 rounded-lg text-xs font-bold transition-all active:scale-95"
                             >
-                              手动重试获取卡密
+                              {t('store.manualRetry')}
                             </button>
                           )}
                         </div>
@@ -848,18 +848,18 @@ export const StorePage = () => {
                       ) : (
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Loader2 size={22} className="text-blue-400 animate-spin" />
-                          <p className="text-gray-300 text-sm font-bold">已支付，正在自动激活中…</p>
-                          <p className="text-gray-500 text-[10px]">一般 5-20 秒完成，请勿关闭页面</p>
+                          <p className="text-gray-300 text-sm font-bold">{t('store.paidActivating')}</p>
+                          <p className="text-gray-500 text-[10px]">{t('store.activatingHint')}</p>
                         </div>
                       )}
                     </div>
                   )}
                   <div className="mt-3 pt-3 border-t border-white/10 text-[9px] flex justify-between opacity-60 font-bold">
-                    <span>单号: {currentOrder.orderNo}</span>
+                    <span>{t('store.orderNo')}: {currentOrder.orderNo}</span>
                     <span>{currentOrder.amount}</span>
                   </div>
                 </div>
-                <button onClick={() => {setPaymentStep('selection'); setBotId(''); setPaymentMethod(''); setIsLoadingCardKey(false); setCardKeyRetryError(''); stopCardKeyPolling();}} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold mt-6 text-sm">确定</button>
+                <button onClick={() => {setPaymentStep('selection'); setBotId(''); setPaymentMethod(''); setIsLoadingCardKey(false); setCardKeyRetryError(''); stopCardKeyPolling();}} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold mt-6 text-sm">{t('store.confirm')}</button>
               </div>
             )}
           </div>
@@ -874,15 +874,15 @@ export const StorePage = () => {
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in">
         <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full flex flex-col max-h-[80vh]">
           <div className="p-4 border-b flex justify-between items-center">
-            <h3 className="font-bold text-gray-900">订单查询</h3>
+            <h3 className="font-bold text-gray-900">{t('store.orderQueryTitle')}</h3>
             <button onClick={() => setShowQueryModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
           </div>
           <div className="p-4 overflow-y-auto bg-gray-50 flex-1">
-            <p className="text-xs text-gray-500 mb-4 px-1">查询账号: <span className="font-bold text-blue-600">{contactInfo}</span></p>
+            <p className="text-xs text-gray-500 mb-4 px-1">{t('store.queryAccount')}: <span className="font-bold text-blue-600">{contactInfo}</span></p>
             {myOrders.length === 0 ? (
               <div className="py-12 text-center text-gray-400 flex flex-col items-center">
                 <History size={32} className="mb-2 opacity-30" />
-                <p className="text-xs">暂无记录</p>
+                <p className="text-xs">{t('store.noRecords')}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -890,15 +890,15 @@ export const StorePage = () => {
                   <div key={order.orderNo} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                     <div className="flex justify-between items-start mb-2">
                       <div><p className="font-bold text-sm text-gray-800">{order.productName}</p><p className="text-[10px] text-gray-400">{order.time}</p></div>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${order.status === 'paid' ? 'bg-green-100 text-green-700' : (order.status === 'expired' ? 'bg-gray-100 text-gray-500' : 'bg-yellow-100 text-yellow-700')}`}>{order.status === 'paid' ? '已成交' : (order.status === 'expired' ? '已过期' : '待付款')}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${order.status === 'paid' ? 'bg-green-100 text-green-700' : (order.status === 'expired' ? 'bg-gray-100 text-gray-500' : 'bg-yellow-100 text-yellow-700')}`}>{order.status === 'paid' ? t('store.transacted') : (order.status === 'expired' ? t('store.expired') : t('store.pending'))}</span>
                     </div>
                     {order.status === 'paid' && (
                       <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 mt-2">
-                        <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">{order.type === 'auto' ? '自动授权 ID' : '卡密内容'}</p>
+                        <p className="text-[9px] text-gray-400 font-bold uppercase mb-1">{order.type === 'auto' ? t('store.autoAuthId') : t('store.cardContent')}</p>
                         <div className="flex items-center justify-between">
                           <p className="font-mono text-sm text-gray-700 break-all select-all">{order.type === 'auto' ? order.botId : order.code}</p>
                           {order.type === 'card' && (
-                            <button onClick={() => copyToClipboard(order.code, '卡密已复制')} className="text-blue-500 ml-2">
+                            <button onClick={() => copyToClipboard(order.code, t('store.cardCopied'))} className="text-blue-500 ml-2">
                               <Copy size={12} />
                             </button>
                           )}
@@ -948,7 +948,7 @@ export const StorePage = () => {
           <div className="bg-white rounded-2xl p-6 shadow-xl max-w-sm w-full text-center">
             <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle size={24} /></div>
             <p className="text-sm text-gray-600 mb-6 font-bold">{validationError}</p>
-            <button onClick={() => setValidationError("")} className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold">确定</button>
+            <button onClick={() => setValidationError("")} className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold">{t('store.confirm')}</button>
           </div>
         </div>
       )}
@@ -981,7 +981,7 @@ export const StorePage = () => {
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="font-bold flex items-center gap-2 text-sm">
                     <span className="bg-primary text-primary-foreground w-5 h-5 rounded flex items-center justify-center text-[10px]">01</span> 
-                    联系方式
+                    {t('store.contactInfo')}
                   </h2>
                   <button onClick={handleQueryOrder} className="text-xs text-primary font-bold hover:underline flex items-center gap-1"><Search size={12}/> {t('store.orderQuery')}</button>
                 </div>
@@ -990,8 +990,8 @@ export const StorePage = () => {
                     type="text" 
                     value={contactInfo} 
                     onChange={(e) => setContactInfo(e.target.value)} 
-                    placeholder="请输入邮箱或手机号 (用于后续可查询卡密)" 
-                    className="w-full pl-10 pr-4 py-4 bg-muted border border-border rounded-xl outline-none font-bold text-sm focus:border-primary transition-all" 
+                    placeholder={t('store.contactPlaceholder')} 
+                    className="w-full pl-10 pr-4 py-4 bg-muted border border-border rounded-xl outline-none font-bold text-sm focus:border-primary transition-all"
                   />
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
@@ -1000,13 +1000,13 @@ export const StorePage = () => {
 
             {activeTab === 'auto' && (
               <div className="bg-card p-6 rounded-2xl shadow-sm border">
-                <h2 className="font-bold mb-4 flex items-center gap-2 text-sm"><span className="bg-primary text-primary-foreground w-5 h-5 rounded flex items-center justify-center text-[10px]">01</span> 请输入Bot机器人ID【从 @BotFather 获取的机器人令牌】</h2>
-                <input type="text" value={botId} onChange={(e) => setBotId(e.target.value)} placeholder="例：12345678:AAHryws5h-rIoZzjOMB2mhtcJCMBkKHMbRY" className="w-full p-4 bg-muted border border-border rounded-xl outline-none font-bold text-base focus:border-primary transition-all" />
+                <h2 className="font-bold mb-4 flex items-center gap-2 text-sm"><span className="bg-primary text-primary-foreground w-5 h-5 rounded flex items-center justify-center text-[10px]">01</span> {t('store.botIdTitle')}</h2>
+                <input type="text" value={botId} onChange={(e) => setBotId(e.target.value)} placeholder={t('store.botIdPlaceholder')} className="w-full p-4 bg-muted border border-border rounded-xl outline-none font-bold text-base focus:border-primary transition-all" />
               </div>
             )}
 
             <div className="bg-card p-6 rounded-2xl shadow-sm border">
-              <h2 className="font-bold mb-4 flex items-center gap-2 text-sm"><span className="bg-primary text-primary-foreground w-5 h-5 rounded flex items-center justify-center text-[10px]">02</span> 选择套餐</h2>
+              <h2 className="font-bold mb-4 flex items-center gap-2 text-sm"><span className="bg-primary text-primary-foreground w-5 h-5 rounded flex items-center justify-center text-[10px]">02</span> {t('store.selectPlan')}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filteredProducts.length > 0 ? (
                   filteredProducts.map(p => {
@@ -1017,7 +1017,7 @@ export const StorePage = () => {
                       <div key={p.id} onClick={() => !isSoldOut && setSelectedProductId(p.id)} className={`relative cursor-pointer p-5 rounded-2xl border transition-all ${isSelected ? 'border-primary bg-primary/5 shadow-md ring-1 ring-primary' : 'border-border bg-background hover:border-primary/50'} ${isSoldOut ? 'opacity-40 cursor-not-allowed' : ''}`}>
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="font-bold text-sm leading-tight">{p.name}</h3>
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${stock > 0 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>库存:{stock}</span>
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${stock > 0 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{t('store.stockLabel')}:{stock}</span>
                         </div>
                         <div className="flex gap-1 mb-2 flex-wrap">
                           {(p.tags || []).map(tid => {
@@ -1037,7 +1037,7 @@ export const StorePage = () => {
                     );
                   })
                 ) : (
-                  <div className="col-span-2 text-center py-10 text-muted-foreground text-sm font-bold border-2 border-dashed border-border rounded-xl">暂无完全匹配的商品</div>
+                  <div className="col-span-2 text-center py-10 text-muted-foreground text-sm font-bold border-2 border-dashed border-border rounded-xl">{t('store.noMatchProducts')}</div>
                 )}
               </div>
             </div>
@@ -1045,16 +1045,16 @@ export const StorePage = () => {
 
           <div className="md:col-span-1">
             <div className="bg-card p-6 rounded-2xl shadow-lg border sticky top-20">
-              <h2 className="font-bold mb-4 text-sm border-b pb-3">结算台</h2>
+              <h2 className="font-bold mb-4 text-sm border-b pb-3">{t('store.checkout')}</h2>
               <div className="bg-foreground rounded-xl p-4 mb-6 text-background shadow-lg text-center">
-                <p className="text-[9px] text-muted uppercase font-bold tracking-widest mb-1">Total</p>
+                <p className="text-[9px] text-muted uppercase font-bold tracking-widest mb-1">{t('store.total')}</p>
                 <p className="text-2xl font-black font-mono tracking-tight">{paymentStep === 'paying' ? `${realPayAmount} ${paymentMethod.toUpperCase()}` : displayPrice}</p>
               </div>
               <div className="grid grid-cols-2 gap-2 mb-6">
                 {config.enableUsdt && <button onClick={()=>setPaymentMethod('usdt')} className={`py-2 rounded-lg border font-bold text-[10px] transition-all ${paymentMethod==='usdt'?'border-primary bg-primary/10 text-primary':'border-border bg-muted text-muted-foreground'}`}>USDT</button>}
                 {config.enableTrx && <button onClick={()=>setPaymentMethod('trx')} className={`py-2 rounded-lg border font-bold text-[10px] transition-all ${paymentMethod==='trx'?'border-destructive bg-destructive/10 text-destructive':'border-border bg-muted text-muted-foreground'}`}>TRX</button>}
-                {config.enableWechat && <button onClick={()=>setPaymentMethod('wechat')} className={`py-2 rounded-lg border font-bold text-[10px] transition-all ${paymentMethod==='wechat'?'border-green-600 bg-green-50 text-green-600':'border-border bg-muted text-muted-foreground'}`}>微信</button>}
-                {config.enableAlipay && <button onClick={()=>setPaymentMethod('alipay')} className={`py-2 rounded-lg border font-bold text-[10px] transition-all ${paymentMethod==='alipay'?'border-blue-500 bg-blue-50 text-blue-500':'border-border bg-muted text-muted-foreground'}`}>支付宝</button>}
+                {config.enableWechat && <button onClick={()=>setPaymentMethod('wechat')} className={`py-2 rounded-lg border font-bold text-[10px] transition-all ${paymentMethod==='wechat'?'border-green-600 bg-green-50 text-green-600':'border-border bg-muted text-muted-foreground'}`}>{t('store.wechatPay')}</button>}
+                {config.enableAlipay && <button onClick={()=>setPaymentMethod('alipay')} className={`py-2 rounded-lg border font-bold text-[10px] transition-all ${paymentMethod==='alipay'?'border-blue-500 bg-blue-50 text-blue-500':'border-border bg-muted text-muted-foreground'}`}>{t('store.alipayPay')}</button>}
               </div>
               <button onClick={handlePayment} className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold shadow-lg active:scale-95 transition-all">{t('store.payNow')}</button>
             </div>
