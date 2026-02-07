@@ -9,11 +9,13 @@ export interface StoreProduct {
   type: 'card' | 'auto';
   tags: string[];
   name: string;
+  nameEn: string; // 英文名称
   duration: number;
   price: number;
   usdt: number;
   trx: number;
   desc: string;
+  descEn: string; // 英文描述
   codes: string[]; // 从 store_card_keys 表获取
   isActive: boolean;
 }
@@ -22,6 +24,7 @@ export interface StoreProduct {
 interface DBStoreProduct {
   id: string;
   name: string;
+  name_en: string | null;
   type: string;
   tags: string[];
   duration: number;
@@ -29,6 +32,7 @@ interface DBStoreProduct {
   usdt: number;
   trx: number;
   description: string | null;
+  description_en: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -81,11 +85,13 @@ export function useStoreProducts() {
         type: p.type as 'card' | 'auto',
         tags: p.tags || [],
         name: p.name,
+        nameEn: p.name_en || '',
         duration: p.duration,
         price: Number(p.price),
         usdt: Number(p.usdt),
         trx: Number(p.trx),
         desc: p.description || '',
+        descEn: p.description_en || '',
         codes: cardKeysByProduct[p.id] || [],
         isActive: p.is_active
       }));
@@ -109,6 +115,7 @@ export function useStoreProducts() {
         .from('store_products')
         .insert({
           name: product.name,
+          name_en: product.nameEn || null,
           type: product.type,
           tags: product.tags,
           duration: product.duration,
@@ -116,6 +123,7 @@ export function useStoreProducts() {
           usdt: product.usdt,
           trx: product.trx,
           description: product.desc,
+          description_en: product.descEn || null,
           is_active: true
         })
         .select()
@@ -162,6 +170,7 @@ export function useStoreProducts() {
         .from('store_products')
         .update({
           name: updates.name,
+          name_en: updates.nameEn,
           type: updates.type,
           tags: updates.tags,
           duration: updates.duration,
@@ -169,6 +178,7 @@ export function useStoreProducts() {
           usdt: updates.usdt,
           trx: updates.trx,
           description: updates.desc,
+          description_en: updates.descEn,
           is_active: updates.isActive ?? true,
           updated_at: new Date().toISOString()
         })

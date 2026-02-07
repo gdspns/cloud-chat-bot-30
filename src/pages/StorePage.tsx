@@ -1013,10 +1013,11 @@ export const StorePage = () => {
                     const isSelected = selectedProductId === p.id;
                     const stock = getStockCount(p);
                     const isSoldOut = stock <= 0;
+                    const productName = language === 'en' && p.nameEn ? p.nameEn : p.name;
                     return (
                       <div key={p.id} onClick={() => !isSoldOut && setSelectedProductId(p.id)} className={`relative cursor-pointer p-5 rounded-2xl border transition-all ${isSelected ? 'border-primary bg-primary/5 shadow-md ring-1 ring-primary' : 'border-border bg-background hover:border-primary/50'} ${isSoldOut ? 'opacity-40 cursor-not-allowed' : ''}`}>
                         <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-bold text-sm leading-tight">{p.name}</h3>
+                          <h3 className="font-bold text-sm leading-tight">{productName}</h3>
                           <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${stock > 0 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{t('store.stockLabel')}:{stock}</span>
                         </div>
                         <div className="flex gap-1 mb-2 flex-wrap">

@@ -771,10 +771,12 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          description_en: string | null
           duration: number
           id: string
           is_active: boolean
           name: string
+          name_en: string | null
           price: number
           sort_order: number
           tags: string[]
@@ -786,10 +788,12 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          description_en?: string | null
           duration?: number
           id?: string
           is_active?: boolean
           name: string
+          name_en?: string | null
           price?: number
           sort_order?: number
           tags?: string[]
@@ -801,10 +805,12 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          description_en?: string | null
           duration?: number
           id?: string
           is_active?: boolean
           name?: string
+          name_en?: string | null
           price?: number
           sort_order?: number
           tags?: string[]
