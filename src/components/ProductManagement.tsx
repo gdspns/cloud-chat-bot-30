@@ -48,12 +48,14 @@ const CATEGORY_TAGS = [
 
 interface NewProduct {
   name: string;
+  nameEn: string;
   type: 'card' | 'auto';
   duration: number;
   price: string;
   usdt: string;
   trx: string;
   desc: string;
+  descEn: string;
   codesText: string;
   tags: string[];
 }
@@ -73,7 +75,7 @@ export const ProductManagement = () => {
   const [loadingExistingCodes, setLoadingExistingCodes] = useState(false);
   const [existingCodesForEdit, setExistingCodesForEdit] = useState<string[]>([]);
   const [newProduct, setNewProduct] = useState<NewProduct>({
-    name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: []
+    name: '', nameEn: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', descEn: '', codesText: '', tags: []
   });
 
   const normalizeCardKey = (value: string) => value.trim();
@@ -112,12 +114,14 @@ export const ProductManagement = () => {
     // 先填充基础信息
     setNewProduct({
       name: product.name,
+      nameEn: product.nameEn || '',
       type: product.type,
       duration: product.duration,
       price: product.price.toString(),
       usdt: product.usdt.toString(),
       trx: product.trx.toString(),
       desc: product.desc,
+      descEn: product.descEn || '',
       codesText: '',
       tags: product.tags || []
     });
@@ -134,7 +138,7 @@ export const ProductManagement = () => {
   const handleCancelEdit = () => {
     setEditingId(null);
     setExistingCodesForEdit([]);
-    setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
+    setNewProduct({ name: '', nameEn: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', descEn: '', codesText: '', tags: [] });
   };
 
   const handleDeleteProduct = async (id: string) => {
@@ -258,6 +262,7 @@ export const ProductManagement = () => {
       
       const productData = {
         name: newProduct.name,
+        nameEn: newProduct.nameEn,
         type: newProduct.type,
         tags: newProduct.tags || [],
         duration: Number(newProduct.duration), 
@@ -265,6 +270,7 @@ export const ProductManagement = () => {
         usdt: Number(newProduct.usdt), 
         trx: Number(newProduct.trx),
         desc: newProduct.desc,
+        descEn: newProduct.descEn,
         codes: finalCodes,
         isActive: true
       };
@@ -297,7 +303,7 @@ export const ProductManagement = () => {
       }
 
       setExistingCodesForEdit([]);
-      setNewProduct({ name: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', codesText: '', tags: [] });
+      setNewProduct({ name: '', nameEn: '', type: 'card', duration: 30, price: '', usdt: '', trx: '', desc: '', descEn: '', codesText: '', tags: [] });
 
     } catch (error: any) {
       console.error('保存商品失败:', error);
@@ -386,9 +392,15 @@ export const ProductManagement = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-bold text-muted-foreground">名称</label>
+              <label className="text-xs font-bold text-muted-foreground">名称 (中文)</label>
               <Input placeholder="商品标题..." value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
             </div>
+            <div className="md:col-span-2 space-y-1">
+              <label className="text-xs font-bold text-muted-foreground">Name (English)</label>
+              <Input placeholder="Product title in English..." value={newProduct.nameEn} onChange={e => setNewProduct({...newProduct, nameEn: e.target.value})} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-muted-foreground">模式</label>
               <select className="w-full p-2 bg-muted border border-border rounded-lg outline-none font-bold text-sm" value={newProduct.type} onChange={e => setNewProduct({...newProduct, type: e.target.value as 'card' | 'auto'})}>
