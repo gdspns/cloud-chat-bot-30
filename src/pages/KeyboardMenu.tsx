@@ -1975,7 +1975,7 @@ function SettingsPanel({
                   <div className="flex items-center gap-2">
                     <Activity size={14} className="text-muted-foreground" />
                     <span className="text-xs font-medium text-muted-foreground">
-                      活动记录【关闭机器人不会收到用户已自动处理的消息】
+                      {t('km.settings.activityLog')}
                     </span>
                   </div>
                   <button
@@ -1994,13 +1994,13 @@ function SettingsPanel({
                     <Globe size={14} className="text-muted-foreground" />
                     <div className="flex flex-col text-left">
                       <span className="text-xs font-medium text-muted-foreground">
-                        中英双语【开启后APP底部键盘显示语言切换按钮】
+                        {t('km.settings.bilingualBtn')}
                       </span>
                       <span className="text-[10px] text-red-500 leading-tight mt-0.5">
-                        【底部键盘添加按钮文字下面标注英文按钮界面才会显示】
+                        {t('km.settings.bilingualHint1')}
                       </span>
                       <span className="text-[10px] text-red-500 leading-tight mt-0.5">
-                        【消息编辑器新增消息添加中文版/英文版两种对应指令关键词图文】
+                        {t('km.settings.bilingualHint2')}
                       </span>
                     </div>
                   </div>
