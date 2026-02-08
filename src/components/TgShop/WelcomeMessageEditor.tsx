@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Plus, X, Link, Copy, Smile, Trash2 } from "lucide-react";
+import { Plus, X, Link, Code, Smile, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import {
   Popover,
@@ -88,9 +88,30 @@ export function WelcomeMessageEditor({
     onCustomButtonsChange(newButtons);
   };
 
-  // Copy formatted text
-  const handleCopy = () => {
-    navigator.clipboard.writeText(value).catch(() => {});
+  // Insert copyable code text (Telegram uses backticks for inline code)
+  const handleInsertCopyableText = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = value.substring(start, end);
+    
+    // If text is selected, wrap it with backticks; otherwise insert placeholder
+    const codeText = selectedText ? `\`${selectedText}\`` : '`可复制文字`';
+    const newValue = value.substring(0, start) + codeText + value.substring(end);
+    onChange(newValue);
+    
+    // Position cursor appropriately
+    setTimeout(() => {
+      textarea.focus();
+      if (selectedText) {
+        textarea.setSelectionRange(start + codeText.length, start + codeText.length);
+      } else {
+        // Select the placeholder text for easy replacement
+        textarea.setSelectionRange(start + 1, start + codeText.length - 1);
+      }
+    }, 0);
   };
 
   return (
@@ -171,14 +192,14 @@ export function WelcomeMessageEditor({
           </PopoverContent>
         </Popover>
 
-        {/* Copy button */}
+        {/* Insert copyable text button */}
         <button
           type="button"
-          onClick={handleCopy}
+          onClick={handleInsertCopyableText}
           className="flex items-center gap-1 px-2 py-1.5 text-xs bg-muted hover:bg-muted/80 rounded border transition-colors"
         >
-          <Copy size={14} />
-          <span>{language === 'zh' ? '复制' : 'Copy'}</span>
+          <Code size={14} />
+          <span>{language === 'zh' ? '可复制文字' : 'Copyable Text'}</span>
         </button>
       </div>
 
