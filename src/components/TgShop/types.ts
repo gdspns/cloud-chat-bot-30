@@ -90,6 +90,10 @@ export interface ShopConfig {
   orderWelcomeDisablePreview?: boolean;
   // 用户语言偏好
   userLanguagePreferences?: Record<string, string>;
+  // 自定义分类
+  customCategories?: string[];
+  // 自定义内联按钮
+  startCustomButtons?: Array<{ text: string; url: string }>;
 }
 
 export type ShopTab = 'settings' | 'products' | 'categories' | 'orders';

@@ -393,6 +393,7 @@ export type Database = {
           bot_token: string
           connection_mode: string | null
           created_at: string
+          custom_categories: string[] | null
           custom_commands: Json | null
           enable_alipay: boolean | null
           enable_wechat: boolean | null
@@ -415,6 +416,7 @@ export type Database = {
           shop_welcome_entities: Json | null
           shop_welcome_media_type: string | null
           shop_welcome_media_url: string | null
+          start_custom_buttons: Json | null
           start_disable_preview: boolean | null
           start_enabled: boolean | null
           start_message: string | null
@@ -448,6 +450,7 @@ export type Database = {
           bot_token: string
           connection_mode?: string | null
           created_at?: string
+          custom_categories?: string[] | null
           custom_commands?: Json | null
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
@@ -470,6 +473,7 @@ export type Database = {
           shop_welcome_entities?: Json | null
           shop_welcome_media_type?: string | null
           shop_welcome_media_url?: string | null
+          start_custom_buttons?: Json | null
           start_disable_preview?: boolean | null
           start_enabled?: boolean | null
           start_message?: string | null
@@ -503,6 +507,7 @@ export type Database = {
           bot_token?: string
           connection_mode?: string | null
           created_at?: string
+          custom_categories?: string[] | null
           custom_commands?: Json | null
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
@@ -525,6 +530,7 @@ export type Database = {
           shop_welcome_entities?: Json | null
           shop_welcome_media_type?: string | null
           shop_welcome_media_url?: string | null
+          start_custom_buttons?: Json | null
           start_disable_preview?: boolean | null
           start_enabled?: boolean | null
           start_message?: string | null

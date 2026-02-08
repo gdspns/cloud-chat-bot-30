@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink, Plus, X, Key, MessageCircle, Globe, Image, Video, Link, Type, Eye, EyeOff, Smile, Languages } from "lucide-react";
 import { ShopConfig } from "./types";
 import { useLanguage } from "@/hooks/use-language";
+import { WelcomeMessageEditor } from "./WelcomeMessageEditor";
 
 interface ShopSettingsProps {
   config: ShopConfig;
@@ -323,13 +324,14 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 </div>
               </div>
               
-              {/* 欢迎消息内容 */}
+              {/* 欢迎消息内容 - 使用增强编辑器 */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.settings.welcomeContent')}</label>
-                <textarea
+                <WelcomeMessageEditor
                   value={localConfig.startMessage || ''}
-                  onChange={(e) => handleChange('startMessage', e.target.value)}
-                  className="w-full p-3 bg-background border rounded text-sm min-h-[120px]"
+                  onChange={(val) => handleChange('startMessage', val)}
+                  customButtons={localConfig.startCustomButtons || []}
+                  onCustomButtonsChange={(buttons) => handleChange('startCustomButtons', buttons)}
                   placeholder={t('tgshop.settings.welcomePlaceholder')}
                 />
               </div>

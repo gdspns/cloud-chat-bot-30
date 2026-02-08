@@ -89,6 +89,8 @@ interface DbConfig {
   order_welcome_entities: any[] | null;
   order_welcome_disable_preview: boolean | null;
   user_language_preferences: Record<string, string> | null;
+  custom_categories: string[] | null;
+  start_custom_buttons: Array<{ text: string; url: string }> | null;
   created_at: string;
   updated_at: string;
 }
@@ -154,7 +156,9 @@ const defaultConfig: ShopConfig = {
   orderWelcomeMediaType: 'text',
   orderWelcomeEntities: [],
   orderWelcomeDisablePreview: false,
-  userLanguagePreferences: {}
+  userLanguagePreferences: {},
+  customCategories: [],
+  startCustomButtons: []
 };
 
 // 转换数据库产品到前端格式
@@ -259,7 +263,9 @@ function dbConfigToConfig(dbConfig: DbConfig): ShopConfig {
     orderWelcomeMediaType: (dbConfig.order_welcome_media_type as 'text' | 'photo' | 'video') || 'text',
     orderWelcomeEntities: dbConfig.order_welcome_entities || [],
     orderWelcomeDisablePreview: dbConfig.order_welcome_disable_preview || false,
-    userLanguagePreferences: dbConfig.user_language_preferences || {}
+    userLanguagePreferences: dbConfig.user_language_preferences || {},
+    customCategories: dbConfig.custom_categories || [],
+    startCustomButtons: dbConfig.start_custom_buttons || []
   };
 }
 
@@ -314,7 +320,9 @@ function configToDbConfig(config: Partial<ShopConfig>, botToken: string): Partia
     order_welcome_media_type: config.orderWelcomeMediaType || null,
     order_welcome_entities: config.orderWelcomeEntities || null,
     order_welcome_disable_preview: config.orderWelcomeDisablePreview ?? null,
-    user_language_preferences: config.userLanguagePreferences || null
+    user_language_preferences: config.userLanguagePreferences || null,
+    custom_categories: config.customCategories || null,
+    start_custom_buttons: config.startCustomButtons || null
   };
 }
 
