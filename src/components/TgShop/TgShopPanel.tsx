@@ -16,7 +16,6 @@ interface TgShopPanelProps {
 
 export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
   const [activeTab, setActiveTab] = useState<ShopTab>('settings');
-  const [customCategories, setCustomCategories] = useState<string[]>([]);
   const { t } = useLanguage();
   
   const {
@@ -36,6 +35,9 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
     setOrders
   } = useShopData(botToken);
 
+  // Custom categories from config (persisted to database)
+  const customCategories = config.customCategories || [];
+
   const handleClearOrders = async (status: 'pending' | 'paid' | 'cancelled') => {
     const success = await clearOrdersByStatus(status);
     if (success) {
@@ -54,17 +56,19 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
     }
   };
 
-  // Custom category management
+  // Custom category management - save to config
   const handleAddCustomCategory = useCallback((category: string) => {
-    setCustomCategories(prev => {
-      if (prev.includes(category)) return prev;
-      return [...prev, category];
-    });
-  }, []);
+    const newCategories = [...customCategories];
+    if (!newCategories.includes(category)) {
+      newCategories.push(category);
+      saveConfig({ customCategories: newCategories });
+    }
+  }, [customCategories, saveConfig]);
 
   const handleRemoveCustomCategory = useCallback((category: string) => {
-    setCustomCategories(prev => prev.filter(c => c !== category));
-  }, []);
+    const newCategories = customCategories.filter(c => c !== category);
+    saveConfig({ customCategories: newCategories });
+  }, [customCategories, saveConfig]);
   // Show prompt if no botToken
   if (!botToken) {
     return (
