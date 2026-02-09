@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Plus, X, Link, Code, Smile, Trash2 } from "lucide-react";
+import { Link, Code, Smile } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import {
   Popover,
@@ -7,16 +7,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-interface CustomButton {
-  text: string;
-  url: string;
-}
-
 interface WelcomeMessageEditorProps {
   value: string;
   onChange: (value: string) => void;
-  customButtons: CustomButton[];
-  onCustomButtonsChange: (buttons: CustomButton[]) => void;
   placeholder?: string;
 }
 
@@ -30,17 +23,13 @@ const EMOJI_LIST = [
 export function WelcomeMessageEditor({
   value,
   onChange,
-  customButtons,
-  onCustomButtonsChange,
   placeholder
 }: WelcomeMessageEditorProps) {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [linkText, setLinkText] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [showLinkPopover, setShowLinkPopover] = useState(false);
-  const [newButtonText, setNewButtonText] = useState('');
-  const [newButtonUrl, setNewButtonUrl] = useState('');
 
   // Insert text at cursor position
   const insertAtCursor = (text: string) => {
@@ -72,20 +61,6 @@ export function WelcomeMessageEditor({
   // Insert emoji
   const handleInsertEmoji = (emoji: string) => {
     insertAtCursor(emoji);
-  };
-
-  // Add custom button
-  const handleAddButton = () => {
-    if (!newButtonText.trim() || !newButtonUrl.trim()) return;
-    onCustomButtonsChange([...customButtons, { text: newButtonText.trim(), url: newButtonUrl.trim() }]);
-    setNewButtonText('');
-    setNewButtonUrl('');
-  };
-
-  // Remove custom button
-  const handleRemoveButton = (index: number) => {
-    const newButtons = customButtons.filter((_, i) => i !== index);
-    onCustomButtonsChange(newButtons);
   };
 
   // Insert copyable code text (Telegram uses backticks for inline code)
@@ -212,66 +187,12 @@ export function WelcomeMessageEditor({
         className="w-full p-3 bg-background border rounded text-sm min-h-[120px] focus:ring-2 focus:ring-primary outline-none"
       />
 
-      {/* Custom buttons section */}
-      <div className="p-3 bg-muted rounded-lg border">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-foreground">
-            {language === 'zh' ? '自定义按钮（显示在消息下方）' : 'Custom Buttons (shown below message)'}
-          </span>
-        </div>
-
-        {/* Existing buttons */}
-        {customButtons.length > 0 && (
-          <div className="space-y-2 mb-3">
-            {customButtons.map((btn, index) => (
-              <div key={index} className="flex items-center gap-2 p-2 bg-background rounded border">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{btn.text}</div>
-                  <div className="text-xs text-muted-foreground truncate">{btn.url}</div>
-                </div>
-                <button
-                  onClick={() => handleRemoveButton(index)}
-                  className="p-1 text-muted-foreground hover:text-destructive rounded"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Add new button form */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <input
-            type="text"
-            value={newButtonText}
-            onChange={(e) => setNewButtonText(e.target.value)}
-            placeholder={language === 'zh' ? '按钮文字' : 'Button text'}
-            className="p-2 text-sm border rounded bg-background"
-          />
-          <input
-            type="text"
-            value={newButtonUrl}
-            onChange={(e) => setNewButtonUrl(e.target.value)}
-            placeholder="https://"
-            className="p-2 text-sm border rounded bg-background font-mono"
-          />
-        </div>
-        <button
-          onClick={handleAddButton}
-          disabled={!newButtonText.trim() || !newButtonUrl.trim()}
-          className="mt-2 w-full flex items-center justify-center gap-1 py-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
-        >
-          <Plus size={14} />
-          <span>{language === 'zh' ? '添加按钮' : 'Add Button'}</span>
-        </button>
-
-        <p className="text-xs text-muted-foreground mt-2">
-          💡 {language === 'zh' 
-            ? '按钮将显示为 Telegram 内联键盘，点击后打开指定链接' 
-            : 'Buttons will be displayed as Telegram inline keyboard, clicking opens the specified link'}
-        </p>
-      </div>
+      {/* Tip for copyable text */}
+      <p className="text-xs text-muted-foreground">
+        💡 {language === 'zh' 
+          ? '使用「可复制文字」按钮插入的内容，用户在 Telegram 中点击即可复制' 
+          : 'Text inserted with "Copyable Text" button can be tapped to copy in Telegram'}
+      </p>
     </div>
   );
 }

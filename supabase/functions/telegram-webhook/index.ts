@@ -2436,7 +2436,8 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
         
         const msgParams: any = {
           chat_id: chatId,
-          reply_markup: startButtons
+          reply_markup: startButtons,
+          parse_mode: 'Markdown'
         };
         
         if (shopConfig.start_disable_preview) {

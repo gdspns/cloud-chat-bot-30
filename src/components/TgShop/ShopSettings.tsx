@@ -330,8 +330,6 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                 <WelcomeMessageEditor
                   value={localConfig.startMessage || ''}
                   onChange={(val) => handleChange('startMessage', val)}
-                  customButtons={localConfig.startCustomButtons || []}
-                  onCustomButtonsChange={(buttons) => handleChange('startCustomButtons', buttons)}
                   placeholder={t('tgshop.settings.welcomePlaceholder')}
                 />
               </div>
