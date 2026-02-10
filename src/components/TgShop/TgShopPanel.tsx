@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from "react";
-import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag } from "lucide-react";
+import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag, CreditCard } from "lucide-react";
 import { ShopTab } from "./types";
 import { ShopNavButton } from "./ShopNavButton";
 import { ProductManager } from "./ProductManager";
 import { CategoryManager } from "./CategoryManager";
 import { OrderManager } from "./OrderManager";
 import { ShopSettings } from "./ShopSettings";
+import { PaymentSettings } from "./PaymentSettings";
 import { useShopData } from "./hooks/useShopData";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -16,7 +17,7 @@ interface TgShopPanelProps {
 
 export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
   const [activeTab, setActiveTab] = useState<ShopTab>('settings');
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   
   const {
     products,
@@ -132,6 +133,12 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
               active={activeTab === 'orders'} 
               onClick={() => setActiveTab('orders')} 
             />
+            <ShopNavButton 
+              icon={<CreditCard size={16}/>} 
+              label={language === 'zh' ? '支付网关' : 'Payment'} 
+              active={activeTab === 'payment'} 
+              onClick={() => setActiveTab('payment')} 
+            />
           </nav>
         </div>
 
@@ -225,6 +232,13 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 onRefresh={refreshData}
                 onClearOrders={handleClearOrders}
                 isLoading={isLoading}
+              />
+            )}
+            {activeTab === 'payment' && (
+              <PaymentSettings 
+                config={config}
+                onSave={handleSaveConfig}
+                showToast={showToast}
               />
             )}
           </div>

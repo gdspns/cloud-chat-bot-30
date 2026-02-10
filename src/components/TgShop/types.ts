@@ -96,4 +96,4 @@ export interface ShopConfig {
   startCustomButtons?: Array<{ text: string; url: string }>;
 }
 
-export type ShopTab = 'settings' | 'products' | 'categories' | 'orders';
+export type ShopTab = 'settings' | 'products' | 'categories' | 'orders' | 'payment';
