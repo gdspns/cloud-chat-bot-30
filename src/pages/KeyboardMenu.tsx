@@ -2068,6 +2068,13 @@ function KeyboardEditor({
   const [activePageId, setActivePageId] = useState("main");
   const [isPushing, setIsPushing] = useState(false);
   const [dbUsers, setDbUsers] = useState<any[]>([]);
+
+  // 当云端数据加载后，页面ID可能与默认的"main"不匹配，自动修正
+  useEffect(() => {
+    if (menuPages.length > 0 && !menuPages.find((p: MenuPage) => p.id === activePageId)) {
+      setActivePageId(menuPages[0].id);
+    }
+  }, [menuPages]);
   // 安全获取activePage，确保始终有有效值
   const defaultPage: MenuPage = { id: 'main', name: t('km.keyboard.mainMenu'), rows: [] };
   const activePage = (menuPages.length > 0 
