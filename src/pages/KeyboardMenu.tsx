@@ -807,7 +807,7 @@ function Workspace({
       if (error) throw error;
 
       if (data) {
-        if (data.reply_keyboard) setMenuPages(data.reply_keyboard as any);
+        if (data.reply_keyboard && Array.isArray(data.reply_keyboard) && (data.reply_keyboard as any[]).length > 0) setMenuPages(data.reply_keyboard as any);
         if (data.auto_reply_rules) setAutoReplyRules(data.auto_reply_rules as any);
         if (data.flow_messages && Array.isArray(data.flow_messages) && (data.flow_messages as any[]).length > 0) {
           setFlowMessages(data.flow_messages as any);
