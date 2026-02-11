@@ -1251,9 +1251,10 @@ async function handleMenuNavigation(
           const targetPage = menuPages.find(p => p.id === btn.actionValue);
           if (targetPage) {
             const keyboard = generateKeyboardWithLanguage(targetPage, language, bilingualEnabled);
+            const displayName = language === 'en' ? await localizeText(targetPage.name, 'en') : targetPage.name;
             await sendTelegramMessage(botToken, 'sendMessage', {
               chat_id: chatId,
-              text: language === 'en' ? `📂 Switch to: ${targetPage.name}` : `📂 切换菜单: ${targetPage.name}`,
+              text: language === 'en' ? `📂 Switch to: ${displayName}` : `📂 切换菜单: ${targetPage.name}`,
               reply_markup: keyboard ? {
                 keyboard,
                 resize_keyboard: true,
@@ -1271,6 +1272,7 @@ async function handleMenuNavigation(
 }
 
 // 处理自动回复 - 同时附带最新的底部键盘
+// 英文模式下自动翻译关键词匹配、回复内容和内联按钮文字
 async function handleAutoReply(
   botToken: string,
   chatId: number,
@@ -1284,6 +1286,17 @@ async function handleAutoReply(
   const cleanText = textNorm.replace(/^\//, '');
   const firstToken = cleanText.split(/\s+/)[0];
 
+  // 英文模式下，预翻译所有触发词用于匹配
+  let triggerTranslations: Record<string, string> = {};
+  if (language === 'en' && bilingualEnabled) {
+    const triggers = autoReplyRules
+      .map(r => (r.triggerValue || '').trim())
+      .filter(t => t && containsCjk(t));
+    if (triggers.length > 0) {
+      triggerTranslations = await translateManyToEnglish(triggers);
+    }
+  }
+
   const matchedRule = autoReplyRules.find((r) => {
     const ruleVal = (r.triggerValue || '').trim().toLowerCase();
     if (!ruleVal) return false;
@@ -1291,18 +1304,28 @@ async function handleAutoReply(
     const cleanRule = ruleVal.replace(/^\//, '');
 
     if (r.triggerType === 'command') {
-      // 支持: “/cmd”、 “cmd”、 “/cmd 参数...”、 “cmd 参数...”
       return firstToken === cleanRule;
     }
 
-    // keyword: 支持包含匹配（用户输入可能带参数/前后文）
-    return cleanText.includes(cleanRule);
+    // keyword: 先匹配中文原文
+    if (cleanText.includes(cleanRule)) return true;
+    
+    // 英文模式下：也尝试匹配翻译后的英文关键词
+    if (language === 'en' && bilingualEnabled) {
+      const originalTrigger = (r.triggerValue || '').trim();
+      const translatedTrigger = triggerTranslations[originalTrigger];
+      if (translatedTrigger) {
+        const translatedNorm = translatedTrigger.toLowerCase();
+        if (cleanText.includes(translatedNorm) || translatedNorm.includes(cleanText)) return true;
+      }
+    }
+    
+    return false;
   });
   
   if (matchedRule) {
-    console.log(`Auto-reply matched: ${matchedRule.triggerValue}`);
+    console.log(`Auto-reply matched: ${matchedRule.triggerValue} (lang: ${language})`);
     
-    // 获取主菜单的底部键盘，用于附带到自动回复消息中
     const mainPage = menuPages?.find((p: MenuPage) => p.id === 'main');
     const keyboard = generateKeyboardWithLanguage(mainPage, language, bilingualEnabled);
     const replyKeyboard = keyboard ? {
@@ -1318,11 +1341,25 @@ async function handleAutoReply(
         body.disable_web_page_preview = true;
       }
       
-      // 处理内联键盘 - 内联键盘和底部键盘不能同时在一个消息中发送
-      // 如果有内联键盘，优先发送内联键盘
+      // 英文模式下自动翻译回复内容
+      const replyContent = (language === 'en' && bilingualEnabled) 
+        ? await localizeText(reply.content, 'en') 
+        : reply.content;
+      
+      // 处理内联键盘
       if (reply.inlineKeyboard && reply.inlineKeyboard.length > 0) {
+        // 英文模式下翻译内联按钮文字
+        let translatedInlineKeyboard = reply.inlineKeyboard;
+        if (language === 'en' && bilingualEnabled) {
+          const btnTexts = reply.inlineKeyboard.flat().map(btn => btn.text).filter(Boolean);
+          const btnTextMap = btnTexts.length > 0 ? await translateManyToEnglish(btnTexts) : {};
+          translatedInlineKeyboard = reply.inlineKeyboard.map(row =>
+            row.map(btn => ({ ...btn, text: btnTextMap[btn.text] || btn.text }))
+          );
+        }
+        
         body.reply_markup = {
-          inline_keyboard: reply.inlineKeyboard.map(row =>
+          inline_keyboard: translatedInlineKeyboard.map(row =>
             row.map(btn => {
               if (btn.type === 'url') {
                 return { text: btn.text, url: btn.value };
@@ -1336,31 +1373,22 @@ async function handleAutoReply(
           )
         };
       } else if (replyKeyboard) {
-        // 如果没有内联键盘，附带最新的底部键盘（实现菜单自动刷新）
         body.reply_markup = replyKeyboard;
       }
-      
-      // 标记需要额外发送底部键盘刷新（当有内联键盘时）
-      const needExtraKeyboardRefresh = reply.inlineKeyboard && reply.inlineKeyboard.length > 0 && replyKeyboard;
       
       try {
         if (reply.type === 'photo' && reply.mediaUrl) {
           body.photo = reply.mediaUrl;
-          body.caption = reply.content;
+          body.caption = replyContent;
           await sendTelegramMessage(botToken, 'sendPhoto', body);
         } else if (reply.type === 'video' && reply.mediaUrl) {
-          // 视频消息支持
           body.video = reply.mediaUrl;
-          body.caption = reply.content;
+          body.caption = replyContent;
           await sendTelegramMessage(botToken, 'sendVideo', body);
         } else {
-          body.text = reply.content;
+          body.text = replyContent;
           await sendTelegramMessage(botToken, 'sendMessage', body);
         }
-        
-        // 如果发送的消息带有内联键盘，由于内联键盘和底部键盘不能同时发送
-        // 底部键盘将在最后一条消息后自动刷新（通过最后一条消息携带底部键盘）
-        // 不再发送额外的刷新提示消息，避免消息过多
       } catch (e) {
         console.error("Auto-reply send failed:", e);
       }
@@ -1371,10 +1399,13 @@ async function handleAutoReply(
 }
 
 // 处理callback_query（内联按钮点击）
+// 英文模式下自动翻译回复内容和内联按钮文字
 async function handleCallbackQuery(
   botToken: string,
   callbackQuery: any,
-  autoReplyRules: AutoReplyRule[]
+  autoReplyRules: AutoReplyRule[],
+  language: 'zh' | 'en' = 'zh',
+  bilingualEnabled: boolean = false
 ): Promise<boolean> {
   const callbackData = callbackQuery.data;
   const chatId = callbackQuery.message?.chat?.id;
@@ -1396,7 +1427,7 @@ async function handleCallbackQuery(
   });
   
   if (matchedRule) {
-    console.log(`Callback matched rule: ${matchedRule.triggerValue}`);
+    console.log(`Callback matched rule: ${matchedRule.triggerValue} (lang: ${language})`);
     
     for (const reply of matchedRule.replyMessages) {
       const body: any = { chat_id: chatId, parse_mode: 'HTML' };
@@ -1405,9 +1436,24 @@ async function handleCallbackQuery(
         body.disable_web_page_preview = true;
       }
       
+      // 英文模式下自动翻译回复内容
+      const replyContent = (language === 'en' && bilingualEnabled)
+        ? await localizeText(reply.content, 'en')
+        : reply.content;
+      
       if (reply.inlineKeyboard && reply.inlineKeyboard.length > 0) {
+        // 英文模式下翻译内联按钮文字
+        let translatedInlineKeyboard = reply.inlineKeyboard;
+        if (language === 'en' && bilingualEnabled) {
+          const btnTexts = reply.inlineKeyboard.flat().map(btn => btn.text).filter(Boolean);
+          const btnTextMap = btnTexts.length > 0 ? await translateManyToEnglish(btnTexts) : {};
+          translatedInlineKeyboard = reply.inlineKeyboard.map(row =>
+            row.map(btn => ({ ...btn, text: btnTextMap[btn.text] || btn.text }))
+          );
+        }
+        
         body.reply_markup = {
-          inline_keyboard: reply.inlineKeyboard.map(row =>
+          inline_keyboard: translatedInlineKeyboard.map(row =>
             row.map(btn => {
               if (btn.type === 'url') {
                 return { text: btn.text, url: btn.value };
@@ -1425,15 +1471,14 @@ async function handleCallbackQuery(
       try {
         if (reply.type === 'photo' && reply.mediaUrl) {
           body.photo = reply.mediaUrl;
-          body.caption = reply.content;
+          body.caption = replyContent;
           await sendTelegramMessage(botToken, 'sendPhoto', body);
         } else if (reply.type === 'video' && reply.mediaUrl) {
-          // 视频消息支持
           body.video = reply.mediaUrl;
-          body.caption = reply.content;
+          body.caption = replyContent;
           await sendTelegramMessage(botToken, 'sendVideo', body);
         } else {
-          body.text = reply.content;
+          body.text = replyContent;
           await sendTelegramMessage(botToken, 'sendMessage', body);
         }
       } catch (e) {
@@ -1815,8 +1860,9 @@ serve(async (req) => {
         });
       }
       
-      // 其他回调走原有自动回复逻辑
-      const handled = await handleCallbackQuery(botToken, body.callback_query, autoReplyRules);
+      // 其他回调走原有自动回复逻辑 - 传入语言参数实现自动翻译
+      const cbUserLanguage = getUserLanguage(cbChatId, userLanguagePreferences);
+      const handled = await handleCallbackQuery(botToken, body.callback_query, autoReplyRules, cbUserLanguage, bilingualEnabled);
       console.log(`Callback query handled: ${handled}`);
       
       // 确定活动记录接收者：优先双向聊天的personalUserId，否则使用菜单键盘的menuAdminChatId
