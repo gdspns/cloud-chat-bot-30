@@ -1779,6 +1779,15 @@ serve(async (req) => {
             .update({ user_language_preferences: langPrefs })
             .eq('bot_token', botToken);
           
+          // 同步更新 keyboard_configs 的语言偏好，确保底部键盘也能切换
+          if (bilingualEnabled) {
+            userLanguagePreferences[cbChatId.toString()] = newLang;
+            await supabase
+              .from('keyboard_configs')
+              .update({ user_language_preferences: userLanguagePreferences })
+              .eq('bot_token', botToken);
+          }
+          
           // 重新发送开始消息 - 使用翻译系统
           const shopBtnText = newLang === 'en' 
             ? t('btn_shop', 'en')
@@ -1809,11 +1818,26 @@ serve(async (req) => {
             reply_markup: { inline_keyboard: startButtons }
           });
           
-          // 发送确认消息
-          await sendTelegramMessage(botToken, 'sendMessage', {
-            chat_id: cbChatId,
-            text: confirmMsg
-          });
+          // 同时更新底部键盘按钮为对应语言
+          if (bilingualEnabled && menuPages.length > 0) {
+            const mainPage = menuPages.find((p: MenuPage) => p.id === 'main');
+            const translatedKeyboard = await generateKeyboardWithLanguage(mainPage, newLang as 'zh' | 'en', bilingualEnabled);
+            await sendTelegramMessage(botToken, 'sendMessage', {
+              chat_id: cbChatId,
+              text: confirmMsg,
+              reply_markup: translatedKeyboard ? {
+                keyboard: translatedKeyboard,
+                resize_keyboard: true,
+                one_time_keyboard: false
+              } : undefined
+            });
+          } else {
+            // 发送确认消息
+            await sendTelegramMessage(botToken, 'sendMessage', {
+              chat_id: cbChatId,
+              text: confirmMsg
+            });
+          }
         }
         
         return new Response(JSON.stringify({ ok: true, shop_lang_handled: true }), {
