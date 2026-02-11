@@ -560,6 +560,9 @@ const translations: Record<Language, Record<string, string>> = {
     'km.settings.activityLog': '活动记录【关闭机器人不会收到用户已自动处理的消息】',
     'km.settings.activityLogDesc': '接收用户发送指令/关键词活动',
     'km.settings.bilingualBtn': '中英双语【开启后APP底部键盘显示语言切换按钮】',
+    'km.settings.bilingualHint1': '【打开按钮telegram机器人界面底部键盘会显示翻译按钮】',
+    'km.settings.bilingualHint2': '【telegram机器人界面底部按钮点击英文会自动转换】',
+
     
     // ConfigGuide
     'guide.category.keyboardConfig': '菜单键盘配置',
