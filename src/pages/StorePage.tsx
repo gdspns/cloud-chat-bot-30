@@ -462,7 +462,7 @@ export const StorePage = () => {
     let finalAmount = basePrice;
     
     if (config.enableAntiCollision && (paymentMethod === 'usdt' || paymentMethod === 'trx')) {
-      const offset = (Math.floor(Math.random() * 99) + 1) / 1000;
+      const offset = (Math.floor(Math.random() * 19) + 1) / 1000;
       finalAmount = Number((basePrice + offset).toFixed(3));
     }
 
