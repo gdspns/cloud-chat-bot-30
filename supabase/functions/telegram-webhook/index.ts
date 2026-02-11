@@ -1204,19 +1204,31 @@ function getUserLanguage(chatId: number, userLanguagePreferences: Record<string,
   return (userLanguagePreferences[chatId.toString()] as 'zh' | 'en') || 'zh';
 }
 
-// 根据语言偏好生成键盘
-function generateKeyboardWithLanguage(
+// 根据语言偏好生成键盘 - 支持自动翻译
+async function generateKeyboardWithLanguage(
   menuPage: MenuPage | undefined,
   language: 'zh' | 'en',
   bilingualEnabled: boolean
-): { text: string }[][] | null {
+): Promise<{ text: string }[][] | null> {
   if (!menuPage || menuPage.rows.length === 0) return null;
   
-  const keyboard = menuPage.rows.map(row => 
-    row.map(btn => ({
-      text: language === 'en' && btn.textEn ? btn.textEn : btn.text
-    }))
-  );
+  const keyboard: { text: string }[][] = [];
+  for (const row of menuPage.rows) {
+    const translatedRow: { text: string }[] = [];
+    for (const btn of row) {
+      let btnText = btn.text;
+      if (language === 'en') {
+        if (btn.textEn) {
+          btnText = btn.textEn;
+        } else {
+          // 自动翻译按钮文字
+          btnText = await localizeText(btn.text, 'en');
+        }
+      }
+      translatedRow.push({ text: btnText });
+    }
+    keyboard.push(translatedRow);
+  }
   
   // 如果开启双语按钮，添加语言切换按钮到最后一行
   if (bilingualEnabled) {
@@ -1247,10 +1259,17 @@ async function handleMenuNavigation(
         const zhMatch = btn.text.toLowerCase() === textNorm;
         const enMatch = btn.textEn && btn.textEn.toLowerCase() === textNorm;
         
-        if ((zhMatch || enMatch) && btn.actionType === 'navigate' && btn.actionValue) {
+        // 如果开启双语且没有手动设置英文，尝试自动翻译匹配
+        let autoTranslatedMatch = false;
+        if (!zhMatch && !enMatch && language === 'en' && bilingualEnabled && !btn.textEn) {
+          const translatedBtnText = await localizeText(btn.text, 'en');
+          autoTranslatedMatch = translatedBtnText.toLowerCase() === textNorm;
+        }
+        
+        if ((zhMatch || enMatch || autoTranslatedMatch) && btn.actionType === 'navigate' && btn.actionValue) {
           const targetPage = menuPages.find(p => p.id === btn.actionValue);
           if (targetPage) {
-            const keyboard = generateKeyboardWithLanguage(targetPage, language, bilingualEnabled);
+            const keyboard = await generateKeyboardWithLanguage(targetPage, language, bilingualEnabled);
             const displayName = language === 'en' ? await localizeText(targetPage.name, 'en') : targetPage.name;
             await sendTelegramMessage(botToken, 'sendMessage', {
               chat_id: chatId,
@@ -1327,7 +1346,7 @@ async function handleAutoReply(
     console.log(`Auto-reply matched: ${matchedRule.triggerValue} (lang: ${language})`);
     
     const mainPage = menuPages?.find((p: MenuPage) => p.id === 'main');
-    const keyboard = generateKeyboardWithLanguage(mainPage, language, bilingualEnabled);
+    const keyboard = await generateKeyboardWithLanguage(mainPage, language, bilingualEnabled);
     const replyKeyboard = keyboard ? {
       keyboard,
       resize_keyboard: true,
@@ -1502,7 +1521,7 @@ async function sendMainMenu(
 ) {
   const mainPage = menuPages.find(p => p.id === 'main');
   if (mainPage && mainPage.rows.length > 0) {
-    const keyboard = generateKeyboardWithLanguage(mainPage, language, bilingualEnabled);
+    const keyboard = await generateKeyboardWithLanguage(mainPage, language, bilingualEnabled);
     await sendTelegramMessage(botToken, 'sendMessage', {
       chat_id: chatId,
       text: greetingMessage || (language === 'en' ? '📂 Welcome! Please select from the menu' : '📂 欢迎使用，请选择菜单'),
@@ -2102,7 +2121,7 @@ serve(async (req) => {
       
       // 发送切换确认并更新键盘
       const mainPage = menuPages.find((p: MenuPage) => p.id === 'main');
-      const keyboard = generateKeyboardWithLanguage(mainPage, newLanguage, bilingualEnabled);
+      const keyboard = await generateKeyboardWithLanguage(mainPage, newLanguage, bilingualEnabled);
       
       await sendTelegramMessage(botToken, 'sendMessage', {
         chat_id: chatId,
@@ -2599,7 +2618,7 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
       if (!keyboardHandled && !bidirectionalChatEnabled && menuPages.length > 0) {
         const mainPage = menuPages.find((p: MenuPage) => p.id === 'main');
         if (mainPage && mainPage.rows.length > 0) {
-          const keyboard = generateKeyboardWithLanguage(mainPage, userLanguage, bilingualEnabled);
+          const keyboard = await generateKeyboardWithLanguage(mainPage, userLanguage, bilingualEnabled);
           if (keyboard) {
             const menuPromptText = userLanguage === 'en' ? '📂 Please use the menu to select a function' : '📂 请使用菜单选择功能';
             await sendTelegramMessage(botToken, 'sendMessage', {
