@@ -6,11 +6,17 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
-import { Bot, Trash2, Key, CheckCircle, XCircle, AlertTriangle, WifiOff } from "lucide-react";
+import { Bot, Trash2, Key, CheckCircle, XCircle, AlertTriangle, WifiOff, MessageSquare, Keyboard, ShoppingBag } from "lucide-react";
 import { AddBotDialog } from "@/components/AddBotDialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import type { BotActivation } from "@/types/bot";
+
+interface FeatureStatus {
+  chat: { active: boolean; expireAt: string | null };
+  keyboard: { active: boolean; expireAt: string | null };
+  shop: { active: boolean; expireAt: string | null };
+}
 
 export const UserCenter = () => {
   const navigate = useNavigate();
@@ -23,16 +29,15 @@ export const UserCenter = () => {
   const [activationCode, setActivationCode] = useState("");
   const [isBinding, setIsBinding] = useState(false);
   const [isUserDisabled, setIsUserDisabled] = useState(false);
+  const [featureStatuses, setFeatureStatuses] = useState<Record<string, FeatureStatus>>({});
   const { toast } = useToast();
 
   useEffect(() => {
     if (authLoading) return;
-    
     if (!user) {
       navigate('/auth', { replace: true });
       return;
     }
-    
     setIsLoading(false);
   }, [user, authLoading, navigate]);
 
@@ -50,68 +55,91 @@ export const UserCenter = () => {
         .select('id')
         .eq('user_id', userId)
         .single();
-      
       setIsUserDisabled(!!data && !error);
     } catch (error) {
       setIsUserDisabled(false);
     }
   };
 
+  const loadFeatureStatuses = async (botList: BotActivation[]) => {
+    if (botList.length === 0) return;
+    const tokens = botList.map(b => b.bot_token);
+    
+    const [keyboardRes, shopRes] = await Promise.all([
+      supabase.from('keyboard_configs').select('bot_token, keyboard_expire_at').in('bot_token', tokens),
+      supabase.from('shop_configs').select('bot_token, shop_expire_at').in('bot_token', tokens),
+    ]);
+
+    const keyboardMap: Record<string, string | null> = {};
+    (keyboardRes.data || []).forEach((k: any) => { keyboardMap[k.bot_token] = k.keyboard_expire_at; });
+
+    const shopMap: Record<string, string | null> = {};
+    (shopRes.data || []).forEach((s: any) => { shopMap[s.bot_token] = s.shop_expire_at; });
+
+    const now = new Date();
+    const statuses: Record<string, FeatureStatus> = {};
+
+    botList.forEach(bot => {
+      const chatExpired = bot.expire_at ? new Date(bot.expire_at) < now : false;
+      const chatActive = bot.is_authorized && !chatExpired;
+
+      const kbExpireAt = keyboardMap[bot.bot_token] ?? null;
+      const kbExists = bot.bot_token in keyboardMap;
+      const kbExpired = kbExpireAt ? new Date(kbExpireAt) < now : false;
+      const kbActive = kbExists && !kbExpired;
+
+      const shopExpireAt = shopMap[bot.bot_token] ?? null;
+      const shopExists = bot.bot_token in shopMap;
+      const shopExpired = shopExpireAt ? new Date(shopExpireAt) < now : false;
+      const shopActive = shopExists && !shopExpired;
+
+      statuses[bot.id] = {
+        chat: { active: chatActive, expireAt: bot.expire_at },
+        keyboard: { active: kbActive, expireAt: kbExpireAt },
+        shop: { active: shopActive, expireAt: shopExpireAt },
+      };
+    });
+
+    setFeatureStatuses(statuses);
+  };
+
   useEffect(() => {
     if (!user) return;
-
     const channel = supabase
       .channel('user-center-bots-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bot_activations'
-        },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_activations' },
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newBot = payload.new as unknown as BotActivation;
             if (newBot.user_id === user.id) {
-              setBots(prev => {
-                if (prev.find(b => b.id === newBot.id)) return prev;
-                return [newBot, ...prev];
-              });
+              setBots(prev => prev.find(b => b.id === newBot.id) ? prev : [newBot, ...prev]);
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedBot = payload.new as unknown as BotActivation;
             if (updatedBot.user_id === user.id) {
-              setBots(prev => {
-                const existing = prev.find(b => b.id === updatedBot.id);
-                if (existing) {
-                  return prev.map(b => b.id === updatedBot.id ? updatedBot : b);
-                }
-                return [updatedBot, ...prev];
-              });
+              setBots(prev => prev.find(b => b.id === updatedBot.id)
+                ? prev.map(b => b.id === updatedBot.id ? updatedBot : b)
+                : [updatedBot, ...prev]);
             }
           } else if (payload.eventType === 'DELETE') {
             const deletedBot = payload.old as unknown as BotActivation;
             setBots(prev => prev.filter(b => b.id !== deletedBot.id));
           }
         }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      ).subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
+
+  useEffect(() => {
+    if (bots.length > 0) loadFeatureStatuses(bots);
+  }, [bots]);
 
   const loadBots = async () => {
     if (!user) return;
-    
     try {
-      const { data, error } = await (supabase
-        .from('bot_activations')
-        .select('*') as any)
+      const { data, error } = await (supabase.from('bot_activations').select('*') as any)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
       setBots((data || []) as BotActivation[]);
     } catch (error) {
@@ -121,111 +149,95 @@ export const UserCenter = () => {
 
   const handleDeleteBot = async (id: string) => {
     if (isUserDisabled) return;
-    
     try {
-      const { error } = await supabase.functions.invoke('manage-bot', {
-        body: { action: 'delete', botId: id }
-      });
-      
+      const { error } = await supabase.functions.invoke('manage-bot', { body: { action: 'delete', botId: id } });
       if (error) throw error;
-      
       setBots(prev => prev.filter(b => b.id !== id));
-      
-      toast({
-        title: t('user.deleteSuccess'),
-        description: t('user.botRemoved'),
-      });
+      toast({ title: t('user.deleteSuccess'), description: t('user.botRemoved') });
     } catch (error: any) {
-      toast({
-        title: t('user.deleteFailed'),
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: t('user.deleteFailed'), description: error.message, variant: "destructive" });
     }
   };
 
   const handleBindCode = async (botId: string) => {
     if (isUserDisabled) return;
-    
     if (!activationCode.trim()) {
-      toast({
-        title: t('common.error'),
-        description: t('user.enterCodeError'),
-        variant: "destructive",
-      });
+      toast({ title: t('common.error'), description: t('user.enterCodeError'), variant: "destructive" });
       return;
     }
-
     setIsBinding(true);
     try {
       const { data, error } = await supabase.functions.invoke('manage-bot', {
-        body: { 
-          action: 'bind-code',
-          botId: botId,
-          code: activationCode.trim(),
-        }
+        body: { action: 'bind-code', botId, code: activationCode.trim() }
       });
-      
       if (error) throw error;
       if (data.error) throw new Error(data.error);
-      
-      toast({
-        title: t('user.bindSuccess'),
-        description: t('user.codeBindSuccess'),
-      });
+      toast({ title: t('user.bindSuccess'), description: t('user.codeBindSuccess') });
       setActivationCode("");
       setBindingBotId(null);
-      
-      if (data.bot) {
-        setBots(prev => prev.map(b => b.id === botId ? data.bot : b));
-      }
+      if (data.bot) setBots(prev => prev.map(b => b.id === botId ? data.bot : b));
     } catch (error: any) {
-      toast({
-        title: t('user.bindFailed'),
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: t('user.bindFailed'), description: error.message, variant: "destructive" });
     } finally {
       setIsBinding(false);
     }
   };
 
   const handleBotAdded = (newBot: BotActivation) => {
-    if (isUserDisabled) {
-      setShowAddBot(false);
-      return;
-    }
-    
+    if (isUserDisabled) { setShowAddBot(false); return; }
     setBots(prev => [newBot, ...prev.filter(b => b.id !== newBot.id)]);
     setShowAddBot(false);
-    toast({
-      title: t('user.addSuccess'),
-      description: `${t('user.canTrial')} ${newBot.trial_limit} ${t('user.messages')}`,
-    });
+    toast({ title: t('user.addSuccess'), description: `${t('user.canTrial')} ${newBot.trial_limit} ${t('user.messages')}` });
   };
 
   const getStatusDisplay = (bot: BotActivation) => {
     const isExpired = bot.expire_at && new Date(bot.expire_at) < new Date();
     const trialExceeded = !bot.is_authorized && bot.trial_messages_used >= bot.trial_limit;
-    
-    if (isExpired) {
-      return { text: t('user.expired'), color: 'bg-destructive/20 text-destructive' };
-    }
-    if (trialExceeded) {
-      return { text: t('user.trialFull'), color: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300' };
-    }
-    if (bot.is_authorized) {
-      return { text: t('user.activated'), color: 'bg-green-500/20 text-green-700 dark:text-green-300' };
-    }
+    if (isExpired) return { text: t('user.expired'), color: 'bg-destructive/20 text-destructive' };
+    if (trialExceeded) return { text: t('user.trialFull'), color: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300' };
+    if (bot.is_authorized) return { text: t('user.activated'), color: 'bg-green-500/20 text-green-700 dark:text-green-300' };
     return { text: t('user.trialing'), color: 'bg-blue-500/20 text-blue-700 dark:text-blue-300' };
   };
 
   const formatExpireDate = (expireAt: string | null) => {
     if (!expireAt) return t('user.forever');
     const date = new Date(expireAt);
-    const now = new Date();
-    if (date < now) return t('user.expired');
+    if (date < new Date()) return t('user.expired');
     return date.toLocaleDateString(language === 'en' ? 'en-US' : 'zh-CN');
+  };
+
+  const renderFeatureBadges = (botId: string) => {
+    const fs = featureStatuses[botId];
+    if (!fs) return null;
+
+    const features = [
+      { key: 'chat', icon: MessageSquare, label: language === 'zh' ? '双向聊天' : 'Chat', status: fs.chat },
+      { key: 'keyboard', icon: Keyboard, label: language === 'zh' ? '菜单键盘' : 'Keyboard', status: fs.keyboard },
+      { key: 'shop', icon: ShoppingBag, label: language === 'zh' ? 'TG商城' : 'TG Shop', status: fs.shop },
+    ];
+
+    return (
+      <div className="flex gap-2 flex-wrap mt-1">
+        {features.map(f => {
+          const Icon = f.icon;
+          const isActive = f.status.active;
+          return (
+            <span
+              key={f.key}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                isActive
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
+                  : 'bg-muted text-muted-foreground border-border'
+              }`}
+            >
+              <Icon className="h-3 w-3" />
+              {f.label}
+              <span className={`ml-0.5 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+            </span>
+          );
+        })}
+      </div>
+    );
   };
 
   if (authLoading || isLoading) {
@@ -297,11 +309,7 @@ export const UserCenter = () => {
                             </span>
                           )}
                         </div>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteBot(bot.id)}
-                        >
+                        <Button size="sm" variant="destructive" onClick={() => handleDeleteBot(bot.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -310,6 +318,8 @@ export const UserCenter = () => {
                         <span className="font-medium">{t('user.token')}:</span>{' '}
                         <span className="text-muted-foreground">{bot.bot_token.substring(0, 20)}...</span>
                       </div>
+
+                      {renderFeatureBadges(bot.id)}
                       
                       <div className="text-sm flex items-center gap-2">
                         <span className="font-medium">{t('user.validity')}:</span>{' '}
@@ -317,12 +327,7 @@ export const UserCenter = () => {
                           {bot.is_authorized ? formatExpireDate(bot.expire_at) : `${t('user.trial')}: ${bot.trial_messages_used}/${bot.trial_limit}`}
                         </span>
                         {bot.is_authorized && !isExpired && bindingBotId !== bot.id && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-xs px-2 ml-auto"
-                            onClick={() => setBindingBotId(bot.id)}
-                          >
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 ml-auto" onClick={() => setBindingBotId(bot.id)}>
                             <Key className="h-3 w-3 mr-1" />
                             {t('user.renew')}
                           </Button>
@@ -348,31 +353,15 @@ export const UserCenter = () => {
                                 onChange={(e) => setActivationCode(e.target.value)}
                                 className="flex-1"
                               />
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleBindCode(bot.id)}
-                                disabled={isBinding}
-                              >
+                              <Button size="sm" onClick={() => handleBindCode(bot.id)} disabled={isBinding}>
                                 {isBinding ? t('user.binding') : t('user.bind')}
                               </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => {
-                                  setBindingBotId(null);
-                                  setActivationCode("");
-                                }}
-                              >
+                              <Button size="sm" variant="outline" onClick={() => { setBindingBotId(null); setActivationCode(""); }}>
                                 {t('common.cancel')}
                               </Button>
                             </div>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setBindingBotId(bot.id)}
-                              className="w-full"
-                            >
+                            <Button size="sm" variant="outline" onClick={() => setBindingBotId(bot.id)} className="w-full">
                               <Key className="h-4 w-4 mr-2" />
                               {isExpired ? t('user.renewActivate') : t('user.bindCode')}
                             </Button>
