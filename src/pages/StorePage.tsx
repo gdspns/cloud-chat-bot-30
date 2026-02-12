@@ -19,6 +19,7 @@ import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoreProducts, StoreProduct } from "@/hooks/useStoreProducts";
 import { useLanguage } from "@/hooks/use-language";
+import { useBinanceRates } from "@/hooks/useBinanceRates";
 
 // --- 全局工具函数 ---
 interface Order {
@@ -101,7 +102,27 @@ export const StorePage = () => {
   
   // 使用数据库 hook 加载商品
   const { products, loading: productsLoading, getStockCount, loadProducts } = useStoreProducts();
+
+  // 使用币安实时汇率（每60秒刷新）
+  const { rates, fetchRates } = useBinanceRates();
   
+  // 自动刷新汇率
+  useEffect(() => {
+    fetchRates(); // 初始加载
+    const interval = setInterval(fetchRates, 60000); // 60秒刷新
+    return () => clearInterval(interval);
+  }, [fetchRates]);
+
+  // 根据CNY价格和实时汇率计算USDT/TRX价格
+  const getUsdtPrice = (cnyPrice: number): number => {
+    if (!rates) return 0;
+    return cnyPrice / rates.usdtCny;
+  };
+  const getTrxPrice = (cnyPrice: number): number => {
+    if (!rates) return 0;
+    return cnyPrice / rates.usdtCny / rates.trxUsdt;
+  };
+
   const [config] = useState<Config>(() => {
     const saved = localStorage.getItem('app_config_v41');
     return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
@@ -458,8 +479,8 @@ export const StorePage = () => {
     }
     setValidationError("");
 
-    let basePrice = paymentMethod === 'usdt' ? product.usdt : (paymentMethod === 'trx' ? product.trx : product.price);
-    let finalAmount = basePrice;
+    let basePrice = paymentMethod === 'usdt' ? getUsdtPrice(product.price) : (paymentMethod === 'trx' ? getTrxPrice(product.price) : product.price);
+    let finalAmount = Number(basePrice.toFixed(3));
     
     if (config.enableAntiCollision && (paymentMethod === 'usdt' || paymentMethod === 'trx')) {
       const offset = (Math.floor(Math.random() * 19) + 1) / 1000;
@@ -919,8 +940,8 @@ export const StorePage = () => {
   let displayPrice = '---';
   if (currentProduct) {
     const priceVal = Number(currentProduct.price) || 0;
-    const usdtVal = Number(currentProduct.usdt) || 0;
-    const trxVal = Number(currentProduct.trx) || 0;
+    const usdtVal = getUsdtPrice(priceVal);
+    const trxVal = getTrxPrice(priceVal);
     if (paymentMethod === 'usdt') displayPrice = `${usdtVal.toFixed(3)} U`;
     else if (paymentMethod === 'trx') displayPrice = `${trxVal.toFixed(3)} T`;
     else if (paymentMethod === 'wechat' || paymentMethod === 'alipay') displayPrice = `¥${priceVal.toFixed(2)}`;
@@ -971,6 +992,11 @@ export const StorePage = () => {
               <button key={tag.id} onClick={() => toggleUserTag(tag.id)} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTags.includes(tag.id) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:border-primary'}`}>{tag.label}</button>
             ))}
           </div>
+          {rates && (
+            <p className="text-center text-[10px] text-muted-foreground mt-2">
+              {language === 'zh' ? '币安实时汇率' : 'Binance Live'}: 1 USDT ≈ ¥{rates.usdtCny.toFixed(2)} | 1 TRX ≈ ${rates.trxUsdt.toFixed(4)} ({language === 'zh' ? '每60秒刷新' : 'refreshes every 60s'})
+            </p>
+          )}
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
@@ -1030,8 +1056,8 @@ export const StorePage = () => {
                         <div className="flex flex-col gap-1">
                           <span className="text-xl font-black">¥{(Number(p.price) || 0).toFixed(2)}</span>
                           <div className="flex justify-between text-[9px] text-muted-foreground font-bold">
-                            <span>{(Number(p.usdt) || 0).toFixed(3)} U</span>
-                            <span>{(Number(p.trx) || 0).toFixed(3)} T</span>
+                            <span>{getUsdtPrice(Number(p.price) || 0).toFixed(3)} U</span>
+                            <span>{getTrxPrice(Number(p.price) || 0).toFixed(3)} T</span>
                           </div>
                         </div>
                       </div>
