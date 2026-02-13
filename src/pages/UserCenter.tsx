@@ -26,6 +26,7 @@ export const UserCenter = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showAddBot, setShowAddBot] = useState(false);
   const [bindingBotId, setBindingBotId] = useState<string | null>(null);
+  const [bindingFeature, setBindingFeature] = useState<string | null>(null);
   const [activationCode, setActivationCode] = useState("");
   const [isBinding, setIsBinding] = useState(false);
   const [isUserDisabled, setIsUserDisabled] = useState(false);
@@ -206,8 +207,8 @@ export const UserCenter = () => {
     return date.toLocaleDateString(language === 'en' ? 'en-US' : 'zh-CN');
   };
 
-  const renderFeatureBadges = (botId: string) => {
-    const fs = featureStatuses[botId];
+  const renderFeatureBadges = (bot: BotActivation) => {
+    const fs = featureStatuses[bot.id];
     if (!fs) return null;
 
     const features = [
@@ -217,25 +218,67 @@ export const UserCenter = () => {
     ];
 
     return (
-      <div className="flex gap-2 flex-wrap mt-1">
-        {features.map(f => {
-          const Icon = f.icon;
-          const isActive = f.status.active;
-          return (
-            <span
-              key={f.key}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
-                isActive
-                  ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
-                  : 'bg-muted text-muted-foreground border-border'
-              }`}
-            >
-              <Icon className="h-3 w-3" />
-              {f.label}
-              <span className={`ml-0.5 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
-            </span>
-          );
-        })}
+      <div className="space-y-1 mt-1">
+        <div className="flex gap-2 flex-wrap">
+          {features.map(f => {
+            const Icon = f.icon;
+            const isActive = f.status.active;
+            const isBinding = bindingBotId === bot.id && bindingFeature === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => {
+                  if (bindingBotId === bot.id && bindingFeature === f.key) {
+                    setBindingBotId(null);
+                    setBindingFeature(null);
+                    setActivationCode("");
+                  } else {
+                    setBindingBotId(bot.id);
+                    setBindingFeature(f.key);
+                    setActivationCode("");
+                  }
+                }}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer hover:opacity-80 ${
+                  isBinding
+                    ? 'bg-primary/15 text-primary border-primary/40 ring-1 ring-primary/30'
+                    : isActive
+                      ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
+                      : 'bg-muted text-muted-foreground border-border'
+                }`}
+              >
+                <Icon className="h-3 w-3" />
+                {f.label}
+                {f.status.expireAt ? (
+                  <span className="ml-0.5 opacity-70">
+                    {new Date(f.status.expireAt) < new Date()
+                      ? (language === 'zh' ? '已过期' : 'Expired')
+                      : new Date(f.status.expireAt).toLocaleDateString(language === 'en' ? 'en-US' : 'zh-CN')}
+                  </span>
+                ) : isActive ? (
+                  <span className="ml-0.5 opacity-70">{language === 'zh' ? '永久' : '∞'}</span>
+                ) : null}
+                <span className={`ml-0.5 w-1.5 h-1.5 rounded-full ${isActive ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+              </button>
+            );
+          })}
+        </div>
+        {bindingBotId === bot.id && bindingFeature && (
+          <div className="flex gap-2 pt-1">
+            <Input
+              placeholder={`${language === 'zh' ? '输入激活码续期' : 'Enter code to renew'} ${features.find(f => f.key === bindingFeature)?.label || ''}`}
+              value={activationCode}
+              onChange={(e) => setActivationCode(e.target.value)}
+              className="flex-1 h-7 text-xs"
+            />
+            <Button size="sm" className="h-7 text-xs px-2" onClick={() => handleBindCode(bot.id)} disabled={isBinding}>
+              {isBinding ? (language === 'zh' ? '绑定中...' : 'Binding...') : (language === 'zh' ? '绑定' : 'Bind')}
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => { setBindingBotId(null); setBindingFeature(null); setActivationCode(""); }}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        )}
       </div>
     );
   };
@@ -319,7 +362,7 @@ export const UserCenter = () => {
                         <span className="text-muted-foreground">{bot.bot_token.substring(0, 20)}...</span>
                       </div>
 
-                      {renderFeatureBadges(bot.id)}
+                      {renderFeatureBadges(bot)}
                       
                       <div className="text-sm flex items-center gap-2">
                         <span className="font-medium">{t('user.validity')}:</span>{' '}
