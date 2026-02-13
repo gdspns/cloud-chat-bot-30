@@ -154,6 +154,11 @@ interface AppConfig {
   autoReplyRules: AutoReplyRule[];
   flowMessages: MessageData[];
   knownUsers: UserStat[];
+  // TG商城配置
+  shopConfig?: any;
+  shopProducts?: any[];
+  // 文章/配置说明
+  articles?: any[];
 }
 
 // --- 工具函数 ---
@@ -1083,7 +1088,7 @@ function Workspace({
     };
   }, [isConnected, isMonitoring, targetChatId]);
 
-  const handleExportConfig = () => {
+  const handleExportConfig = async () => {
     const config: AppConfig = {
       version: APP_VERSION,
       timestamp: Date.now(),
@@ -1095,23 +1100,40 @@ function Workspace({
       flowMessages,
       knownUsers,
     };
+
+    // 从数据库获取TG商城配置和商品
+    if (tokenInput) {
+      try {
+        const [shopConfigRes, shopProductsRes, articlesRes] = await Promise.all([
+          supabase.from('shop_configs').select('*').eq('bot_token', tokenInput).maybeSingle(),
+          supabase.from('shop_products').select('*').eq('bot_token', tokenInput),
+          supabase.from('articles').select('*'),
+        ]);
+        if (shopConfigRes.data) config.shopConfig = shopConfigRes.data;
+        if (shopProductsRes.data) config.shopProducts = shopProductsRes.data;
+        if (articlesRes.data) config.articles = articlesRes.data;
+      } catch (e) {
+        console.error('Export additional data failed:', e);
+      }
+    }
+
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-  a.download = `keyboard_config_${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast("success", t('km.settings.configExported'));
+    a.download = `keyboard_config_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("success", t('km.settings.configExported'));
   };
 
   const handleImportConfig = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const config = JSON.parse(event.target?.result as string) as AppConfig;
         if (config.tokenInput) setTokenInput(config.tokenInput);
@@ -1130,6 +1152,34 @@ function Workspace({
           setKnownUsers(config.knownUsers);
           localStorage.setItem("keyboard_menu_users", JSON.stringify(config.knownUsers));
         }
+
+        // 导入TG商城配置
+        const botToken = config.tokenInput;
+        if (botToken) {
+          if (config.shopConfig) {
+            const { id, created_at, updated_at, ...shopData } = config.shopConfig;
+            await supabase.from('shop_configs').upsert(
+              { ...shopData, bot_token: botToken },
+              { onConflict: 'bot_token' }
+            );
+          }
+          if (config.shopProducts && config.shopProducts.length > 0) {
+            for (const product of config.shopProducts) {
+              const { id, created_at, updated_at, ...productData } = product;
+              await supabase.from('shop_products').upsert(
+                { ...productData, bot_token: botToken, id },
+                { onConflict: 'id' }
+              );
+            }
+          }
+        }
+        // 导入文章/配置说明
+        if (config.articles && config.articles.length > 0) {
+          for (const article of config.articles) {
+            await supabase.from('articles').upsert(article, { onConflict: 'id' });
+          }
+        }
+
         showToast("success", t('km.settings.configImported'));
       } catch (err) {
         showToast("error", t('km.settings.configImportError'));
@@ -1349,9 +1399,18 @@ function Workspace({
           />
         </nav>
 
-        <div className="p-4 border-t space-y-3">
-          <div className="flex justify-between items-center text-[10px] text-muted-foreground font-mono">
-            <span>VER: {APP_VERSION}</span>
+        <div className="p-4 border-t space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={handleExportConfig}
+              className="flex items-center justify-center gap-1.5 bg-muted hover:bg-accent text-foreground text-[10px] py-2 rounded-lg transition font-medium"
+            >
+              <Download size={12} /> {t('km.settings.exportConfig')}
+            </button>
+            <label className="flex items-center justify-center gap-1.5 bg-muted hover:bg-accent text-foreground text-[10px] py-2 rounded-lg transition cursor-pointer font-medium">
+              <Upload size={12} /> {t('km.settings.importConfig')}
+              <input type="file" accept=".json" onChange={handleImportConfig} className="hidden" />
+            </label>
           </div>
         </div>
 
@@ -2018,19 +2077,8 @@ function SettingsPanel({
                 </div>
 
 
-                {/* Export/Import */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={handleExportConfig}
-                    className="flex items-center justify-center gap-2 bg-muted hover:bg-accent text-foreground text-xs py-2.5 rounded-lg transition font-medium"
-                  >
-                    <Download size={14} /> {t('km.settings.exportConfig')}
-                  </button>
-                  <label className="flex items-center justify-center gap-2 bg-muted hover:bg-accent text-foreground text-xs py-2.5 rounded-lg transition cursor-pointer font-medium">
-                    <Upload size={14} /> {t('km.settings.importConfig')}
-                    <input type="file" accept=".json" onChange={handleImportConfig} className="hidden" />
-                  </label>
-                </div>
+
+
 
                 {/* Deep Reset */}
                 <button
