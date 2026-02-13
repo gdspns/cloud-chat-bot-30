@@ -363,54 +363,6 @@ export const UserCenter = () => {
                       </div>
 
                       {renderFeatureBadges(bot)}
-                      
-                      <div className="text-sm flex items-center gap-2">
-                        <span className="font-medium">{t('user.validity')}:</span>{' '}
-                        <span className={`${isExpired ? 'text-destructive' : 'text-muted-foreground'}`}>
-                          {bot.is_authorized ? formatExpireDate(bot.expire_at) : `${t('user.trial')}: ${bot.trial_messages_used}/${bot.trial_limit}`}
-                        </span>
-                        {bot.is_authorized && !isExpired && bindingBotId !== bot.id && (
-                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 ml-auto" onClick={() => setBindingBotId(bot.id)}>
-                            <Key className="h-3 w-3 mr-1" />
-                            {t('user.renew')}
-                          </Button>
-                        )}
-                      </div>
-                      
-                      {(isExpired || trialExceeded) && (
-                        <div className="flex items-center gap-2 p-2 bg-destructive/10 rounded text-sm">
-                          <AlertTriangle className="h-4 w-4 text-destructive" />
-                          <span className="text-destructive">
-                            {isExpired ? t('user.serviceExpired') : t('user.trialUsedUp')}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {(!bot.is_authorized || isExpired || bindingBotId === bot.id) && (
-                        <div className="pt-2 border-t">
-                          {bindingBotId === bot.id ? (
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder={t('user.enterCode')}
-                                value={activationCode}
-                                onChange={(e) => setActivationCode(e.target.value)}
-                                className="flex-1"
-                              />
-                              <Button size="sm" onClick={() => handleBindCode(bot.id)} disabled={isBinding}>
-                                {isBinding ? t('user.binding') : t('user.bind')}
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => { setBindingBotId(null); setActivationCode(""); }}>
-                                {t('common.cancel')}
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button size="sm" variant="outline" onClick={() => setBindingBotId(bot.id)} className="w-full">
-                              <Key className="h-4 w-4 mr-2" />
-                              {isExpired ? t('user.renewActivate') : t('user.bindCode')}
-                            </Button>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </Card>
                 );
