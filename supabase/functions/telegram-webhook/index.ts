@@ -258,11 +258,11 @@ async function localizeText(text: string | null | undefined, lang: 'zh' | 'en'):
   return map[trimmed] || trimmed;
 }
 
-// 生成随机小数防撞单 - 加密货币 (0.010-0.099，三位小数)
+// 生成随机小数防撞单 - 加密货币 (0.001-0.019，三位小数)
 function generateRandomDecimal(price: number, enabled: boolean): number {
   if (!enabled) return price;
-  // 生成 10-99 的随机数，代表 0.010-0.099
-  const randomMills = Math.floor(Math.random() * 90) + 10; // 10-99
+  // 生成 1-19 的随机数，代表 0.001-0.019
+  const randomMills = Math.floor(Math.random() * 19) + 1; // 1-19
   return Math.round((price + randomMills / 1000) * 1000) / 1000;
 }
 
