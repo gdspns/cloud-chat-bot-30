@@ -1352,16 +1352,6 @@ function Workspace({
           <Bot size={16} className="text-primary shrink-0" />
           <span className="font-semibold text-sm truncate">{t('km.sidebar.title')}</span>
         </div>
-        {/* Simulator toggle eye button - mobile only */}
-        {activeTab !== "shop" && activeTab !== "guide" && (
-          <button
-            onClick={() => setSimulatorVisible(!simulatorVisible)}
-            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
-            title={simulatorVisible ? t('km.simulator.hide') || '隐藏模拟器' : t('km.simulator.show') || '显示模拟器'}
-          >
-            {simulatorVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        )}
       </div>
 
       {/* Sidebar */}
@@ -1590,21 +1580,9 @@ function Workspace({
           )}
         </div>
 
-        {/* Phone Simulator - hidden on mobile by default, toggle with eye button */}
+        {/* Phone Simulator - desktop only */}
         {activeTab !== "shop" && activeTab !== "guide" && (
-          <div className={`
-            ${simulatorVisible ? 'fixed inset-0 z-40 flex items-center justify-center bg-black/60 md:relative md:inset-auto md:z-auto md:bg-transparent' : 'hidden md:flex'}
-            w-full md:w-[320px] p-4 md:p-6 md:items-center md:justify-center bg-muted/50 md:border-l shrink-0
-          `}>
-            {/* Close button for mobile overlay */}
-            {simulatorVisible && (
-              <button
-                onClick={() => setSimulatorVisible(false)}
-                className="absolute top-4 right-4 p-2 rounded-full bg-card text-foreground shadow-lg md:hidden z-50"
-              >
-                <X size={20} />
-              </button>
-            )}
+          <div className="hidden md:flex w-[320px] p-6 items-center justify-center bg-muted/50 border-l shrink-0">
             <PhoneSimulator
               chatHistory={chatHistory}
               botProfile={botProfile}
