@@ -24,24 +24,25 @@ export const Navbar = () => {
   
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-      <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 font-bold text-lg">
+      <div className="container mx-auto px-2 md:px-4 h-14 flex items-center justify-between gap-1">
+        {/* Logo - 手机端只显示图标 */}
+        <Link to="/" className="flex items-center gap-2 font-bold text-lg shrink-0">
           <Bot className="h-6 w-6 text-primary" />
           <span className="hidden sm:inline">{t('nav.brand')}</span>
         </Link>
         
         {/* 居中导航项 */}
-        <div className="flex flex-wrap items-center justify-center gap-1 md:gap-2 md:absolute md:left-1/2 md:transform md:-translate-x-1/2">
+        <div className="flex items-center justify-center gap-0.5 md:gap-2 md:absolute md:left-1/2 md:transform md:-translate-x-1/2">
           <Button 
             variant={location.pathname === "/" ? "default" : "ghost"} 
             size="sm" 
             asChild
-            className="px-2 md:px-3"
+            className="h-8 px-1.5 md:px-3 text-xs md:text-sm"
           >
             <Link to="/">
-              <MessageSquare className="h-4 w-4 mr-1" />
-              <span className="md:hidden">{t('nav.chat.short')}</span>
-              <span className="hidden md:inline">{t('nav.chat')}</span>
+              <MessageSquare className="h-4 w-4 shrink-0" />
+              <span className="ml-1 hidden sm:inline">{t('nav.chat')}</span>
+              <span className="ml-0.5 sm:hidden text-[10px]">{t('nav.chat.short')}</span>
             </Link>
           </Button>
           
@@ -49,12 +50,12 @@ export const Navbar = () => {
             variant={location.pathname === "/keyboard-menu" ? "default" : "ghost"} 
             size="sm" 
             asChild
-            className="px-2 md:px-3"
+            className="h-8 px-1.5 md:px-3 text-xs md:text-sm"
           >
             <Link to="/keyboard-menu">
-              <Layout className="h-4 w-4 mr-1" />
-              <span className="md:hidden">{t('nav.keyboard.short')}</span>
-              <span className="hidden md:inline">{t('nav.keyboard')}</span>
+              <Layout className="h-4 w-4 shrink-0" />
+              <span className="ml-1 hidden sm:inline">{t('nav.keyboard')}</span>
+              <span className="ml-0.5 sm:hidden text-[10px]">{t('nav.keyboard.short')}</span>
             </Link>
           </Button>
           
@@ -62,35 +63,35 @@ export const Navbar = () => {
             variant={location.pathname === "/store" ? "default" : "ghost"} 
             size="sm" 
             asChild
-            className="px-2 md:px-3"
+            className="h-8 px-1.5 md:px-3 text-xs md:text-sm"
           >
             <Link to="/store">
-              <ShoppingCart className="h-4 w-4 mr-1" />
-              <span className="md:hidden">{t('nav.store.short')}</span>
-              <span className="hidden md:inline">{t('nav.store')}</span>
+              <ShoppingCart className="h-4 w-4 shrink-0" />
+              <span className="ml-1 hidden sm:inline">{t('nav.store')}</span>
+              <span className="ml-0.5 sm:hidden text-[10px]">{t('nav.store.short')}</span>
             </Link>
           </Button>
         </div>
         
-        <div className="flex items-center gap-1 md:gap-2">
+        {/* 右侧功能区 */}
+        <div className="flex items-center gap-0 md:gap-1 shrink-0">
           {/* 语言切换 */}
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={toggleLanguage}
-            className="px-2"
+            className="h-8 w-8"
             title={language === 'zh' ? 'Switch to English' : '切换到中文'}
           >
             <Globe className="h-4 w-4" />
-            <span className="ml-1 text-xs font-bold">{language === 'zh' ? 'EN' : '中'}</span>
           </Button>
           
           {/* 主题切换 */}
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={toggleTheme}
-            className="px-2"
+            className="h-8 w-8"
             title={theme === 'dark' ? '切换到亮色模式' : '切换到暗黑模式'}
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -100,48 +101,48 @@ export const Navbar = () => {
             <>
               <Button 
                 variant={location.pathname === "/user" ? "default" : "ghost"} 
-                size="sm" 
+                size="icon"
                 asChild
-                className="px-2 md:px-3"
+                className="h-8 w-8 md:w-auto md:px-3"
               >
                 <Link to="/user">
                   <Settings className="h-4 w-4 md:mr-1" />
-                  <span className="hidden md:inline">{t('nav.userCenter')}</span>
+                  <span className="hidden md:inline text-sm">{t('nav.userCenter')}</span>
                 </Link>
               </Button>
               <Button 
                 variant="ghost" 
-                size="sm" 
+                size="icon"
                 onClick={handleLogout}
-                className="px-2 md:px-3"
+                className="h-8 w-8 md:w-auto md:px-3"
               >
                 <LogOut className="h-4 w-4 md:mr-1" />
-                <span className="hidden md:inline">{t('nav.logout')}</span>
+                <span className="hidden md:inline text-sm">{t('nav.logout')}</span>
               </Button>
             </>
           ) : (
             <>
               <Button 
                 variant={location.pathname === "/auth" ? "default" : "ghost"} 
-                size="sm" 
+                size="icon"
                 asChild
-                className="px-2 md:px-3"
+                className="h-8 w-8 md:w-auto md:px-3"
               >
                 <Link to="/auth?mode=register">
                   <UserPlus className="h-4 w-4 md:mr-1" />
-                  <span className="hidden md:inline">{t('nav.register')}</span>
+                  <span className="hidden md:inline text-sm">{t('nav.register')}</span>
                 </Link>
               </Button>
               
               <Button 
                 variant={location.pathname === "/auth" ? "default" : "ghost"} 
-                size="sm" 
+                size="icon"
                 asChild
-                className="px-2 md:px-3"
+                className="h-8 w-8 md:w-auto md:px-3"
               >
                 <Link to="/auth?mode=login">
                   <LogIn className="h-4 w-4 md:mr-1" />
-                  <span className="hidden md:inline">{t('nav.login')}</span>
+                  <span className="hidden md:inline text-sm">{t('nav.login')}</span>
                 </Link>
               </Button>
             </>
