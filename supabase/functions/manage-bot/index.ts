@@ -43,15 +43,15 @@ async function verifyAdminRole(req: Request, supabase: any): Promise<{ isAdmin: 
 
   const token = authHeader.replace('Bearer ', '');
 
-  // Verify the JWT using getClaims for better reliability
-  const { data, error: claimsError } = await supabase.auth.getClaims(token);
+  // Verify the JWT using getUser
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-  if (claimsError || !data?.claims) {
-    console.error('getClaims error:', claimsError);
+  if (userError || !user) {
+    console.error('getUser error:', userError);
     return { isAdmin: false, userId: null, error: '无效的认证令牌' };
   }
 
-  const userId = data.claims.sub;
+  const userId = user.id;
 
   // Check if user has admin role using the has_role function with retry
   let lastError: any = null;
@@ -95,13 +95,13 @@ async function verifyUser(req: Request, supabase: any): Promise<{ userId: string
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const { data, error: claimsError } = await supabase.auth.getClaims(token);
-  if (claimsError || !data?.claims) {
-    console.error('getClaims error in verifyUser:', claimsError);
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !user) {
+    console.error('getUser error in verifyUser:', userError);
     return { userId: null, error: '无效的认证令牌' };
   }
 
-  return { userId: data.claims.sub };
+  return { userId: user.id };
 }
 
 /**
