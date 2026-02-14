@@ -499,6 +499,8 @@ function Workspace({
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"message" | "keyboard" | "commands" | "settings" | "users" | "shop" | "guide">("settings");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [simulatorVisible, setSimulatorVisible] = useState(false);
 
   const [flowMessages, setFlowMessages] = useState<MessageData[]>([
     { id: uuid(), label: "/start", type: "text", content: "", inlineKeyboard: [], disableWebPagePreview: false },
@@ -1335,14 +1337,48 @@ function Workspace({
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] bg-muted overflow-hidden">
+    <div className="flex h-[calc(100vh-3.5rem)] bg-muted overflow-hidden relative">
+      {/* Mobile Sidebar Overlay */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileSidebarOpen(false)} />
+      )}
+
+      {/* Mobile Header Bar */}
+      <div className="fixed top-14 left-0 right-0 z-30 flex items-center gap-2 bg-card border-b px-3 py-2 md:hidden">
+        <button onClick={() => setMobileSidebarOpen(true)} className="p-1.5 rounded-lg hover:bg-muted">
+          <Menu size={20} />
+        </button>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Bot size={16} className="text-primary shrink-0" />
+          <span className="font-semibold text-sm truncate">{t('km.sidebar.title')}</span>
+        </div>
+        {/* Simulator toggle eye button - mobile only */}
+        {activeTab !== "shop" && activeTab !== "guide" && (
+          <button
+            onClick={() => setSimulatorVisible(!simulatorVisible)}
+            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
+            title={simulatorVisible ? t('km.simulator.hide') || '隐藏模拟器' : t('km.simulator.show') || '显示模拟器'}
+          >
+            {simulatorVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        )}
+      </div>
+
       {/* Sidebar */}
-      <div className="w-[220px] bg-card border-r flex flex-col shrink-0">
+      <div className={`
+        ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0 fixed md:relative z-50 md:z-auto
+        w-[260px] md:w-[220px] bg-card border-r flex flex-col shrink-0
+        h-[calc(100vh-3.5rem)] transition-transform duration-200
+      `}>
         <div className="p-5 border-b flex items-center gap-3">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg">
             <Bot className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="font-bold text-lg">{t('km.sidebar.title')}</span>
+          <button onClick={() => setMobileSidebarOpen(false)} className="ml-auto p-1 rounded hover:bg-muted md:hidden">
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
@@ -1352,6 +1388,7 @@ function Workspace({
             active={activeTab === "settings"}
             onClick={() => {
               setActiveTab("settings");
+              setMobileSidebarOpen(false);
               refreshWebhook();
             }}
             notification={!isConnected}
@@ -1360,25 +1397,25 @@ function Workspace({
             icon={<List size={18} />}
             label={t('km.sidebar.commandMgmt')}
             active={activeTab === "commands"}
-            onClick={() => setActiveTab("commands")}
+            onClick={() => { setActiveTab("commands"); setMobileSidebarOpen(false); }}
           />
           <SidebarItem
             icon={<Layout size={18} />}
             label={t('km.sidebar.keyboardConfig')}
             active={activeTab === "keyboard"}
-            onClick={() => setActiveTab("keyboard")}
+            onClick={() => { setActiveTab("keyboard"); setMobileSidebarOpen(false); }}
           />
           <SidebarItem
             icon={<Layers size={18} />}
             label={t('km.sidebar.messagePush')}
             active={activeTab === "message"}
-            onClick={() => setActiveTab("message")}
+            onClick={() => { setActiveTab("message"); setMobileSidebarOpen(false); }}
           />
           <SidebarItem
             icon={<Users size={18} />}
             label={t('km.sidebar.userData')}
             active={activeTab === "users"}
-            onClick={() => setActiveTab("users")}
+            onClick={() => { setActiveTab("users"); setMobileSidebarOpen(false); }}
           />
           
           {/* Separator */}
@@ -1389,13 +1426,13 @@ function Workspace({
             icon={<ShoppingCart size={18} />}
             label={t('km.sidebar.tgShop')}
             active={activeTab === "shop"}
-            onClick={() => setActiveTab("shop")}
+            onClick={() => { setActiveTab("shop"); setMobileSidebarOpen(false); }}
           />
           <SidebarItem
             icon={<HelpCircle size={18} />}
             label={t('km.sidebar.configGuide')}
             active={activeTab === "guide"}
-            onClick={() => setActiveTab("guide")}
+            onClick={() => { setActiveTab("guide"); setMobileSidebarOpen(false); }}
           />
         </nav>
 
@@ -1433,8 +1470,8 @@ function Workspace({
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
-        <div className="flex-1 p-6 overflow-y-auto">
+      <main className="flex-1 flex overflow-hidden pt-12 md:pt-0">
+        <div className="flex-1 p-3 md:p-6 overflow-y-auto">
           {activeTab === "settings" && (
             <SettingsPanel
               isConnected={isConnected}
@@ -1553,9 +1590,21 @@ function Workspace({
           )}
         </div>
 
-        {/* Phone Simulator - 仅在非商城和配置说明页面显示 */}
+        {/* Phone Simulator - hidden on mobile by default, toggle with eye button */}
         {activeTab !== "shop" && activeTab !== "guide" && (
-          <div className="w-[320px] p-6 flex items-center justify-center bg-muted/50 border-l shrink-0">
+          <div className={`
+            ${simulatorVisible ? 'fixed inset-0 z-40 flex items-center justify-center bg-black/60 md:relative md:inset-auto md:z-auto md:bg-transparent' : 'hidden md:flex'}
+            w-full md:w-[320px] p-4 md:p-6 md:items-center md:justify-center bg-muted/50 md:border-l shrink-0
+          `}>
+            {/* Close button for mobile overlay */}
+            {simulatorVisible && (
+              <button
+                onClick={() => setSimulatorVisible(false)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-card text-foreground shadow-lg md:hidden z-50"
+              >
+                <X size={20} />
+              </button>
+            )}
             <PhoneSimulator
               chatHistory={chatHistory}
               botProfile={botProfile}
