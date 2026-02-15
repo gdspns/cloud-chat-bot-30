@@ -95,6 +95,19 @@ async function verifyUser(req: Request, supabase: any): Promise<{ userId: string
   }
 
   const token = authHeader.replace('Bearer ', '');
+  
+  // Skip if token looks like an anon/service key (not a user JWT)
+  // User JWTs have 3 dot-separated parts and contain user-specific claims
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Anon keys have role "anon" and no "sub" with user UUID pattern
+    if (payload.role === 'anon' && !payload.email) {
+      return { userId: null, error: '用户未登录' };
+    }
+  } catch {
+    // If we can't parse, let getUser handle it
+  }
+
   const { data: { user }, error: userError } = await supabase.auth.getUser(token);
   if (userError || !user) {
     console.error('getUser error in verifyUser:', userError);
@@ -401,8 +414,10 @@ serve(async (req) => {
 
         const { userId, error: userError } = await verifyUser(req, supabase);
         if (!userId) {
-          return new Response(JSON.stringify({ ok: false, error: userError || '未登录' }), {
-            status: 401,
+          // User not logged in - silently succeed since this is a non-critical sync operation
+          console.log('ensure-bot-listing: user not logged in, skipping');
+          return new Response(JSON.stringify({ ok: true, skipped: true, reason: userError || '未登录' }), {
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
