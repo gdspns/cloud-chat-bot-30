@@ -120,7 +120,8 @@ export const ChatWindow = ({
   const getProxyImageUrl = (telegramUrl: string) => {
     if (!selectedBot) return '';
     const encodedUrl = encodeURIComponent(telegramUrl);
-    return `https://oeogvpsdgvnjinzngndb.supabase.co/functions/v1/get-telegram-image?url=${encodedUrl}&botId=${selectedBot.id}`;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    return `${supabaseUrl}/functions/v1/get-telegram-image?url=${encodedUrl}&botId=${selectedBot.id}`;
   };
 
   const renderMessageContent = (content: string) => {
