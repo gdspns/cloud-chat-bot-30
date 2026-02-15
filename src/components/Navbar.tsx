@@ -1,10 +1,12 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Bot, LogIn, UserPlus, LogOut, Settings, MessageSquare, Layout, ShoppingCart, Sun, Moon, Globe } from "lucide-react";
+import { Bot, LogIn, UserPlus, LogOut, Settings, MessageSquare, Layout, ShoppingCart, Sun, Moon, Globe, Menu } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useTheme } from "@/hooks/use-theme";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { useState } from "react";
 
 export const Navbar = () => {
   const location = useLocation();
@@ -12,10 +14,12 @@ export const Navbar = () => {
   const { user } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+  const [open, setOpen] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/', { replace: true });
+    setOpen(false);
   };
 
   const toggleLanguage = () => {
@@ -73,80 +77,77 @@ export const Navbar = () => {
           </Button>
         </div>
         
-        {/* 右侧功能区 */}
-        <div className="flex items-center gap-0 md:gap-1 shrink-0">
-          {/* 语言切换 */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleLanguage}
-            className="h-8 w-8"
-            title={language === 'zh' ? 'Switch to English' : '切换到中文'}
-          >
+        {/* 右侧功能区 - 桌面端 */}
+        <div className="hidden md:flex items-center gap-1 shrink-0">
+          <Button variant="ghost" size="icon" onClick={toggleLanguage} className="h-8 w-8" title={language === 'zh' ? 'Switch to English' : '切换到中文'}>
             <Globe className="h-4 w-4" />
           </Button>
-          
-          {/* 主题切换 */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="h-8 w-8"
-            title={theme === 'dark' ? '切换到亮色模式' : '切换到暗黑模式'}
-          >
+          <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8" title={theme === 'dark' ? '切换到亮色模式' : '切换到暗黑模式'}>
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
-          
           {user ? (
             <>
-              <Button 
-                variant={location.pathname === "/user" ? "default" : "ghost"} 
-                size="icon"
-                asChild
-                className="h-8 w-8 md:w-auto md:px-3"
-              >
-                <Link to="/user">
-                  <Settings className="h-4 w-4 md:mr-1" />
-                  <span className="hidden md:inline text-sm">{t('nav.userCenter')}</span>
-                </Link>
+              <Button variant={location.pathname === "/user" ? "default" : "ghost"} size="sm" asChild className="h-8 px-3">
+                <Link to="/user"><Settings className="h-4 w-4 mr-1" /><span className="text-sm">{t('nav.userCenter')}</span></Link>
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={handleLogout}
-                className="h-8 w-8 md:w-auto md:px-3"
-              >
-                <LogOut className="h-4 w-4 md:mr-1" />
-                <span className="hidden md:inline text-sm">{t('nav.logout')}</span>
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="h-8 px-3">
+                <LogOut className="h-4 w-4 mr-1" /><span className="text-sm">{t('nav.logout')}</span>
               </Button>
             </>
           ) : (
             <>
-              <Button 
-                variant={location.pathname === "/auth" ? "default" : "ghost"} 
-                size="icon"
-                asChild
-                className="h-8 w-8 md:w-auto md:px-3"
-              >
-                <Link to="/auth?mode=register">
-                  <UserPlus className="h-4 w-4 md:mr-1" />
-                  <span className="hidden md:inline text-sm">{t('nav.register')}</span>
-                </Link>
+              <Button variant={location.pathname === "/auth" ? "default" : "ghost"} size="sm" asChild className="h-8 px-3">
+                <Link to="/auth?mode=register"><UserPlus className="h-4 w-4 mr-1" /><span className="text-sm">{t('nav.register')}</span></Link>
               </Button>
-              
-              <Button 
-                variant={location.pathname === "/auth" ? "default" : "ghost"} 
-                size="icon"
-                asChild
-                className="h-8 w-8 md:w-auto md:px-3"
-              >
-                <Link to="/auth?mode=login">
-                  <LogIn className="h-4 w-4 md:mr-1" />
-                  <span className="hidden md:inline text-sm">{t('nav.login')}</span>
-                </Link>
+              <Button variant={location.pathname === "/auth" ? "default" : "ghost"} size="sm" asChild className="h-8 px-3">
+                <Link to="/auth?mode=login"><LogIn className="h-4 w-4 mr-1" /><span className="text-sm">{t('nav.login')}</span></Link>
               </Button>
             </>
           )}
+        </div>
+
+        {/* 右侧功能区 - 移动端汉堡菜单 */}
+        <div className="md:hidden shrink-0">
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-64 p-0">
+              <SheetTitle className="sr-only">菜单</SheetTitle>
+              <div className="flex flex-col gap-1 p-4 pt-12">
+                <Button variant="ghost" className="justify-start gap-3 h-11" onClick={() => { toggleLanguage(); }}>
+                  <Globe className="h-4 w-4" />
+                  {language === 'zh' ? 'English' : '中文'}
+                </Button>
+                <Button variant="ghost" className="justify-start gap-3 h-11" onClick={() => { toggleTheme(); }}>
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {theme === 'dark' ? t('nav.lightMode') || '亮色模式' : t('nav.darkMode') || '暗黑模式'}
+                </Button>
+                <div className="my-2 border-t" />
+                {user ? (
+                  <>
+                    <Button variant={location.pathname === "/user" ? "secondary" : "ghost"} className="justify-start gap-3 h-11" asChild onClick={() => setOpen(false)}>
+                      <Link to="/user"><Settings className="h-4 w-4" />{t('nav.userCenter')}</Link>
+                    </Button>
+                    <Button variant="ghost" className="justify-start gap-3 h-11 text-destructive" onClick={handleLogout}>
+                      <LogOut className="h-4 w-4" />{t('nav.logout')}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" className="justify-start gap-3 h-11" asChild onClick={() => setOpen(false)}>
+                      <Link to="/auth?mode=register"><UserPlus className="h-4 w-4" />{t('nav.register')}</Link>
+                    </Button>
+                    <Button variant="ghost" className="justify-start gap-3 h-11" asChild onClick={() => setOpen(false)}>
+                      <Link to="/auth?mode=login"><LogIn className="h-4 w-4" />{t('nav.login')}</Link>
+                    </Button>
+                  </>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </nav>
