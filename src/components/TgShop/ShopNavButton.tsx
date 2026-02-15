@@ -12,15 +12,16 @@ export function ShopNavButton({ icon, label, active, onClick }: ShopNavButtonPro
   return (
     <button 
       onClick={onClick}
+      title={label}
       className={cn(
-        "flex items-center gap-1.5 md:gap-2 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg transition-all text-xs md:text-sm whitespace-nowrap shrink-0",
+        "flex items-center gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg transition-all text-xs sm:text-sm whitespace-nowrap",
         active 
           ? "bg-primary text-primary-foreground shadow-lg font-medium" 
           : "text-muted-foreground hover:bg-muted hover:text-foreground"
       )}
     >
       {icon}
-      <span>{label}</span>
+      <span className="hidden sm:inline">{label}</span>
     </button>
   );
 }
