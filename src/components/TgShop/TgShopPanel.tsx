@@ -98,88 +98,87 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Top navigation bar */}
-      <header className="bg-card border-b px-6 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 pr-4 border-r">
-            <Activity className="text-primary" />
+      <header className="bg-card border-b px-3 md:px-6 py-2 md:py-3 shrink-0 space-y-2 md:space-y-0">
+        {/* Top row: title + status */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="text-primary shrink-0" size={18} />
             <div>
-              <h1 className="text-lg font-bold leading-none">{t('tgshop.panel.title')}</h1>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{t('tgshop.panel.subtitle')}</p>
+              <h1 className="text-sm md:text-lg font-bold leading-none">{t('tgshop.panel.title')}</h1>
+              <p className="text-[10px] text-muted-foreground mt-0.5 hidden md:block">{t('tgshop.panel.subtitle')}</p>
             </div>
           </div>
-          
-          <nav className="flex items-center gap-2">
-            <ShopNavButton 
-              icon={<Settings size={16}/>} 
-              label={t('tgshop.panel.navSettings')} 
-              active={activeTab === 'settings'} 
-              onClick={() => setActiveTab('settings')} 
-            />
-            <ShopNavButton 
-              icon={<Package size={16}/>} 
-              label={t('tgshop.panel.navProducts')} 
-              active={activeTab === 'products'} 
-              onClick={() => setActiveTab('products')} 
-            />
-            <ShopNavButton 
-              icon={<Tag size={16}/>} 
-              label={t('tgshop.panel.navCategories')} 
-              active={activeTab === 'categories'} 
-              onClick={() => setActiveTab('categories')} 
-            />
-            <ShopNavButton 
-              icon={<ShoppingCart size={16}/>} 
-              label={t('tgshop.panel.navOrders')} 
-              active={activeTab === 'orders'} 
-              onClick={() => setActiveTab('orders')} 
-            />
-            <ShopNavButton 
-              icon={<CreditCard size={16}/>} 
-              label={language === 'zh' ? '支付网关' : 'Payment'} 
-              active={activeTab === 'payment'} 
-              onClick={() => setActiveTab('payment')} 
-            />
-          </nav>
-        </div>
 
-        <div className="flex items-center gap-4">
-          {/* Sync status indicator */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 md:gap-4">
             {isSyncing ? (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1 text-[10px] md:text-xs text-muted-foreground">
                 <RefreshCw size={12} className="animate-spin" />
-                <span>{t('tgshop.panel.syncing')}</span>
+                <span className="hidden sm:inline">{t('tgshop.panel.syncing')}</span>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 text-xs text-green-600">
+              <div className="flex items-center gap-1 text-[10px] md:text-xs text-green-600">
                 <Cloud size={12} />
-                <span>{t('tgshop.panel.synced')}</span>
+                <span className="hidden sm:inline">{t('tgshop.panel.synced')}</span>
               </div>
             )}
-          </div>
 
-          <button
-            onClick={refreshData}
-            disabled={isLoading || isSyncing}
-            className="p-1.5 rounded hover:bg-muted transition-colors disabled:opacity-50"
-            title={t('tgshop.panel.refreshData')}
-          >
-            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-          </button>
+            <button
+              onClick={refreshData}
+              disabled={isLoading || isSyncing}
+              className="p-1.5 rounded hover:bg-muted transition-colors disabled:opacity-50"
+              title={t('tgshop.panel.refreshData')}
+            >
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+            </button>
 
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
-            config.status === 'online' 
-              ? 'bg-green-500/10 border-green-500/50 text-green-600' 
-              : 'bg-muted border-border text-muted-foreground'
-          }`}>
-            <div className={`w-2 h-2 rounded-full ${
-              config.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'
-            }`} />
-            <span className="text-xs font-medium">
-              {config.status === 'online' ? t('tgshop.panel.botConfigured') : t('tgshop.panel.botNotConfigured')}
-            </span>
+            <div className={`flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-full border ${
+              config.status === 'online' 
+                ? 'bg-green-500/10 border-green-500/50 text-green-600' 
+                : 'bg-muted border-border text-muted-foreground'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                config.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'
+              }`} />
+              <span className="text-[10px] md:text-xs font-medium">
+                {config.status === 'online' ? t('tgshop.panel.botConfigured') : t('tgshop.panel.botNotConfigured')}
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* Nav row: scrollable on mobile */}
+        <nav className="flex items-center gap-1 md:gap-2 overflow-x-auto no-scrollbar">
+          <ShopNavButton 
+            icon={<Settings size={16}/>} 
+            label={t('tgshop.panel.navSettings')} 
+            active={activeTab === 'settings'} 
+            onClick={() => setActiveTab('settings')} 
+          />
+          <ShopNavButton 
+            icon={<Package size={16}/>} 
+            label={t('tgshop.panel.navProducts')} 
+            active={activeTab === 'products'} 
+            onClick={() => setActiveTab('products')} 
+          />
+          <ShopNavButton 
+            icon={<Tag size={16}/>} 
+            label={t('tgshop.panel.navCategories')} 
+            active={activeTab === 'categories'} 
+            onClick={() => setActiveTab('categories')} 
+          />
+          <ShopNavButton 
+            icon={<ShoppingCart size={16}/>} 
+            label={t('tgshop.panel.navOrders')} 
+            active={activeTab === 'orders'} 
+            onClick={() => setActiveTab('orders')} 
+          />
+          <ShopNavButton 
+            icon={<CreditCard size={16}/>} 
+            label={language === 'zh' ? '支付网关' : 'Payment'} 
+            active={activeTab === 'payment'} 
+            onClick={() => setActiveTab('payment')} 
+          />
+        </nav>
       </header>
 
       {/* Loading state */}
