@@ -1956,7 +1956,9 @@ serve(async (req) => {
       
       if (fileData.ok && fileData.result.file_path) {
         photoUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`;
-        text = `[图片] ${photoUrl}` + (text ? `\n${text}` : '');
+        text = `[图片:${photoFileId}] ${photoUrl}` + (text ? `\n${text}` : '');
+      } else {
+        text = `[图片:${photoFileId}]` + (text ? `\n${text}` : '');
       }
       console.log('Photo received:', { photoFileId, photoUrl });
     }
@@ -2005,9 +2007,9 @@ serve(async (req) => {
           const fileData = await fileResponse.json();
           if (fileData.ok && fileData.result.file_path) {
             const replyPhotoUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`;
-            messageContent = `[图片] ${replyPhotoUrl}` + (messageContent ? `\n${messageContent}` : '');
+            messageContent = `[图片:${replyPhotoFileId}] ${replyPhotoUrl}` + (messageContent ? `\n${messageContent}` : '');
           } else {
-            messageContent = `[图片]` + (messageContent ? `\n${messageContent}` : '');
+            messageContent = `[图片:${replyPhotoFileId}]` + (messageContent ? `\n${messageContent}` : '');
           }
         } else {
           const sendResponse = await fetch(

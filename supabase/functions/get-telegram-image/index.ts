@@ -14,10 +14,11 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const imageUrl = url.searchParams.get('url');
+    const fileId = url.searchParams.get('fileId');
     const botId = url.searchParams.get('botId');
 
-    if (!imageUrl || !botId) {
-      return new Response(JSON.stringify({ error: 'Missing url or botId' }), {
+    if (!botId || (!imageUrl && !fileId)) {
+      return new Response(JSON.stringify({ error: 'Missing botId and url/fileId' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -41,17 +42,35 @@ serve(async (req) => {
       });
     }
 
-    // 从图片URL中提取file_path并重新构建完整URL
-    const filePathMatch = imageUrl.match(/\/file\/bot[^\/]+\/(.+)$/);
-    if (!filePathMatch) {
-      return new Response(JSON.stringify({ error: 'Invalid image URL' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    let telegramUrl = '';
 
-    const filePath = filePathMatch[1];
-    const telegramUrl = `https://api.telegram.org/file/bot${activation.bot_token}/${filePath}`;
+    if (fileId) {
+      // 优先使用 file_id：调用 getFile API 获取最新的 file_path
+      const getFileRes = await fetch(
+        `https://api.telegram.org/bot${activation.bot_token}/getFile?file_id=${fileId}`
+      );
+      const getFileData = await getFileRes.json();
+
+      if (getFileData.ok && getFileData.result.file_path) {
+        telegramUrl = `https://api.telegram.org/file/bot${activation.bot_token}/${getFileData.result.file_path}`;
+      } else {
+        console.error('getFile failed:', getFileData);
+        return new Response(JSON.stringify({ error: 'Failed to get file path from Telegram' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else if (imageUrl) {
+      // 兼容旧格式：从 URL 提取 file_path
+      const filePathMatch = imageUrl.match(/\/file\/bot[^\/]+\/(.+)$/);
+      if (!filePathMatch) {
+        return new Response(JSON.stringify({ error: 'Invalid image URL' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      telegramUrl = `https://api.telegram.org/file/bot${activation.bot_token}/${filePathMatch[1]}`;
+    }
 
     console.log('Fetching image from:', telegramUrl);
 
@@ -73,7 +92,7 @@ serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400', // 缓存1天
+        'Cache-Control': 'public, max-age=86400',
       },
     });
 
