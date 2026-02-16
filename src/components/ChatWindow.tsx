@@ -117,19 +117,26 @@ export const ChatWindow = ({
   const webDisabled = selectedBot && !selectedBot.web_enabled;
   const canSend = selectedBot?.is_active && !isExpired && !trialExceeded && selectedChatId && !webDisabled;
 
-  const getProxyImageUrl = (telegramUrl: string) => {
+  const getProxyImageUrl = (telegramUrl: string, fileId?: string) => {
     if (!selectedBot) return '';
-    const encodedUrl = encodeURIComponent(telegramUrl);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (fileId) {
+      return `${supabaseUrl}/functions/v1/get-telegram-image?fileId=${encodeURIComponent(fileId)}&botId=${selectedBot.id}`;
+    }
+    const encodedUrl = encodeURIComponent(telegramUrl);
     return `${supabaseUrl}/functions/v1/get-telegram-image?url=${encodedUrl}&botId=${selectedBot.id}`;
   };
 
   const renderMessageContent = (content: string) => {
-    if (content.includes('[图片]')) {
+    // 支持新格式 [图片:FILE_ID] 和旧格式 [图片]
+    if (content.includes('[图片')) {
+      const fileIdMatch = content.match(/\[图片:([^\]]+)\]/);
       const urlMatch = content.match(/(https:\/\/api\.telegram\.org\/file\/[^\s]+)/);
-      if (urlMatch && selectedBot) {
-        const caption = content.replace('[图片]', '').replace(urlMatch[0], '').trim();
-        const proxyUrl = getProxyImageUrl(urlMatch[0]);
+      const fileId = fileIdMatch?.[1];
+      
+      if ((fileId || urlMatch) && selectedBot) {
+        const caption = content.replace(/\[图片(?::[^\]]+)?\]/, '').replace(urlMatch?.[0] || '', '').trim();
+        const proxyUrl = getProxyImageUrl(urlMatch?.[0] || '', fileId);
         return (
           <div className="space-y-2">
             <img 
@@ -150,7 +157,7 @@ export const ChatWindow = ({
       return (
         <div className="flex items-center gap-2 text-sm">
           <Image className="h-4 w-4" />
-          <span>{content.replace('[图片]', '').trim() || t('chat.imageMessage')}</span>
+          <span>{content.replace(/\[图片(?::[^\]]+)?\]/, '').trim() || t('chat.imageMessage')}</span>
         </div>
       );
     }
