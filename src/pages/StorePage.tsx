@@ -657,10 +657,10 @@ export const StorePage = () => {
 
   const completeOrder = async (txId: string) => {
     const product = products.find(p => p.id === selectedProductId);
-    if (!product) return;
+    if (!product || !currentOrder) return;
 
     // 卡密类型商品 - 调用云函数从数据库原子获取卡密
-    if (product.type === 'card' && currentOrder) {
+    if (product.type === 'card') {
       try {
         const { data, error } = await supabase.functions.invoke('deliver-card-key', {
           body: {
@@ -682,8 +682,81 @@ export const StorePage = () => {
         updateOrderStatus('paid', t('store.systemError'));
       }
     } else {
-      // 自动订阅类型
-      updateOrderStatus('paid', 'AUTO_OK');
+      // 自动充值商品 - 加密货币支付需要手动更新数据库并触发自动激活
+      updateOrderStatus('paid', 'AUTO_PROCESSING');
+      
+      try {
+        // 1. 更新订单状态为 paid
+        await supabase
+          .from('store_orders')
+          .update({
+            status: 'paid',
+            tx_hash: txId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_no', currentOrder.orderNo);
+
+        console.log('[Crypto Auto] 订单已标记为 paid:', currentOrder.orderNo);
+
+        // 2. 调用 store-auto-activate 触发自动激活
+        const botToken = botId.trim();
+        if (botToken && botToken.length >= 20) {
+          // 确定功能类型
+          const productTags = product.tags || [];
+          let featureType = 'chat';
+          if (productTags.includes('chat') && productTags.includes('keyboard') && productTags.includes('mall')) {
+            featureType = 'all';
+          } else if (productTags.includes('chat') && productTags.includes('mall')) {
+            featureType = 'chat_shop';
+          } else if (productTags.includes('keyboard') && productTags.includes('mall')) {
+            featureType = 'keyboard_shop';
+          } else if (productTags.includes('chat') && productTags.includes('keyboard')) {
+            featureType = 'both';
+          } else if (productTags.includes('keyboard')) {
+            featureType = 'keyboard';
+          } else if (productTags.includes('mall')) {
+            featureType = 'shop';
+          }
+
+          console.log('[Crypto Auto] 调用自动激活:', { orderNo: currentOrder.orderNo, featureType, botToken: botToken.slice(-8) });
+
+          const { data: activateResult, error: activateError } = await supabase.functions.invoke('store-auto-activate', {
+            body: {
+              orderNo: currentOrder.orderNo,
+              botToken,
+              featureType,
+              validityDays: product.duration || 30,
+              productId: product.id
+            }
+          });
+
+          if (activateError) {
+            console.error('[Crypto Auto] 激活调用失败:', activateError);
+            updateOrderStatus('paid', `激活失败: ${activateError.message}`);
+          } else if (activateResult?.success) {
+            console.log('[Crypto Auto] 激活成功:', activateResult);
+            const deliveredMsg = activateResult.message || `已激活: ${activateResult.activatedFeatures?.join(', ')}`;
+            updateOrderStatus('paid', deliveredMsg);
+            
+            // 更新数据库 delivered_code
+            await supabase
+              .from('store_orders')
+              .update({ delivered_code: deliveredMsg, updated_at: new Date().toISOString() })
+              .eq('order_no', currentOrder.orderNo);
+            
+            loadProducts();
+          } else {
+            console.error('[Crypto Auto] 激活失败:', activateResult?.error);
+            updateOrderStatus('paid', `激活失败: ${activateResult?.error || '未知错误'}`);
+          }
+        } else {
+          console.error('[Crypto Auto] 缺少有效的 bot_token');
+          updateOrderStatus('paid', '激活失败: 缺少机器人Token');
+        }
+      } catch (err) {
+        console.error('[Crypto Auto] 处理异常:', err);
+        updateOrderStatus('paid', '激活处理异常，请联系客服');
+      }
     }
     
     setPaymentStep('success');
