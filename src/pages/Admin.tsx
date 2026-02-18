@@ -131,6 +131,17 @@ export const Admin = () => {
   // 用户列表展开相关
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   
+  // 机器人功能区块展开状态: key = `${botId}-${feature}`
+  const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
+  const toggleFeature = (botId: string, feature: string) => {
+    setExpandedFeatures(prev => {
+      const next = new Set(prev);
+      const key = `${botId}-${feature}`;
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  
   // 禁用用户相关
   const [disabledUsers, setDisabledUsers] = useState<Set<string>>(new Set());
   
@@ -1620,24 +1631,16 @@ export const Admin = () => {
                         </div>
 
                         {/* 双向聊天控制 */}
-                        <div className="border rounded-lg p-3 space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <MessageSquare className={`h-4 w-4 ${activation.is_active ? 'text-green-500' : 'text-gray-400'}`} />
-                            <Switch
-                              checked={activation.is_active}
-                              onCheckedChange={(checked) => handleAdminToggleChat(activation.bot_token, checked)}
-                            />
+                        <div className="border rounded-lg overflow-hidden">
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors text-left"
+                            onClick={() => toggleFeature(activation.id, 'chat')}
+                          >
+                            <MessageSquare className={`h-4 w-4 ${activation.is_active ? 'text-green-500' : 'text-muted-foreground'}`} />
                             <span className="text-xs font-medium">双向聊天</span>
-                            <span className="text-muted-foreground">|</span>
-                            <Calendar className="h-4 w-4" />
-                            <Input
-                              type="date"
-                              className="w-36 h-7 text-xs"
-                              defaultValue={activation.expire_at ? activation.expire_at.split('T')[0] : ''}
-                              onChange={(e) => handleAdminSetChatExpire(activation.bot_token, e.target.value)}
-                            />
                             {activation.expire_at && (
-                              <Badge variant={new Date(activation.expire_at) > new Date() ? "default" : "destructive"} className="text-xs">
+                              <Badge variant={new Date(activation.expire_at) > new Date() ? "default" : "destructive"} className="text-xs ml-1">
                                 {new Date(activation.expire_at) > new Date() 
                                   ? `有效至 ${new Date(activation.expire_at).toLocaleDateString()}`
                                   : '已过期'}
@@ -1646,88 +1649,110 @@ export const Admin = () => {
                             {!activation.is_authorized && !activation.expire_at && (
                               <Badge variant="outline" className="text-xs">试用中</Badge>
                             )}
-                          </div>
-                          {chatBindingBotToken === activation.bot_token ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                value={chatActivationCode}
-                                onChange={(e) => setChatActivationCode(e.target.value)}
-                                placeholder="输入双向聊天激活码"
-                                className="flex-1 h-7 text-xs"
-                              />
-                              <Button size="sm" className="h-7 text-xs" onClick={() => handleAdminBindChatCode(activation.bot_token)} disabled={isChatBinding}>
-                                {isChatBinding ? "绑定中..." : "绑定"}
-                              </Button>
-                              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setChatBindingBotToken(null); setChatActivationCode(""); }}>
-                                取消
-                              </Button>
+                            <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${expandedFeatures.has(`${activation.id}-chat`) ? 'rotate-180' : ''}`} />
+                          </button>
+                          {expandedFeatures.has(`${activation.id}-chat`) && (
+                            <div className="p-3 pt-0 space-y-2 border-t">
+                              <div className="flex items-center gap-2 flex-wrap pt-2">
+                                <Switch
+                                  checked={activation.is_active}
+                                  onCheckedChange={(checked) => handleAdminToggleChat(activation.bot_token, checked)}
+                                />
+                                <span className="text-xs">{activation.is_active ? '已启用' : '已禁用'}</span>
+                                <span className="text-muted-foreground">|</span>
+                                <Calendar className="h-4 w-4" />
+                                <Input
+                                  type="date"
+                                  className="w-36 h-7 text-xs"
+                                  defaultValue={activation.expire_at ? activation.expire_at.split('T')[0] : ''}
+                                  onChange={(e) => handleAdminSetChatExpire(activation.bot_token, e.target.value)}
+                                />
+                              </div>
+                              {chatBindingBotToken === activation.bot_token ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={chatActivationCode}
+                                    onChange={(e) => setChatActivationCode(e.target.value)}
+                                    placeholder="输入双向聊天激活码"
+                                    className="flex-1 h-7 text-xs"
+                                  />
+                                  <Button size="sm" className="h-7 text-xs" onClick={() => handleAdminBindChatCode(activation.bot_token)} disabled={isChatBinding}>
+                                    {isChatBinding ? "绑定中..." : "绑定"}
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setChatBindingBotToken(null); setChatActivationCode(""); }}>
+                                    取消
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setChatBindingBotToken(activation.bot_token)}>
+                                  <Key className="h-3 w-3 mr-1" />
+                                  绑定激活码
+                                </Button>
+                              )}
                             </div>
-                          ) : (
-                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setChatBindingBotToken(activation.bot_token)}>
-                              <Key className="h-3 w-3 mr-1" />
-                              绑定激活码
-                            </Button>
                           )}
                         </div>
 
                         {/* 菜单键盘控制 */}
                         {(() => {
                           const kbStatus = getKeyboardStatus(activation.bot_token);
+                          const kbStatusBadge = kbStatus.status === 'authorized' && kbStatus.expireAt
+                            ? <Badge variant="default" className="text-xs">有效至 {new Date(kbStatus.expireAt).toLocaleDateString()}</Badge>
+                            : kbStatus.status === 'expired' ? <Badge variant="destructive" className="text-xs">已过期</Badge>
+                            : kbStatus.status === 'trial' ? <Badge variant="outline" className="text-xs">试用中</Badge>
+                            : kbStatus.status === 'trial_expired' ? <Badge variant="destructive" className="text-xs">试用已结束</Badge>
+                            : <Badge variant="secondary" className="text-xs">未配置</Badge>;
                           return (
-                            <div className="border rounded-lg p-3 space-y-2">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Bot className={`h-4 w-4 ${kbStatus.enabled ? 'text-green-500' : 'text-gray-400'}`} />
-                                <Switch
-                                  checked={kbStatus.enabled}
-                                  onCheckedChange={(checked) => handleAdminToggleKeyboard(activation.bot_token, checked)}
-                                />
+                            <div className="border rounded-lg overflow-hidden">
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors text-left"
+                                onClick={() => toggleFeature(activation.id, 'keyboard')}
+                              >
+                                <Bot className={`h-4 w-4 ${kbStatus.enabled ? 'text-green-500' : 'text-muted-foreground'}`} />
                                 <span className="text-xs font-medium">菜单键盘</span>
-                                <span className="text-muted-foreground">|</span>
-                                <Calendar className="h-4 w-4" />
-                                <Input
-                                  type="date"
-                                  className="w-36 h-7 text-xs"
-                                  defaultValue={kbStatus.expireAt ? kbStatus.expireAt.split('T')[0] : ''}
-                                  onChange={(e) => handleAdminSetKeyboardExpire(activation.bot_token, e.target.value)}
-                                />
-                                {kbStatus.status === 'authorized' && kbStatus.expireAt && (
-                                  <Badge variant="default" className="text-xs">
-                                    有效至 {new Date(kbStatus.expireAt).toLocaleDateString()}
-                                  </Badge>
-                                )}
-                                {kbStatus.status === 'expired' && (
-                                  <Badge variant="destructive" className="text-xs">已过期</Badge>
-                                )}
-                                {kbStatus.status === 'trial' && (
-                                  <Badge variant="outline" className="text-xs">试用中</Badge>
-                                )}
-                                {kbStatus.status === 'trial_expired' && (
-                                  <Badge variant="destructive" className="text-xs">试用已结束</Badge>
-                                )}
-                                {kbStatus.status === 'none' && (
-                                  <Badge variant="secondary" className="text-xs">未配置</Badge>
-                                )}
-                              </div>
-                              {keyboardBindingBotToken === activation.bot_token ? (
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    value={keyboardActivationCode}
-                                    onChange={(e) => setKeyboardActivationCode(e.target.value)}
-                                    placeholder="输入菜单键盘激活码"
-                                    className="flex-1 h-7 text-xs"
-                                  />
-                                  <Button size="sm" className="h-7 text-xs" onClick={() => handleAdminBindKeyboardCode(activation.bot_token)} disabled={isKeyboardBinding}>
-                                    {isKeyboardBinding ? "绑定中..." : "绑定"}
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setKeyboardBindingBotToken(null); setKeyboardActivationCode(""); }}>
-                                    取消
-                                  </Button>
+                                {kbStatusBadge}
+                                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${expandedFeatures.has(`${activation.id}-keyboard`) ? 'rotate-180' : ''}`} />
+                              </button>
+                              {expandedFeatures.has(`${activation.id}-keyboard`) && (
+                                <div className="p-3 pt-0 space-y-2 border-t">
+                                  <div className="flex items-center gap-2 flex-wrap pt-2">
+                                    <Switch
+                                      checked={kbStatus.enabled}
+                                      onCheckedChange={(checked) => handleAdminToggleKeyboard(activation.bot_token, checked)}
+                                    />
+                                    <span className="text-xs">{kbStatus.enabled ? '已启用' : '已禁用'}</span>
+                                    <span className="text-muted-foreground">|</span>
+                                    <Calendar className="h-4 w-4" />
+                                    <Input
+                                      type="date"
+                                      className="w-36 h-7 text-xs"
+                                      defaultValue={kbStatus.expireAt ? kbStatus.expireAt.split('T')[0] : ''}
+                                      onChange={(e) => handleAdminSetKeyboardExpire(activation.bot_token, e.target.value)}
+                                    />
+                                  </div>
+                                  {keyboardBindingBotToken === activation.bot_token ? (
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        value={keyboardActivationCode}
+                                        onChange={(e) => setKeyboardActivationCode(e.target.value)}
+                                        placeholder="输入菜单键盘激活码"
+                                        className="flex-1 h-7 text-xs"
+                                      />
+                                      <Button size="sm" className="h-7 text-xs" onClick={() => handleAdminBindKeyboardCode(activation.bot_token)} disabled={isKeyboardBinding}>
+                                        {isKeyboardBinding ? "绑定中..." : "绑定"}
+                                      </Button>
+                                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setKeyboardBindingBotToken(null); setKeyboardActivationCode(""); }}>
+                                        取消
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setKeyboardBindingBotToken(activation.bot_token)}>
+                                      <Key className="h-3 w-3 mr-1" />
+                                      绑定激活码
+                                    </Button>
+                                  )}
                                 </div>
-                              ) : (
-                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setKeyboardBindingBotToken(activation.bot_token)}>
-                                  <Key className="h-3 w-3 mr-1" />
-                                  绑定激活码
-                                </Button>
                               )}
                             </div>
                           );
@@ -1736,61 +1761,63 @@ export const Admin = () => {
                         {/* TG商城状态 */}
                         {(() => {
                           const shopStatus = getShopStatus(activation.bot_token);
+                          const shopStatusBadge = shopStatus.status === 'authorized' && shopStatus.expireAt
+                            ? <Badge variant="default" className="text-xs">有效至 {new Date(shopStatus.expireAt).toLocaleDateString()}</Badge>
+                            : shopStatus.status === 'expired' ? <Badge variant="destructive" className="text-xs">已过期</Badge>
+                            : shopStatus.status === 'trial' ? <Badge variant="outline" className="text-xs">试用中</Badge>
+                            : shopStatus.status === 'trial_expired' ? <Badge variant="destructive" className="text-xs">试用已结束</Badge>
+                            : <Badge variant="secondary" className="text-xs">未配置</Badge>;
                           return (
-                            <div className="border rounded-lg p-3 space-y-2">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`h-4 w-4 text-sm ${shopStatus.enabled ? 'text-green-500' : 'text-gray-400'}`}>🛒</span>
-                                <Switch
-                                  checked={shopStatus.enabled}
-                                  onCheckedChange={(checked) => handleAdminToggleShop(activation.bot_token, checked)}
-                                />
+                            <div className="border rounded-lg overflow-hidden">
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors text-left"
+                                onClick={() => toggleFeature(activation.id, 'shop')}
+                              >
+                                <span className={`h-4 w-4 text-sm ${shopStatus.enabled ? 'text-green-500' : 'text-muted-foreground'}`}>🛒</span>
                                 <span className="text-xs font-medium">TG商城</span>
-                                <span className="text-muted-foreground">|</span>
-                                <Calendar className="h-4 w-4" />
-                                <Input
-                                  type="date"
-                                  className="w-36 h-7 text-xs"
-                                  defaultValue={shopStatus.expireAt ? shopStatus.expireAt.split('T')[0] : ''}
-                                  onChange={(e) => handleAdminSetShopExpire(activation.bot_token, e.target.value)}
-                                />
-                                {shopStatus.status === 'authorized' && shopStatus.expireAt && (
-                                  <Badge variant="default" className="text-xs">
-                                    有效至 {new Date(shopStatus.expireAt).toLocaleDateString()}
-                                  </Badge>
-                                )}
-                                {shopStatus.status === 'expired' && (
-                                  <Badge variant="destructive" className="text-xs">已过期</Badge>
-                                )}
-                                {shopStatus.status === 'trial' && (
-                                  <Badge variant="outline" className="text-xs">试用中</Badge>
-                                )}
-                                {shopStatus.status === 'trial_expired' && (
-                                  <Badge variant="destructive" className="text-xs">试用已结束</Badge>
-                                )}
-                                {shopStatus.status === 'none' && (
-                                  <Badge variant="secondary" className="text-xs">未配置</Badge>
-                                )}
-                              </div>
-                              {shopBindingBotToken === activation.bot_token ? (
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    value={shopActivationCode}
-                                    onChange={(e) => setShopActivationCode(e.target.value)}
-                                    placeholder="输入TG商城激活码"
-                                    className="flex-1 h-7 text-xs"
-                                  />
-                                  <Button size="sm" className="h-7 text-xs" onClick={() => handleAdminBindShopCode(activation.bot_token)} disabled={isShopBinding}>
-                                    {isShopBinding ? "绑定中..." : "绑定"}
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShopBindingBotToken(null); setShopActivationCode(""); }}>
-                                    取消
-                                  </Button>
+                                {shopStatusBadge}
+                                <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${expandedFeatures.has(`${activation.id}-shop`) ? 'rotate-180' : ''}`} />
+                              </button>
+                              {expandedFeatures.has(`${activation.id}-shop`) && (
+                                <div className="p-3 pt-0 space-y-2 border-t">
+                                  <div className="flex items-center gap-2 flex-wrap pt-2">
+                                    <Switch
+                                      checked={shopStatus.enabled}
+                                      onCheckedChange={(checked) => handleAdminToggleShop(activation.bot_token, checked)}
+                                    />
+                                    <span className="text-xs">{shopStatus.enabled ? '已启用' : '已禁用'}</span>
+                                    <span className="text-muted-foreground">|</span>
+                                    <Calendar className="h-4 w-4" />
+                                    <Input
+                                      type="date"
+                                      className="w-36 h-7 text-xs"
+                                      defaultValue={shopStatus.expireAt ? shopStatus.expireAt.split('T')[0] : ''}
+                                      onChange={(e) => handleAdminSetShopExpire(activation.bot_token, e.target.value)}
+                                    />
+                                  </div>
+                                  {shopBindingBotToken === activation.bot_token ? (
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        value={shopActivationCode}
+                                        onChange={(e) => setShopActivationCode(e.target.value)}
+                                        placeholder="输入TG商城激活码"
+                                        className="flex-1 h-7 text-xs"
+                                      />
+                                      <Button size="sm" className="h-7 text-xs" onClick={() => handleAdminBindShopCode(activation.bot_token)} disabled={isShopBinding}>
+                                        {isShopBinding ? "绑定中..." : "绑定"}
+                                      </Button>
+                                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShopBindingBotToken(null); setShopActivationCode(""); }}>
+                                        取消
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShopBindingBotToken(activation.bot_token)}>
+                                      <Key className="h-3 w-3 mr-1" />
+                                      绑定激活码
+                                    </Button>
+                                  )}
                                 </div>
-                              ) : (
-                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShopBindingBotToken(activation.bot_token)}>
-                                  <Key className="h-3 w-3 mr-1" />
-                                  绑定激活码
-                                </Button>
                               )}
                             </div>
                           );
