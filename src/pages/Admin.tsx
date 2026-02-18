@@ -88,6 +88,8 @@ export const Admin = () => {
   // 激活码生成相关
   const [showCodeGenerator, setShowCodeGenerator] = useState(false);
   const [showCodeList, setShowCodeList] = useState(false);
+  const [codeFilterFeature, setCodeFilterFeature] = useState<string>('all');
+  const [codeFilterStatus, setCodeFilterStatus] = useState<string>('all');
   const [codeCount, setCodeCount] = useState("10");
   const [codeValidityDays, setCodeValidityDays] = useState("30");
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
@@ -2127,7 +2129,7 @@ export const Admin = () => {
         </Dialog>
 
         {/* 激活码列表对话框 */}
-        <Dialog open={showCodeList} onOpenChange={setShowCodeList}>
+        <Dialog open={showCodeList} onOpenChange={(open) => { setShowCodeList(open); if (!open) { setCodeFilterFeature('all'); setCodeFilterStatus('all'); } }}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>激活码列表</DialogTitle>
@@ -2135,6 +2137,55 @@ export const Admin = () => {
                 查看所有生成的激活码及其使用状态
               </DialogDescription>
             </DialogHeader>
+            {/* 筛选栏 */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-sm font-medium text-muted-foreground">分类:</span>
+              {[
+                { value: 'all', label: '全部' },
+                { value: 'chat', label: '双向聊天' },
+                { value: 'keyboard', label: '菜单键盘' },
+                { value: 'shop', label: 'TG商城' },
+                { value: 'both', label: '聊天+键盘' },
+                { value: 'chat_shop', label: '聊天+商城' },
+                { value: 'keyboard_shop', label: '键盘+商城' },
+                { value: 'all_features', label: '三合一' },
+              ].map(opt => (
+                <Badge
+                  key={opt.value}
+                  variant={codeFilterFeature === opt.value ? 'default' : 'outline'}
+                  className="cursor-pointer select-none"
+                  onClick={() => setCodeFilterFeature(opt.value)}
+                >
+                  {opt.label}
+                </Badge>
+              ))}
+              <div className="w-px h-5 bg-border mx-1" />
+              <span className="text-sm font-medium text-muted-foreground">状态:</span>
+              {[
+                { value: 'all', label: '全部' },
+                { value: 'unused', label: '未使用' },
+                { value: 'used', label: '已使用' },
+              ].map(opt => (
+                <Badge
+                  key={opt.value}
+                  variant={codeFilterStatus === opt.value ? 'default' : 'outline'}
+                  className="cursor-pointer select-none"
+                  onClick={() => setCodeFilterStatus(opt.value)}
+                >
+                  {opt.label}
+                </Badge>
+              ))}
+              <span className="ml-auto text-xs text-muted-foreground">
+                {(() => {
+                  const filtered = allCodes.filter(c => {
+                    const featureMatch = codeFilterFeature === 'all' ? true : codeFilterFeature === 'all_features' ? c.feature_type === 'all' : c.feature_type === codeFilterFeature;
+                    const statusMatch = codeFilterStatus === 'all' ? true : codeFilterStatus === 'unused' ? !c.is_used : !!c.is_used;
+                    return featureMatch && statusMatch;
+                  });
+                  return `${filtered.length} / ${allCodes.length} 条`;
+                })()}
+              </span>
+            </div>
             <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
@@ -2148,7 +2199,13 @@ export const Admin = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allCodes.map(code => {
+                  {allCodes
+                    .filter(code => {
+                      const featureMatch = codeFilterFeature === 'all' ? true : codeFilterFeature === 'all_features' ? code.feature_type === 'all' : code.feature_type === codeFilterFeature;
+                      const statusMatch = codeFilterStatus === 'all' ? true : codeFilterStatus === 'unused' ? !code.is_used : !!code.is_used;
+                      return featureMatch && statusMatch;
+                    })
+                    .map(code => {
                     const status = getCodeStatus(code);
                     const featureLabel = (() => {
                       switch (code.feature_type) {
