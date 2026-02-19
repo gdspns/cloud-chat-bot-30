@@ -1276,11 +1276,11 @@ export const Admin = () => {
   const realBots = activations.filter(a => a.bot_token !== 'PENDING');
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="container mx-auto max-w-7xl">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Telegram机器人授权管理</h1>
-          <div className="flex gap-2 items-center flex-wrap">
+    <div className="min-h-screen bg-background p-2 sm:p-6">
+      <div className="w-full max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-3xl font-bold">Telegram机器人授权管理</h1>
+          <div className="flex gap-2 items-center flex-wrap w-full sm:w-auto">
             <span className="text-sm text-muted-foreground">{user.email}</span>
             <Button variant="outline" onClick={handleManualRefresh} disabled={isRefreshing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -1305,40 +1305,42 @@ export const Admin = () => {
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="dashboard">
-              <LayoutDashboard className="h-4 w-4 mr-2" />
-              仪表盘
-            </TabsTrigger>
-            <TabsTrigger value="bots">
-              <Bot className="h-4 w-4 mr-2" />
-              机器人管理
-            </TabsTrigger>
-            <TabsTrigger value="monitor">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              聊天监控
-            </TabsTrigger>
-            <TabsTrigger value="products">
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              商品管理
-            </TabsTrigger>
-            <TabsTrigger value="cardkeys">
-              <Key className="h-4 w-4 mr-2" />
-              导入卡密
-            </TabsTrigger>
-            <TabsTrigger value="articles">
-              <FileText className="h-4 w-4 mr-2" />
-              文章管理
-            </TabsTrigger>
-            <TabsTrigger value="orders">
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              订单中心
-            </TabsTrigger>
-            <TabsTrigger value="gateway">
-              <CreditCard className="h-4 w-4 mr-2" />
-              网关配置
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto no-scrollbar">
+            <TabsList className="w-max min-w-full sm:w-auto">
+              <TabsTrigger value="dashboard">
+                <LayoutDashboard className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">仪表盘</span>
+              </TabsTrigger>
+              <TabsTrigger value="bots">
+                <Bot className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">机器人管理</span>
+              </TabsTrigger>
+              <TabsTrigger value="monitor">
+                <MessageSquare className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">聊天监控</span>
+              </TabsTrigger>
+              <TabsTrigger value="products">
+                <ShoppingCart className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">商品管理</span>
+              </TabsTrigger>
+              <TabsTrigger value="cardkeys">
+                <Key className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">导入卡密</span>
+              </TabsTrigger>
+              <TabsTrigger value="articles">
+                <FileText className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">文章管理</span>
+              </TabsTrigger>
+              <TabsTrigger value="orders">
+                <ShoppingCart className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">订单中心</span>
+              </TabsTrigger>
+              <TabsTrigger value="gateway">
+                <CreditCard className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">网关配置</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* 仪表盘 */}
           <TabsContent value="dashboard" className="space-y-4">
@@ -1551,12 +1553,12 @@ export const Admin = () => {
             </Card>
 
             {/* 机器人列表 */}
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">机器人列表</h2>
+            <Card className="p-3 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-semibold mb-4">机器人列表</h2>
               <ScrollArea className="h-[500px]">
                 <div className="space-y-4">
                   {realBots.map((activation) => (
-                    <Card key={activation.id} className="p-4">
+                    <Card key={activation.id} className="p-2 sm:p-4">
                       <div className="flex flex-col gap-3">
                         <div className="flex justify-between items-start">
                           <div className="space-y-1">
@@ -1663,19 +1665,19 @@ export const Admin = () => {
                             });
                           };
                           return (
-                            <div className="border rounded-lg overflow-hidden">
+                            <div className="border rounded-lg">
                               <div className="flex border-b">
-                                <button type="button" className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 text-xs font-medium transition-colors ${activeFeature === 'chat' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`} onClick={() => selectFeature('chat')}>
-                                  <MessageSquare className={`h-3.5 w-3.5 ${activation.is_active ? 'text-green-500' : 'text-muted-foreground'}`} />
-                                  双向聊天
+                                <button type="button" className={`flex-1 flex items-center justify-center gap-1 p-2 text-[11px] sm:text-xs font-medium transition-colors ${activeFeature === 'chat' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`} onClick={() => selectFeature('chat')}>
+                                  <MessageSquare className={`h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 ${activation.is_active ? 'text-green-500' : 'text-muted-foreground'}`} />
+                                  聊天
                                 </button>
-                                <button type="button" className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 text-xs font-medium transition-colors border-x ${activeFeature === 'keyboard' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`} onClick={() => selectFeature('keyboard')}>
-                                  <Bot className={`h-3.5 w-3.5 ${kbStatus.enabled ? 'text-green-500' : 'text-muted-foreground'}`} />
-                                  菜单键盘
+                                <button type="button" className={`flex-1 flex items-center justify-center gap-1 p-2 text-[11px] sm:text-xs font-medium transition-colors border-x ${activeFeature === 'keyboard' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`} onClick={() => selectFeature('keyboard')}>
+                                  <Bot className={`h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 ${kbStatus.enabled ? 'text-green-500' : 'text-muted-foreground'}`} />
+                                  键盘
                                 </button>
-                                <button type="button" className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 text-xs font-medium transition-colors ${activeFeature === 'shop' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`} onClick={() => selectFeature('shop')}>
-                                  <span className={`text-sm ${shopStatus.enabled ? 'text-green-500' : 'text-muted-foreground'}`}>🛒</span>
-                                  TG商城
+                                <button type="button" className={`flex-1 flex items-center justify-center gap-1 p-2 text-[11px] sm:text-xs font-medium transition-colors ${activeFeature === 'shop' ? 'bg-muted border-b-2 border-primary' : 'hover:bg-muted/50'}`} onClick={() => selectFeature('shop')}>
+                                  <span className={`text-xs sm:text-sm shrink-0 ${shopStatus.enabled ? 'text-green-500' : 'text-muted-foreground'}`}>🛒</span>
+                                  商城
                                 </button>
                               </div>
                               {activeFeature === 'chat' && (
