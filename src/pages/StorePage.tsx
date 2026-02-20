@@ -329,10 +329,10 @@ export const StorePage = () => {
           const product = products.find(p => p.id === selectedProductId);
           const isCardProduct = product?.type === 'card';
 
-          // 1) 卡密商品：完全依赖后端 cron 发货，前端只等待 delivered_code
+          // 1) 卡密商品：检测到 paid 后，优先用后端已有的 delivered_code，否则前端主动调用发货
           if (isCardProduct) {
             if (dbOrder.delivered_code) {
-              // 后端 cron 已发货，直接显示卡密
+              // 后端已发货（cron 或 webhook），直接显示卡密
               console.log('[卡密] 后端已发货:', dbOrder.delivered_code);
               stopOrderPolling();
               stopCardKeyPolling();
@@ -342,15 +342,17 @@ export const StorePage = () => {
               setPaymentStep('success');
               loadProducts();
             } else {
-              // 后端 cron 尚未发货，继续轮询等待（不做前端发货）
-              console.log('[卡密] 已支付，等待后端发货...');
+              // 已支付但后端尚未发货，前端主动调用 deliver-card-key 发货
+              console.log('[卡密] 已支付但无 delivered_code，前端主动发货');
+              stopOrderPolling();
               setPaymentStep('success');
-              setIsLoadingCardKey(true);
-              setCurrentOrder(prev => prev && prev.orderNo === orderNo 
-                ? { ...prev, status: 'paid' as const, code: '' } 
-                : prev
-              );
-              // 继续轮询，不中断
+              const pid = selectedProductId || '';
+              if (pid) {
+                startCardKeyDelivery(orderNo, pid);
+              } else {
+                setIsLoadingCardKey(false);
+                setCardKeyRetryError('无法获取商品信息');
+              }
             }
             return;
           }
@@ -638,7 +640,7 @@ export const StorePage = () => {
       const product = products.find(p => p.id === selectedProductId);
       const isCardProduct = product?.type === 'card';
       
-      // 卡密商品 - 检查后端是否已发货
+      // 卡密商品 - 检查后端是否已发货，否则前端主动发货
       if (isCardProduct) {
         if (dbOrder.delivered_code) {
           // 后端已发货，直接显示
@@ -647,11 +649,12 @@ export const StorePage = () => {
           setPaymentStep('success');
           loadProducts();
         } else {
-          // 后端尚未发货，开始轮询等待
-          updateOrderStatus('paid', '');
+          // 后端尚未发货，前端主动调用 deliver-card-key 发货
+          stopOrderPolling();
           setPaymentStep('success');
-          setIsLoadingCardKey(true);
-          startOrderPolling(currentOrder.orderNo);
+          if (selectedProductId) {
+            startCardKeyDelivery(currentOrder.orderNo, selectedProductId);
+          }
         }
       } else {
         // 自动充值：支付已确认，检查激活结果
@@ -691,14 +694,34 @@ export const StorePage = () => {
     const product = products.find(p => p.id === selectedProductId);
     if (!product || !currentOrder) return;
 
-    // 卡密商品：不在前端发货，完全依赖后端 cron 发货
-    // 前端只需要显示"支付已检测，等待发货"，轮询会自动检测 delivered_code
+    // 卡密商品：前端检测到链上交易后，先查数据库看是否已发货
     if (product.type === 'card') {
-      console.log('[completeOrder] 卡密商品检测到链上交易，等待后端发货:', txId);
-      setPaymentStep('success');
-      setIsLoadingCardKey(true);
-      setCurrentOrder(prev => prev ? { ...prev, status: 'paid' as const, code: '' } : prev);
-      // 轮询 startOrderPolling 已在运行，会自动检测 delivered_code
+      console.log('[completeOrder] 卡密商品检测到链上交易:', txId);
+      
+      // 先检查后端是否已经完成发货
+      const { data: dbOrder } = await supabase
+        .from('store_orders')
+        .select('status, delivered_code')
+        .eq('order_no', currentOrder.orderNo)
+        .maybeSingle();
+      
+      if (dbOrder?.delivered_code) {
+        // 后端已发货，直接显示
+        console.log('[completeOrder] 后端已发货:', dbOrder.delivered_code);
+        stopOrderPolling();
+        stopCardKeyPolling();
+        setIsLoadingCardKey(false);
+        setCardKeyRetryError('');
+        updateOrderStatus('paid', dbOrder.delivered_code);
+        setPaymentStep('success');
+        loadProducts();
+      } else {
+        // 后端尚未发货，前端主动调用 deliver-card-key
+        console.log('[completeOrder] 前端主动调用发货');
+        stopOrderPolling();
+        setPaymentStep('success');
+        startCardKeyDelivery(currentOrder.orderNo, product.id);
+      }
       return;
     } else {
       // 自动充值商品 - 加密货币支付需要手动更新数据库并触发自动激活
