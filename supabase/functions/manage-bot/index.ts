@@ -1267,7 +1267,13 @@ serve(async (req) => {
           .from('bot_activations')
           .select('bot_token, user_id')
           .eq('id', botId)
-          .single();
+          .maybeSingle();
+        
+        if (!bot && !fetchError) {
+          return new Response(JSON.stringify({ ok: true, message: '机器人已被删除' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
 
         if (fetchError) {
           return new Response(JSON.stringify({ ok: false, error: fetchError.message }), {
@@ -1347,7 +1353,13 @@ serve(async (req) => {
           .from('bot_activations')
           .select('bot_token')
           .eq('id', id)
-          .single();
+          .maybeSingle();
+        
+        if (!bot && !fetchError) {
+          return new Response(JSON.stringify({ ok: true, message: '机器人已被删除' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
 
         if (fetchError) {
           return new Response(JSON.stringify({ ok: false, error: fetchError.message }), {
