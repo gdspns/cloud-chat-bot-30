@@ -409,6 +409,36 @@ export default function KeyboardMenu() {
     setUserIdInput("");
     setTargetChatId("");
     setWebhookInfo(null);
+    // 重置根组件中的配置状态，防止数据泄漏到下一个机器人
+    setAutoReplyRules([]);
+    setKnownUsers([]);
+    setCommands([
+      { command: "start", description: t('km.default.start') },
+      { command: "help", description: t('km.default.help') },
+    ]);
+    setMenuPages([
+      {
+        id: "main",
+        name: t('km.keyboard.mainMenu'),
+        rows: [
+          [
+            { text: t('km.default.productList'), actionType: "navigate", actionValue: "products" },
+            { text: t('km.default.contactSupport'), actionType: "text" },
+          ],
+        ],
+      },
+      {
+        id: "products",
+        name: t('km.keyboard.productList'),
+        rows: [
+          [
+            { text: t('km.default.softwareProducts'), actionType: "text" },
+            { text: t('km.default.hardwareProducts'), actionType: "text" },
+          ],
+          [{ text: t('km.default.back'), actionType: "navigate", actionValue: "main" }],
+        ],
+      },
+    ]);
     localStorage.removeItem("keyboard_menu_token");
     localStorage.removeItem("keyboard_menu_userid");
     showToast("info", t('km.settings.disconnected'));
@@ -808,6 +838,45 @@ function Workspace({
   const loadConfigFromCloud = async (token: string) => {
     isInitialLoadRef.current = true;
 
+    // 重置所有配置状态到默认值，确保机器人数据隔离
+    const defaultMenuPages: MenuPage[] = [
+      {
+        id: "main",
+        name: t('km.keyboard.mainMenu'),
+        rows: [
+          [
+            { text: t('km.default.productList'), actionType: "navigate", actionValue: "products" },
+            { text: t('km.default.contactSupport'), actionType: "text" },
+          ],
+        ],
+      },
+      {
+        id: "products",
+        name: t('km.keyboard.productList'),
+        rows: [
+          [
+            { text: t('km.default.softwareProducts'), actionType: "text" },
+            { text: t('km.default.hardwareProducts'), actionType: "text" },
+          ],
+          [{ text: t('km.default.back'), actionType: "navigate", actionValue: "main" }],
+        ],
+      },
+    ];
+    setMenuPages(defaultMenuPages);
+    setAutoReplyRules([]);
+    setFlowMessages([]);
+    setActiveFlowMsgId('');
+    setCommands([
+      { command: "start", description: t('km.default.start') },
+      { command: "help", description: t('km.default.help') },
+    ]);
+    setForceMenuOnStart(true);
+    setActivityLogEnabled(true);
+    setBilingualButtonEnabled(false);
+    setAutoCleanupEnabled(false);
+    setAutoCleanupDays(0);
+    setCloudSyncStatus("idle");
+
     try {
       const { data, error } = await supabase.from("keyboard_configs").select("*").eq("bot_token", token).maybeSingle();
 
@@ -815,12 +884,12 @@ function Workspace({
 
       if (data) {
         if (data.reply_keyboard && Array.isArray(data.reply_keyboard) && (data.reply_keyboard as any[]).length > 0) setMenuPages(data.reply_keyboard as any);
-        if (data.auto_reply_rules) setAutoReplyRules(data.auto_reply_rules as any);
+        if (data.auto_reply_rules && Array.isArray(data.auto_reply_rules)) setAutoReplyRules(data.auto_reply_rules as any);
         if (data.flow_messages && Array.isArray(data.flow_messages) && (data.flow_messages as any[]).length > 0) {
           setFlowMessages(data.flow_messages as any);
           setActiveFlowMsgId((data.flow_messages as any)[0]?.id || '');
         }
-        if (data.commands) setCommands(data.commands as any);
+        if (data.commands && Array.isArray(data.commands)) setCommands(data.commands as any);
         if (data.force_menu_on_start !== null) setForceMenuOnStart(data.force_menu_on_start);
         if (data.activity_log_enabled !== null && data.activity_log_enabled !== undefined)
           setActivityLogEnabled(data.activity_log_enabled);
@@ -832,6 +901,8 @@ function Workspace({
           setAutoCleanupDays((data as any).auto_cleanup_days);
         setCloudSyncStatus("synced");
         showToast("success", t('km.settings.configLoaded'));
+      } else {
+        showToast("info", t('km.settings.noCloudConfig') || '该机器人暂无云端配置，已使用默认配置');
       }
 
       // 连接机器人后立即确保机器人出现在管理员后台列表
