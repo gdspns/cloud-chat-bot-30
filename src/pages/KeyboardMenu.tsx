@@ -2932,7 +2932,8 @@ function MessageFlowEditor({
     "💔",
   ];
 
-  const activeMsg = messages.find((m: MessageData) => m.id === activeMsgId) || messages[0];
+  const defaultMsg: MessageData = { id: 'default', label: '/start', type: 'text', content: '', inlineKeyboard: [], disableWebPagePreview: false };
+  const activeMsg = (messages.length > 0 ? (messages.find((m: MessageData) => m.id === activeMsgId) || messages[0]) : defaultMsg);
 
   const updateActiveMsg = (field: keyof MessageData, value: any) => {
     setMessages((msgs: MessageData[]) =>
