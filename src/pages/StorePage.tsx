@@ -329,8 +329,8 @@ export const StorePage = () => {
           const product = products.find(p => p.id === selectedProductId);
           const isCardProduct = product?.type === 'card';
 
-          // 1) 卡密商品：检查后端是否已发货
-          if (isCardProduct && product?.id) {
+          // 1) 卡密商品：完全依赖后端 cron 发货，前端只等待 delivered_code
+          if (isCardProduct) {
             if (dbOrder.delivered_code) {
               // 后端 cron 已发货，直接显示卡密
               console.log('[卡密] 后端已发货:', dbOrder.delivered_code);
@@ -342,24 +342,15 @@ export const StorePage = () => {
               setPaymentStep('success');
               loadProducts();
             } else {
-              // 后端可能正在发货中（status=paid 但 delivered_code 还没写入）
-              cardKeyWaitCountRef.current++;
-              console.log(`[卡密] 已支付但卡密未到，等待第 ${cardKeyWaitCountRef.current} 次...`);
+              // 后端 cron 尚未发货，继续轮询等待（不做前端发货）
+              console.log('[卡密] 已支付，等待后端发货...');
               setPaymentStep('success');
-              if (!currentOrder?.code) {
-                setCurrentOrder(prev => prev && prev.orderNo === orderNo 
-                  ? { ...prev, status: 'paid' as const, code: '' } 
-                  : prev
-                );
-                setIsLoadingCardKey(true);
-              }
-              // 超过 5 次（~10秒）还没收到 delivered_code，前端主动发货
-              if (cardKeyWaitCountRef.current >= 5) {
-                console.log('[卡密] 等待超时，前端主动发货');
-                stopOrderPolling();
-                cardKeyWaitCountRef.current = 0;
-                startCardKeyDelivery(orderNo, product.id);
-              }
+              setIsLoadingCardKey(true);
+              setCurrentOrder(prev => prev && prev.orderNo === orderNo 
+                ? { ...prev, status: 'paid' as const, code: '' } 
+                : prev
+              );
+              // 继续轮询，不中断
             }
             return;
           }
@@ -647,12 +638,21 @@ export const StorePage = () => {
       const product = products.find(p => p.id === selectedProductId);
       const isCardProduct = product?.type === 'card';
       
-      // 卡密商品 - 主动调用发货接口
-      if (isCardProduct && product?.id) {
-        // 先显示成功页面，同时开始发货
-        updateOrderStatus('paid', '');
-        setPaymentStep('success');
-        startCardKeyDelivery(currentOrder.orderNo, product.id);
+      // 卡密商品 - 检查后端是否已发货
+      if (isCardProduct) {
+        if (dbOrder.delivered_code) {
+          // 后端已发货，直接显示
+          setIsLoadingCardKey(false);
+          updateOrderStatus('paid', dbOrder.delivered_code);
+          setPaymentStep('success');
+          loadProducts();
+        } else {
+          // 后端尚未发货，开始轮询等待
+          updateOrderStatus('paid', '');
+          setPaymentStep('success');
+          setIsLoadingCardKey(true);
+          startOrderPolling(currentOrder.orderNo);
+        }
       } else {
         // 自动充值：支付已确认，检查激活结果
         setPaymentStep('success');
@@ -691,43 +691,15 @@ export const StorePage = () => {
     const product = products.find(p => p.id === selectedProductId);
     if (!product || !currentOrder) return;
 
-    // 卡密类型商品 - 先检查后端 cron 是否已发货，避免重复消耗库存
+    // 卡密商品：不在前端发货，完全依赖后端 cron 发货
+    // 前端只需要显示"支付已检测，等待发货"，轮询会自动检测 delivered_code
     if (product.type === 'card') {
-      try {
-        // 先查数据库，看后端 cron 是否已完成发货
-        const { data: dbOrder } = await supabase
-          .from('store_orders')
-          .select('status, delivered_code')
-          .eq('order_no', currentOrder.orderNo)
-          .maybeSingle();
-        
-        if (dbOrder?.delivered_code) {
-          // 后端 cron 已发货，直接使用
-          console.log('[completeOrder] 后端已发货，直接使用:', dbOrder.delivered_code);
-          setIsLoadingCardKey(false);
-          updateOrderStatus('paid', dbOrder.delivered_code);
-          loadProducts();
-        } else {
-          // 后端尚未发货，前端主动发货
-          const { data, error } = await supabase.functions.invoke('deliver-card-key', {
-            body: {
-              orderNo: currentOrder.orderNo,
-              productId: product.id
-            }
-          });
-
-          if (error || !data?.success) {
-            updateOrderStatus('paid', t('store.cardSoldOut'));
-          } else {
-            setIsLoadingCardKey(false);
-            updateOrderStatus('paid', data.cardKey);
-            loadProducts();
-          }
-        }
-      } catch (err) {
-        console.error('获取卡密失败:', err);
-        updateOrderStatus('paid', t('store.systemError'));
-      }
+      console.log('[completeOrder] 卡密商品检测到链上交易，等待后端发货:', txId);
+      setPaymentStep('success');
+      setIsLoadingCardKey(true);
+      setCurrentOrder(prev => prev ? { ...prev, status: 'paid' as const, code: '' } : prev);
+      // 轮询 startOrderPolling 已在运行，会自动检测 delivered_code
+      return;
     } else {
       // 自动充值商品 - 加密货币支付需要手动更新数据库并触发自动激活
       updateOrderStatus('paid', 'AUTO_PROCESSING');
