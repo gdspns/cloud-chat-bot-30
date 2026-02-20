@@ -587,7 +587,7 @@ export const StorePage = () => {
             const txTime = tx.block_timestamp;
             if (txTime <= startTime) return false;
             let txAmount = currency === 'USDT' ? parseFloat(tx.value) / 1000000 : (tx.raw_data?.contract[0]?.parameter?.value?.amount / 1000000);
-            return Math.abs(txAmount - amount) < 0.00001;
+            return Math.abs(txAmount - amount) < 0.01;
           });
           if (match) {
             stopMonitoring();
