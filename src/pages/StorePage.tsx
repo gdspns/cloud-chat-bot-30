@@ -335,6 +335,9 @@ export const StorePage = () => {
               // 后端 cron 已发货，直接显示卡密
               console.log('[卡密] 后端已发货:', dbOrder.delivered_code);
               stopOrderPolling();
+              stopCardKeyPolling();
+              setIsLoadingCardKey(false);
+              setCardKeyRetryError('');
               updateOrderStatus('paid', dbOrder.delivered_code);
               setPaymentStep('success');
               loadProducts();
@@ -688,23 +691,38 @@ export const StorePage = () => {
     const product = products.find(p => p.id === selectedProductId);
     if (!product || !currentOrder) return;
 
-    // 卡密类型商品 - 调用云函数从数据库原子获取卡密
+    // 卡密类型商品 - 先检查后端 cron 是否已发货，避免重复消耗库存
     if (product.type === 'card') {
       try {
-        const { data, error } = await supabase.functions.invoke('deliver-card-key', {
-          body: {
-            orderNo: currentOrder.orderNo,
-            productId: product.id
-          }
-        });
-
-        if (error || !data?.success) {
-          updateOrderStatus('paid', t('store.cardSoldOut'));
-        } else {
-          // 成功从数据库获取卡密
-          updateOrderStatus('paid', data.cardKey);
-          // 刷新商品列表以更新库存显示
+        // 先查数据库，看后端 cron 是否已完成发货
+        const { data: dbOrder } = await supabase
+          .from('store_orders')
+          .select('status, delivered_code')
+          .eq('order_no', currentOrder.orderNo)
+          .maybeSingle();
+        
+        if (dbOrder?.delivered_code) {
+          // 后端 cron 已发货，直接使用
+          console.log('[completeOrder] 后端已发货，直接使用:', dbOrder.delivered_code);
+          setIsLoadingCardKey(false);
+          updateOrderStatus('paid', dbOrder.delivered_code);
           loadProducts();
+        } else {
+          // 后端尚未发货，前端主动发货
+          const { data, error } = await supabase.functions.invoke('deliver-card-key', {
+            body: {
+              orderNo: currentOrder.orderNo,
+              productId: product.id
+            }
+          });
+
+          if (error || !data?.success) {
+            updateOrderStatus('paid', t('store.cardSoldOut'));
+          } else {
+            setIsLoadingCardKey(false);
+            updateOrderStatus('paid', data.cardKey);
+            loadProducts();
+          }
         }
       } catch (err) {
         console.error('获取卡密失败:', err);
