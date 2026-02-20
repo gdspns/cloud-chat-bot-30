@@ -532,10 +532,11 @@ function Workspace({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [simulatorVisible, setSimulatorVisible] = useState(false);
 
+  const defaultFlowMsgId = uuid();
   const [flowMessages, setFlowMessages] = useState<MessageData[]>([
-    { id: uuid(), label: "/start", type: "text", content: "", inlineKeyboard: [], disableWebPagePreview: false },
+    { id: defaultFlowMsgId, label: "/start", type: "text", content: "", inlineKeyboard: [], disableWebPagePreview: false },
   ]);
-  const [activeFlowMsgId, setActiveFlowMsgId] = useState<string>(flowMessages[0].id);
+  const [activeFlowMsgId, setActiveFlowMsgId] = useState<string>(defaultFlowMsgId);
   const [restorableWebhook, setRestorableWebhook] = useState<string | null>(null);
   const [isSyncingToCloud, setIsSyncingToCloud] = useState(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<"idle" | "synced" | "error">("idle");
