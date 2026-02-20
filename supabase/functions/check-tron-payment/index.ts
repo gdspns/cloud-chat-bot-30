@@ -5,8 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// USDT TRC20 合约地址
-const USDT_CONTRACT = 'TLUZ2paBKhXdXxDcRkjP1w3YbjnyZGDD6s'
+// USDT TRC20 主网合约地址
+const USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
 
 interface TronTransaction {
   transaction_id: string
@@ -18,59 +18,6 @@ interface TronTransaction {
     decimals: number
   }
   block_timestamp: number
-}
-
-interface ShopOrder {
-  id: string
-  order_no: string
-  amount: number
-  currency: string
-  product_name: string
-  telegram_user_id: number | null
-  telegram_username: string | null
-  created_at: string
-  locked_rate_trx_usdt: number | null
-  locked_rate_cny_usd: number | null
-  original_amount: number | null
-  original_currency: string | null
-}
-
-// 从币安获取CNY/USD汇率
-async function getCnyUsdtRate(): Promise<number> {
-  try {
-    const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-    if (!response.ok) return 7.25;
-    const data = await response.json();
-    return data.rates?.CNY || 7.25;
-  } catch {
-    return 7.25;
-  }
-}
-
-// 从币安获取TRX/USDT实时汇率
-async function getTrxUsdtRate(): Promise<number> {
-  try {
-    const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=TRXUSDT');
-    if (!response.ok) return 0;
-    const data = await response.json();
-    return parseFloat(data.price) || 0;
-  } catch {
-    return 0;
-  }
-}
-
-// 将订单金额转换为预期的链上金额 (USDT或TRX) - 优先使用锁定汇率
-async function getExpectedCryptoAmount(order: ShopOrder, paymentCurrency: 'USDT' | 'TRX'): Promise<number> {
-  // 如果订单已经是目标货币，直接返回
-  if (order.currency === paymentCurrency) {
-    console.log(`[Check Tron] Order already in ${paymentCurrency}, amount: ${order.amount}`);
-    return order.amount;
-  }
-  
-  // 订单金额已经在选择支付方式时转换并锁定了汇率
-  // 此时 order.amount 就是最终的支付金额
-  console.log(`[Check Tron] Using final order amount: ${order.amount} ${order.currency}`);
-  return order.amount;
 }
 
 // 获取 TRC20 转账记录 (USDT)
@@ -95,7 +42,6 @@ async function getTRXTransactions(address: string, apiKey: string): Promise<Tron
   
   const data = await res.json()
   
-  // 转换格式
   return (data.data || []).map((tx: any) => ({
     transaction_id: tx.txID,
     from: tx.raw_data?.contract?.[0]?.parameter?.value?.owner_address,
@@ -103,6 +49,29 @@ async function getTRXTransactions(address: string, apiKey: string): Promise<Tron
     value: tx.raw_data?.contract?.[0]?.parameter?.value?.amount?.toString() || '0',
     block_timestamp: tx.block_timestamp
   })).filter((tx: TronTransaction) => tx.value !== '0')
+}
+
+// 匹配交易与订单
+function matchTransaction(
+  tx: TronTransaction,
+  orderAmount: number,
+  orderCreatedAt: number,
+  expectedCurrency: 'USDT' | 'TRX'
+): boolean {
+  // 交易必须在订单创建之后
+  if (tx.block_timestamp < orderCreatedAt) return false
+
+  const txAmount = parseInt(tx.value) / 1e6
+  
+  // 判断交易币种
+  const isUsdtTx = tx.token_info?.symbol === 'USDT'
+  const txCurrency = isUsdtTx ? 'USDT' : 'TRX'
+  
+  if (txCurrency !== expectedCurrency) return false
+  if (orderAmount <= 0) return false
+
+  // 允许 0.15 误差
+  return Math.abs(txAmount - orderAmount) < 0.15
 }
 
 Deno.serve(async (req) => {
@@ -115,7 +84,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // 获取所有需要检查的商店配置
+    // 获取所有启用加密货币的商店配置
     const { data: configs, error: configError } = await supabase
       .from('shop_configs')
       .select('*')
@@ -144,22 +113,7 @@ Deno.serve(async (req) => {
     for (const config of configs) {
       const { bot_token, wallet_address, tron_grid_key, accept_usdt, accept_trx } = config
 
-      // 获取该店铺的所有待支付订单（不限货币，CNY/USDT/TRX 都可以用加密货币支付）
-      const { data: pendingOrders, error: ordersError } = await supabase
-        .from('shop_orders')
-        .select('*')
-        .eq('bot_token', bot_token)
-        .eq('status', 'pending')
-        .in('payment_method', ['usdt', 'trx']) // 只检查选择了加密货币支付的订单
-        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // 24小时内
-
-      if (ordersError || !pendingOrders || pendingOrders.length === 0) {
-        continue
-      }
-
-      console.log(`[Check Tron] Checking ${pendingOrders.length} pending crypto orders for wallet ${wallet_address.slice(-8)}`)
-
-      // 获取链上交易
+      // 获取链上交易（每个钱包只查一次）
       const transactions: TronTransaction[] = []
       
       if (accept_usdt) {
@@ -172,59 +126,149 @@ Deno.serve(async (req) => {
         transactions.push(...trxTxs)
       }
 
-      // 匹配订单与交易 - 不管商品定价货币，只要收到等值的USDT或TRX就匹配
-      for (const order of pendingOrders) {
-        const orderCreatedAt = new Date(order.created_at).getTime()
-        
-        // 支付方式决定了期望收到什么币种
-        const expectedPaymentCurrency = order.payment_method === 'trx' ? 'TRX' : 'USDT'
+      // ===== 1. 检查 TG 商城订单 (shop_orders) =====
+      const { data: shopOrders } = await supabase
+        .from('shop_orders')
+        .select('*')
+        .eq('bot_token', bot_token)
+        .eq('status', 'pending')
+        .in('payment_method', ['usdt', 'trx'])
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
 
-        for (const tx of transactions) {
-          // 检查时间 (交易在订单创建之后)
-          if (tx.block_timestamp < orderCreatedAt) continue
+      if (shopOrders && shopOrders.length > 0) {
+        console.log(`[Check Tron] Checking ${shopOrders.length} TG shop orders for wallet ${wallet_address.slice(-8)}`)
 
-          // 计算链上交易金额 (USDT和TRX都是6位小数)
-          const txAmount = parseInt(tx.value) / 1e6
-          
-          // 判断该交易是USDT还是TRX
-          const isUsdtTx = tx.token_info?.symbol === 'USDT' || (tx.token_info !== undefined)
-          const txCurrency = isUsdtTx ? 'USDT' : 'TRX'
-          
-          // 只匹配期望的支付币种
-          if (txCurrency !== expectedPaymentCurrency) continue
-          
-          // 获取该订单预期的链上支付金额 (支持CNY/USDT/TRX任意定价转换)
-          const expectedAmount = await getExpectedCryptoAmount(
-            order as ShopOrder, 
-            txCurrency as 'USDT' | 'TRX'
-          )
-          
-          if (expectedAmount <= 0) continue
+        for (const order of shopOrders) {
+          const orderCreatedAt = new Date(order.created_at).getTime()
+          const expectedCurrency = order.payment_method === 'trx' ? 'TRX' : 'USDT'
 
-          // 匹配金额 (允许 0.15 误差，因为汇率波动和防撞单小数)
-          if (Math.abs(txAmount - expectedAmount) < 0.15) {
-            console.log(`[Check Tron] Matched order ${order.order_no} (${order.currency} ${order.amount}) with tx ${tx.transaction_id} (${txCurrency} ${txAmount}, expected ${expectedAmount})`)
-            
-            // 调用支付回调
-            const webhookUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${bot_token}&type=crypto`
-            
-            await fetch(webhookUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                order_no: order.order_no,
-                amount: txAmount.toString(),
-                tx_hash: tx.transaction_id,
-                status: 'confirmed',
-                from_address: tx.from
+          for (const tx of transactions) {
+            if (matchTransaction(tx, order.amount, orderCreatedAt, expectedCurrency as 'USDT' | 'TRX')) {
+              const txAmount = parseInt(tx.value) / 1e6
+              console.log(`[Check Tron] Matched shop order ${order.order_no} with tx ${tx.transaction_id} (${expectedCurrency} ${txAmount})`)
+              
+              const webhookUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${bot_token}&type=crypto`
+              
+              await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseKey}`
+                },
+                body: JSON.stringify({
+                  order_no: order.order_no,
+                  amount: txAmount.toString(),
+                  tx_hash: tx.transaction_id,
+                  status: 'confirmed',
+                  from_address: tx.from
+                })
               })
-            })
 
-            totalMatched++
-            break
+              totalMatched++
+              break
+            }
           }
+          totalProcessed++
         }
-        totalProcessed++
+      }
+
+      // ===== 2. 检查自助商城订单 (store_orders) =====
+      const { data: storeOrders } = await supabase
+        .from('store_orders')
+        .select('*')
+        .eq('status', 'pending')
+        .in('payment_method', ['usdt', 'trx'])
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+
+      if (storeOrders && storeOrders.length > 0) {
+        console.log(`[Check Tron] Checking ${storeOrders.length} store orders for wallet ${wallet_address.slice(-8)}`)
+
+        for (const order of storeOrders) {
+          const orderCreatedAt = new Date(order.created_at).getTime()
+          const expectedCurrency = order.payment_method === 'trx' ? 'TRX' : 'USDT'
+
+          for (const tx of transactions) {
+            if (matchTransaction(tx, order.amount, orderCreatedAt, expectedCurrency as 'USDT' | 'TRX')) {
+              const txAmount = parseInt(tx.value) / 1e6
+              console.log(`[Check Tron] Matched store order ${order.order_no} with tx ${tx.transaction_id} (${expectedCurrency} ${txAmount})`)
+              
+              // 直接更新订单状态为 paid
+              await supabase
+                .from('store_orders')
+                .update({
+                  status: 'paid',
+                  tx_hash: tx.transaction_id,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('order_no', order.order_no)
+
+              // 如果是自动充值商品，触发自动激活
+              const botId = order.bot_id
+              if (botId && botId.length >= 20) {
+                // 获取商品信息
+                const { data: product } = await supabase
+                  .from('store_products')
+                  .select('*')
+                  .eq('id', order.product_id)
+                  .single()
+
+                if (product && product.type === 'auto') {
+                  // 确定功能类型
+                  const productTags: string[] = product.tags || []
+                  let featureType = 'chat'
+                  if (productTags.includes('chat') && productTags.includes('keyboard') && productTags.includes('mall')) {
+                    featureType = 'all'
+                  } else if (productTags.includes('chat') && productTags.includes('mall')) {
+                    featureType = 'chat_shop'
+                  } else if (productTags.includes('keyboard') && productTags.includes('mall')) {
+                    featureType = 'keyboard_shop'
+                  } else if (productTags.includes('chat') && productTags.includes('keyboard')) {
+                    featureType = 'both'
+                  } else if (productTags.includes('keyboard')) {
+                    featureType = 'keyboard'
+                  } else if (productTags.includes('mall')) {
+                    featureType = 'shop'
+                  }
+
+                  console.log(`[Check Tron] Triggering auto-activate for store order ${order.order_no}, bot: ${botId.slice(-8)}, feature: ${featureType}`)
+
+                  try {
+                    await fetch(`${supabaseUrl}/functions/v1/store-auto-activate`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${supabaseKey}`
+                      },
+                      body: JSON.stringify({
+                        orderNo: order.order_no,
+                        botToken: botId,
+                        duration: product.duration,
+                        featureType
+                      })
+                    })
+                  } catch (e) {
+                    console.error(`[Check Tron] Auto-activate failed for ${order.order_no}:`, e)
+                  }
+                } else if (product && product.type === 'card') {
+                  // 卡密商品 - 调用 deliver_card_key RPC
+                  console.log(`[Check Tron] Delivering card key for store order ${order.order_no}`)
+                  try {
+                    await supabase.rpc('deliver_card_key', {
+                      p_order_no: order.order_no,
+                      p_product_id: order.product_id
+                    })
+                  } catch (e) {
+                    console.error(`[Check Tron] Card delivery failed for ${order.order_no}:`, e)
+                  }
+                }
+              }
+
+              totalMatched++
+              break
+            }
+          }
+          totalProcessed++
+        }
       }
     }
 
