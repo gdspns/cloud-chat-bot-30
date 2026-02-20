@@ -2386,6 +2386,76 @@ serve(async (req) => {
       }
     }
 
+    // ========== 商品关键词触发：用户直接发送关键词匹配商品 ==========
+    if (!keyboardHandled && shopEnabled && shopConfig && !text.startsWith("/")) {
+      try {
+        const { data: kwProducts } = await supabase
+          .from("shop_products")
+          .select("*")
+          .eq("bot_token", botToken)
+          .eq("is_active", true);
+
+        if (kwProducts && kwProducts.length > 0) {
+          const inputLower = text.toLowerCase().trim();
+          const kwMatched = kwProducts.filter((p: ShopProduct) => {
+            // 精确匹配关键词（不做模糊匹配，避免误触发）
+            return p.keywords?.some((k: string) => k && k.toLowerCase().trim() === inputLower);
+          });
+
+          if (kwMatched.length === 1) {
+            // 精确匹配到一个商品，直接创建订单
+            const product = kwMatched[0];
+            const buyResult = await createOrderForProduct(
+              supabase, botToken, chatId, fromUser.username || null,
+              product.id, product, shopConfig as any, shopUserLanguage,
+            );
+            if (buyResult.handled && buyResult.message) {
+              const msgResult = await sendTelegramMessage(botToken, "sendMessage", {
+                chat_id: chatId,
+                text: buyResult.message,
+                parse_mode: "Markdown",
+                reply_markup: buyResult.inlineKeyboard,
+              });
+              if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
+                await supabase
+                  .from("shop_orders")
+                  .update({ telegram_message_id: msgResult.result.message_id })
+                  .eq("id", buyResult.orderId);
+              }
+              keyboardHandled = true;
+              console.log(`[TG Shop] Keyword "${inputLower}" matched product: ${product.name}`);
+            }
+          } else if (kwMatched.length > 1) {
+            // 匹配到多个商品，显示列表
+            const stockLabel = t("shop_stock", shopUserLanguage);
+            const outOfStockLabel = t("shop_out_of_stock", shopUserLanguage);
+            const buyLabel = t("shop_click_to_buy", shopUserLanguage);
+
+            const names = shopUserLanguage === "en" ? kwMatched.map((p: ShopProduct) => p.name) : [];
+            const nameMap = shopUserLanguage === "en" ? await translateManyToEnglish(names) : {};
+
+            const productLines = kwMatched.map((p: ShopProduct) => {
+              const stock = p.stock_content?.length || 0;
+              const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
+              const shortId = p.id.replace(/-/g, "");
+              const displayName = shopUserLanguage === "en" ? nameMap[p.name] || p.name : p.name;
+              return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
+            });
+
+            await sendTelegramMessage(botToken, "sendMessage", {
+              chat_id: chatId,
+              text: `${t("buy_found_multiple", shopUserLanguage, { count: kwMatched.length, keyword: text })}\n\n${productLines.join("\n\n")}\n\n────────────────\n${t("shop_buy_tip", shopUserLanguage)}`,
+              parse_mode: "Markdown",
+            });
+            keyboardHandled = true;
+            console.log(`[TG Shop] Keyword "${inputLower}" matched ${kwMatched.length} products`);
+          }
+        }
+      } catch (kwErr) {
+        console.error("[TG Shop] Keyword matching error:", kwErr);
+      }
+    }
+
     // 处理 /pay_alipay 或 /pay_wechat 命令 - 获取法币支付二维码
     const payMatch = text.match(/^\/pay_(alipay|wechat)_(.+)$/i);
     if (!keyboardHandled && payMatch) {
