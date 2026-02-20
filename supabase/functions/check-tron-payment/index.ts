@@ -70,8 +70,8 @@ function matchTransaction(
   if (txCurrency !== expectedCurrency) return false
   if (orderAmount <= 0) return false
 
-  // 允许 0.15 误差
-  return Math.abs(txAmount - orderAmount) < 0.15
+  // 允许 0.01 误差（缩小范围避免误匹配）
+  return Math.abs(txAmount - orderAmount) < 0.01
 }
 
 Deno.serve(async (req) => {
@@ -184,15 +184,30 @@ Deno.serve(async (req) => {
         console.log(`[Check Tron] Checking ${storeOrders.length} store orders for wallet ${wallet_address.slice(-8)}`)
 
         for (const order of storeOrders) {
+          // 跳过已有 tx_hash 的订单（已被其他轮次匹配）
+          if (order.tx_hash) {
+            totalProcessed++
+            continue
+          }
+
           const orderCreatedAt = new Date(order.created_at).getTime()
           const expectedCurrency = order.payment_method === 'trx' ? 'TRX' : 'USDT'
 
           for (const tx of transactions) {
+            // 检查此交易是否已被其他订单使用
+            const { data: existingMatch } = await supabase
+              .from('store_orders')
+              .select('order_no')
+              .eq('tx_hash', tx.transaction_id)
+              .maybeSingle()
+            
+            if (existingMatch) continue
+
             if (matchTransaction(tx, order.amount, orderCreatedAt, expectedCurrency as 'USDT' | 'TRX')) {
               const txAmount = parseInt(tx.value) / 1e6
               console.log(`[Check Tron] Matched store order ${order.order_no} with tx ${tx.transaction_id} (${expectedCurrency} ${txAmount})`)
               
-              // 直接更新订单状态为 paid
+              // 1. 更新订单状态为 paid
               await supabase
                 .from('store_orders')
                 .update({
@@ -202,64 +217,88 @@ Deno.serve(async (req) => {
                 })
                 .eq('order_no', order.order_no)
 
-              // 如果是自动充值商品，触发自动激活
+              // 2. 根据商品类型处理发货
               const botId = order.bot_id
-              if (botId && botId.length >= 20) {
-                // 获取商品信息
-                const { data: product } = await supabase
-                  .from('store_products')
-                  .select('*')
-                  .eq('id', order.product_id)
-                  .single()
+              const { data: product } = await supabase
+                .from('store_products')
+                .select('*')
+                .eq('id', order.product_id)
+                .single()
 
-                if (product && product.type === 'auto') {
-                  // 确定功能类型
-                  const productTags: string[] = product.tags || []
-                  let featureType = 'chat'
-                  if (productTags.includes('chat') && productTags.includes('keyboard') && productTags.includes('mall')) {
-                    featureType = 'all'
-                  } else if (productTags.includes('chat') && productTags.includes('mall')) {
-                    featureType = 'chat_shop'
-                  } else if (productTags.includes('keyboard') && productTags.includes('mall')) {
-                    featureType = 'keyboard_shop'
-                  } else if (productTags.includes('chat') && productTags.includes('keyboard')) {
-                    featureType = 'both'
-                  } else if (productTags.includes('keyboard')) {
-                    featureType = 'keyboard'
-                  } else if (productTags.includes('mall')) {
-                    featureType = 'shop'
-                  }
+              if (product && product.type === 'auto' && botId && botId.length >= 20) {
+                // 自动充值商品 - 调用 store-auto-activate
+                const productTags: string[] = product.tags || []
+                let featureType = 'chat'
+                if (productTags.includes('chat') && productTags.includes('keyboard') && productTags.includes('mall')) {
+                  featureType = 'all'
+                } else if (productTags.includes('chat') && productTags.includes('mall')) {
+                  featureType = 'chat_shop'
+                } else if (productTags.includes('keyboard') && productTags.includes('mall')) {
+                  featureType = 'keyboard_shop'
+                } else if (productTags.includes('chat') && productTags.includes('keyboard')) {
+                  featureType = 'both'
+                } else if (productTags.includes('keyboard')) {
+                  featureType = 'keyboard'
+                } else if (productTags.includes('mall')) {
+                  featureType = 'shop'
+                }
 
-                  console.log(`[Check Tron] Triggering auto-activate for store order ${order.order_no}, bot: ${botId.slice(-8)}, feature: ${featureType}`)
+                console.log(`[Check Tron] Triggering auto-activate for store order ${order.order_no}, bot: ${botId.slice(-8)}, feature: ${featureType}`)
 
-                  try {
-                    await fetch(`${supabaseUrl}/functions/v1/store-auto-activate`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${supabaseKey}`
-                      },
-                      body: JSON.stringify({
-                        orderNo: order.order_no,
-                        botToken: botId,
-                        duration: product.duration,
-                        featureType
-                      })
+                try {
+                  const activateRes = await fetch(`${supabaseUrl}/functions/v1/store-auto-activate`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${supabaseKey}`
+                    },
+                    body: JSON.stringify({
+                      orderNo: order.order_no,
+                      botToken: botId,
+                      duration: product.duration,
+                      featureType,
+                      productId: product.id
                     })
-                  } catch (e) {
-                    console.error(`[Check Tron] Auto-activate failed for ${order.order_no}:`, e)
+                  })
+                  const activateResult = await activateRes.json()
+                  
+                  if (activateResult?.success) {
+                    const deliveredMsg = activateResult.message || `已激活: ${activateResult.activatedFeatures?.join(', ')}`
+                    await supabase
+                      .from('store_orders')
+                      .update({ delivered_code: deliveredMsg, updated_at: new Date().toISOString() })
+                      .eq('order_no', order.order_no)
+                    console.log(`[Check Tron] Auto-activate success for ${order.order_no}: ${deliveredMsg}`)
+                  } else {
+                    const errMsg = `激活失败: ${activateResult?.error || '未知错误'}`
+                    await supabase
+                      .from('store_orders')
+                      .update({ delivered_code: errMsg, updated_at: new Date().toISOString() })
+                      .eq('order_no', order.order_no)
+                    console.error(`[Check Tron] Auto-activate failed for ${order.order_no}:`, activateResult?.error)
                   }
-                } else if (product && product.type === 'card') {
-                  // 卡密商品 - 调用 deliver_card_key RPC
-                  console.log(`[Check Tron] Delivering card key for store order ${order.order_no}`)
-                  try {
-                    await supabase.rpc('deliver_card_key', {
-                      p_order_no: order.order_no,
-                      p_product_id: order.product_id
-                    })
-                  } catch (e) {
-                    console.error(`[Check Tron] Card delivery failed for ${order.order_no}:`, e)
+                } catch (e) {
+                  console.error(`[Check Tron] Auto-activate error for ${order.order_no}:`, e)
+                  await supabase
+                    .from('store_orders')
+                    .update({ delivered_code: `激活异常: ${e instanceof Error ? e.message : '未知错误'}`, updated_at: new Date().toISOString() })
+                    .eq('order_no', order.order_no)
+                }
+              } else if (product && product.type === 'card') {
+                // 卡密商品 - 调用 deliver_card_key RPC（RPC 内部已更新 delivered_code）
+                console.log(`[Check Tron] Delivering card key for store order ${order.order_no}`)
+                try {
+                  const { data: deliverResult, error: deliverError } = await supabase.rpc('deliver_card_key', {
+                    p_order_no: order.order_no,
+                    p_product_id: order.product_id
+                  })
+                  if (deliverError) {
+                    console.error(`[Check Tron] Card delivery RPC error for ${order.order_no}:`, deliverError)
+                  } else {
+                    console.log(`[Check Tron] Card delivery result for ${order.order_no}:`, deliverResult)
                   }
+                } catch (e) {
+                  console.error(`[Check Tron] Card delivery failed for ${order.order_no}:`, e)
                 }
               }
 
