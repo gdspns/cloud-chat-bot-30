@@ -2936,8 +2936,9 @@ function MessageFlowEditor({
   const activeMsg = (messages.length > 0 ? (messages.find((m: MessageData) => m.id === activeMsgId) || messages[0]) : defaultMsg);
 
   const updateActiveMsg = (field: keyof MessageData, value: any) => {
+    const targetId = activeMsg.id;
     setMessages((msgs: MessageData[]) =>
-      msgs.map((m: MessageData) => (m.id === activeMsgId ? { ...m, [field]: value } : m)),
+      msgs.map((m: MessageData) => (m.id === targetId ? { ...m, [field]: value } : m)),
     );
   };
 
