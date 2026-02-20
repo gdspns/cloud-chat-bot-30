@@ -154,6 +154,7 @@ export const StorePage = () => {
   const paymentTimerRef = useRef<NodeJS.Timeout | null>(null);
   const orderPollingRef = useRef<NodeJS.Timeout | null>(null);
   const cardKeyPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const cardKeyWaitCountRef = useRef(0);
 
   // --- 安全防护：禁止 F12, Ctrl+Shift+I, 部分右键 ---
   useEffect(() => {
@@ -306,6 +307,7 @@ export const StorePage = () => {
   // 开始轮询订单状态（法币支付时使用）
   const startOrderPolling = (orderNo: string) => {
     stopOrderPolling();
+    cardKeyWaitCountRef.current = 0;
     
     orderPollingRef.current = setInterval(async () => {
       try {
@@ -329,18 +331,32 @@ export const StorePage = () => {
 
           // 1) 卡密商品：检查后端是否已发货
           if (isCardProduct && product?.id) {
-            stopOrderPolling();
             if (dbOrder.delivered_code) {
               // 后端 cron 已发货，直接显示卡密
               console.log('[卡密] 后端已发货:', dbOrder.delivered_code);
+              stopOrderPolling();
               updateOrderStatus('paid', dbOrder.delivered_code);
               setPaymentStep('success');
               loadProducts();
             } else {
-              // 后端未发货，前端主动发货
-              updateOrderStatus('paid', '');
+              // 后端可能正在发货中（status=paid 但 delivered_code 还没写入）
+              cardKeyWaitCountRef.current++;
+              console.log(`[卡密] 已支付但卡密未到，等待第 ${cardKeyWaitCountRef.current} 次...`);
               setPaymentStep('success');
-              startCardKeyDelivery(orderNo, product.id);
+              if (!currentOrder?.code) {
+                setCurrentOrder(prev => prev && prev.orderNo === orderNo 
+                  ? { ...prev, status: 'paid' as const, code: '' } 
+                  : prev
+                );
+                setIsLoadingCardKey(true);
+              }
+              // 超过 5 次（~10秒）还没收到 delivered_code，前端主动发货
+              if (cardKeyWaitCountRef.current >= 5) {
+                console.log('[卡密] 等待超时，前端主动发货');
+                stopOrderPolling();
+                cardKeyWaitCountRef.current = 0;
+                startCardKeyDelivery(orderNo, product.id);
+              }
             }
             return;
           }

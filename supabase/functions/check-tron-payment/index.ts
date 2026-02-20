@@ -207,7 +207,41 @@ Deno.serve(async (req) => {
               const txAmount = parseInt(tx.value) / 1e6
               console.log(`[Check Tron] Matched store order ${order.order_no} with tx ${tx.transaction_id} (${expectedCurrency} ${txAmount})`)
               
-              // 1. 更新订单状态为 paid
+              // 2. 根据商品类型处理发货
+              const botId = order.bot_id
+              const { data: product } = await supabase
+                .from('store_products')
+                .select('*')
+                .eq('id', order.product_id)
+                .single()
+
+              // 卡密商品：先发货再更新状态（RPC 内部已设 status=paid + delivered_code，避免窗口期竞态）
+              if (product && product.type === 'card') {
+                console.log(`[Check Tron] Delivering card key for store order ${order.order_no}`)
+                try {
+                  const { data: deliverResult, error: deliverError } = await supabase.rpc('deliver_card_key', {
+                    p_order_no: order.order_no,
+                    p_product_id: order.product_id
+                  })
+                  if (deliverError) {
+                    console.error(`[Check Tron] Card delivery RPC error for ${order.order_no}:`, deliverError)
+                  } else {
+                    console.log(`[Check Tron] Card delivery result for ${order.order_no}:`, deliverResult)
+                  }
+                  // 补写 tx_hash（RPC 不设这个字段）
+                  await supabase
+                    .from('store_orders')
+                    .update({ tx_hash: tx.transaction_id, updated_at: new Date().toISOString() })
+                    .eq('order_no', order.order_no)
+                } catch (e) {
+                  console.error(`[Check Tron] Card delivery failed for ${order.order_no}:`, e)
+                }
+
+                totalMatched++
+                break
+              }
+
+              // 非卡密商品：先更新状态为 paid
               await supabase
                 .from('store_orders')
                 .update({
@@ -216,14 +250,6 @@ Deno.serve(async (req) => {
                   updated_at: new Date().toISOString()
                 })
                 .eq('order_no', order.order_no)
-
-              // 2. 根据商品类型处理发货
-              const botId = order.bot_id
-              const { data: product } = await supabase
-                .from('store_products')
-                .select('*')
-                .eq('id', order.product_id)
-                .single()
 
               if (product && product.type === 'auto' && botId && botId.length >= 20) {
                 // 自动充值商品 - 调用 store-auto-activate
@@ -283,22 +309,6 @@ Deno.serve(async (req) => {
                     .from('store_orders')
                     .update({ delivered_code: `激活异常: ${e instanceof Error ? e.message : '未知错误'}`, updated_at: new Date().toISOString() })
                     .eq('order_no', order.order_no)
-                }
-              } else if (product && product.type === 'card') {
-                // 卡密商品 - 调用 deliver_card_key RPC（RPC 内部已更新 delivered_code）
-                console.log(`[Check Tron] Delivering card key for store order ${order.order_no}`)
-                try {
-                  const { data: deliverResult, error: deliverError } = await supabase.rpc('deliver_card_key', {
-                    p_order_no: order.order_no,
-                    p_product_id: order.product_id
-                  })
-                  if (deliverError) {
-                    console.error(`[Check Tron] Card delivery RPC error for ${order.order_no}:`, deliverError)
-                  } else {
-                    console.log(`[Check Tron] Card delivery result for ${order.order_no}:`, deliverResult)
-                  }
-                } catch (e) {
-                  console.error(`[Check Tron] Card delivery failed for ${order.order_no}:`, e)
                 }
               }
 
