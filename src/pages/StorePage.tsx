@@ -394,23 +394,25 @@ export const StorePage = () => {
     }
   }, [activeTab, activeTags, products, selectedProductId]);
 
-  // 倒计时
+  // 倒计时 - 只依赖 paymentStep，避免每次 timeLeft 变化都重建 interval
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (paymentStep === 'paying' && timeLeft > 0) {
-      timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-    } else if (timeLeft === 0 && paymentStep === 'paying') {
+    if (paymentStep !== 'paying') return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [paymentStep]);
+
+  // 倒计时到期处理
+  useEffect(() => {
+    if (timeLeft === 0 && paymentStep === 'paying') {
       setPaymentStep('expired');
       stopMonitoring();
       stopOrderPolling();
       stopCardKeyPolling();
       updateOrderStatus('expired');
     }
-    return () => {
-      clearInterval(timer);
-      stopCardKeyPolling();
-    };
-  }, [paymentStep, timeLeft]);
+  }, [timeLeft, paymentStep]);
 
   // --- 逻辑函数 ---
   const stopMonitoring = () => {
@@ -533,6 +535,8 @@ export const StorePage = () => {
 
     if (paymentMethod === 'usdt' || paymentMethod === 'trx') {
       startCryptoMonitoring(paymentMethod.toUpperCase(), finalAmount);
+      // 加密货币也同时轮询数据库订单状态，确保回调被检测到
+      startOrderPolling(orderNo);
     } else {
       generateHupijiaoUrl(paymentMethod, finalAmount, orderNo);
       // 法币支付开始轮询订单状态
