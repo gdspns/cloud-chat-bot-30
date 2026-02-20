@@ -156,6 +156,14 @@ export const StorePage = () => {
   const cardKeyPollingRef = useRef<NodeJS.Timeout | null>(null);
   const cardKeyWaitCountRef = useRef(0);
   const orderFulfilledRef = useRef(false);
+  const currentOrderRef = useRef(currentOrder);
+  const selectedProductIdRef = useRef(selectedProductId);
+  const productsRef = useRef(products);
+
+  // 保持 ref 与 state 同步
+  useEffect(() => { currentOrderRef.current = currentOrder; }, [currentOrder]);
+  useEffect(() => { selectedProductIdRef.current = selectedProductId; }, [selectedProductId]);
+  useEffect(() => { productsRef.current = products; }, [products]);
 
   // --- 安全防护：禁止 F12, Ctrl+Shift+I, 部分右键 ---
   useEffect(() => {
@@ -305,8 +313,8 @@ export const StorePage = () => {
     startCardKeyDelivery(orderNo, pid);
   };
 
-  // 开始轮询订单状态（法币支付时使用）
-  const startOrderPolling = (orderNo: string) => {
+  // 开始轮询订单状态（法币支付 + 加密支付均使用）
+  const startOrderPolling = (orderNo: string, productType?: string, productId?: string) => {
     stopOrderPolling();
     cardKeyWaitCountRef.current = 0;
     
@@ -314,7 +322,7 @@ export const StorePage = () => {
       try {
         const { data: dbOrder, error } = await supabase
           .from('store_orders')
-          .select('status, delivered_code')
+          .select('status, delivered_code, product_id')
           .eq('order_no', orderNo)
           .maybeSingle();
         
@@ -323,7 +331,7 @@ export const StorePage = () => {
           return;
         }
         
-         if (dbOrder?.status === 'paid') {
+        if (dbOrder?.status === 'paid') {
           // 防止轮询和链上监控重复处理
           if (orderFulfilledRef.current) {
             console.log('[轮询] 订单已处理过，跳过:', orderNo);
@@ -334,8 +342,8 @@ export const StorePage = () => {
           console.log('检测到订单已支付:', orderNo, 'delivered_code:', dbOrder.delivered_code);
           stopMonitoring();
           
-          const product = products.find(p => p.id === selectedProductId);
-          const isCardProduct = product?.type === 'card';
+          // 使用传入的 productType 参数，避免闭包中 products/selectedProductId 过时
+          const isCardProduct = productType === 'card';
 
           // 1) 卡密商品：检测到 paid 后，优先用后端已有的 delivered_code，否则前端主动调用发货
           if (isCardProduct) {
@@ -347,7 +355,14 @@ export const StorePage = () => {
               stopCardKeyPolling();
               setIsLoadingCardKey(false);
               setCardKeyRetryError('');
-              updateOrderStatus('paid', dbOrder.delivered_code);
+              // 直接用 orderNo 更新状态，避免依赖闭包中的 currentOrder
+              setOrders(prev => prev.map(o => 
+                o.orderNo === orderNo ? { ...o, status: 'paid' as const, code: dbOrder.delivered_code } : o
+              ));
+              setCurrentOrder(prev => prev && prev.orderNo === orderNo 
+                ? { ...prev, status: 'paid' as const, code: dbOrder.delivered_code } 
+                : prev
+              );
               setPaymentStep('success');
               loadProducts();
             } else {
@@ -356,7 +371,7 @@ export const StorePage = () => {
               orderFulfilledRef.current = true;
               stopOrderPolling();
               setPaymentStep('success');
-              const pid = selectedProductId || '';
+              const pid = productId || dbOrder.product_id || '';
               if (pid) {
                 startCardKeyDelivery(orderNo, pid);
               } else {
@@ -373,7 +388,6 @@ export const StorePage = () => {
             console.log('[自动充值] 激活成功:', dbOrder.delivered_code);
             stopOrderPolling();
             setPaymentStep('success');
-            // 同时更新 currentOrder 和 orders 确保UI显示
             setCurrentOrder(prev => prev && prev.orderNo === orderNo 
               ? { ...prev, status: 'paid' as const, code: dbOrder.delivered_code } 
               : prev
@@ -394,19 +408,17 @@ export const StorePage = () => {
           } else {
             // 还在处理中 - 先进入成功页但继续轮询
             setPaymentStep('success');
-            if (!currentOrder?.code || currentOrder.code === 'AUTO_PROCESSING') {
-              setCurrentOrder(prev => prev && prev.orderNo === orderNo 
-                ? { ...prev, status: 'paid' as const, code: 'AUTO_PROCESSING' } 
-                : prev
-              );
-            }
+            setCurrentOrder(prev => prev && prev.orderNo === orderNo 
+              ? { ...prev, status: 'paid' as const, code: prev.code || 'AUTO_PROCESSING' } 
+              : prev
+            );
             // 继续轮询等待 delivered_code
           }
         }
       } catch (err) {
         console.error('轮询异常:', err);
       }
-    }, 2000); // 每2秒轮询一次（加快轮询频率）
+    }, 2000);
   };
 
   // 保存订单到 localStorage
@@ -568,11 +580,11 @@ export const StorePage = () => {
     if (paymentMethod === 'usdt' || paymentMethod === 'trx') {
       startCryptoMonitoring(paymentMethod.toUpperCase(), finalAmount);
       // 加密货币也同时轮询数据库订单状态，确保回调被检测到
-      startOrderPolling(orderNo);
+      startOrderPolling(orderNo, product.type, String(product.id));
     } else {
       generateHupijiaoUrl(paymentMethod, finalAmount, orderNo);
       // 法币支付开始轮询订单状态
-      startOrderPolling(orderNo);
+      startOrderPolling(orderNo, product.type, String(product.id));
     }
   };
 
@@ -692,7 +704,8 @@ export const StorePage = () => {
             ? { ...prev, status: 'paid' as const, code: 'AUTO_PROCESSING' } 
             : prev
           );
-          startOrderPolling(currentOrder.orderNo);
+          const p = products.find(pp => pp.id === selectedProductId);
+          startOrderPolling(currentOrder.orderNo, p?.type, selectedProductId || '');
         }
       }
     } else {
@@ -702,8 +715,12 @@ export const StorePage = () => {
   };
 
   const completeOrder = async (txId: string) => {
-    const product = products.find(p => p.id === selectedProductId);
-    if (!product || !currentOrder) return;
+    // 使用 ref 获取最新值，避免 setInterval 闭包过时
+    const latestOrder = currentOrderRef.current;
+    const latestProductId = selectedProductIdRef.current;
+    const latestProducts = productsRef.current;
+    const product = latestProducts.find(p => p.id === latestProductId);
+    if (!product || !latestOrder) return;
 
     // 防止轮询和链上监控重复处理
     if (orderFulfilledRef.current) {
@@ -715,39 +732,47 @@ export const StorePage = () => {
     if (product.type === 'card') {
       console.log('[completeOrder] 卡密商品检测到链上交易:', txId);
       
-      // 先检查后端是否已经完成发货
       const { data: dbOrder } = await supabase
         .from('store_orders')
         .select('status, delivered_code')
-        .eq('order_no', currentOrder.orderNo)
+        .eq('order_no', latestOrder.orderNo)
         .maybeSingle();
       
       if (dbOrder?.delivered_code) {
-        // 后端已发货，直接显示
         console.log('[completeOrder] 后端已发货:', dbOrder.delivered_code);
         orderFulfilledRef.current = true;
         stopOrderPolling();
         stopCardKeyPolling();
         setIsLoadingCardKey(false);
         setCardKeyRetryError('');
-        updateOrderStatus('paid', dbOrder.delivered_code);
+        setOrders(prev => prev.map(o => 
+          o.orderNo === latestOrder.orderNo ? { ...o, status: 'paid' as const, code: dbOrder.delivered_code } : o
+        ));
+        setCurrentOrder(prev => prev && prev.orderNo === latestOrder.orderNo 
+          ? { ...prev, status: 'paid' as const, code: dbOrder.delivered_code } 
+          : prev
+        );
         setPaymentStep('success');
         loadProducts();
       } else {
-        // 后端尚未发货，前端主动调用 deliver-card-key
         console.log('[completeOrder] 前端主动调用发货');
         orderFulfilledRef.current = true;
         stopOrderPolling();
         setPaymentStep('success');
-        startCardKeyDelivery(currentOrder.orderNo, product.id);
+        startCardKeyDelivery(latestOrder.orderNo, product.id);
       }
       return;
     } else {
-      // 自动充值商品 - 加密货币支付需要手动更新数据库并触发自动激活
-      updateOrderStatus('paid', 'AUTO_PROCESSING');
+      // 自动充值商品
+      setOrders(prev => prev.map(o => 
+        o.orderNo === latestOrder.orderNo ? { ...o, status: 'paid' as const, code: 'AUTO_PROCESSING' } : o
+      ));
+      setCurrentOrder(prev => prev && prev.orderNo === latestOrder.orderNo 
+        ? { ...prev, status: 'paid' as const, code: 'AUTO_PROCESSING' } 
+        : prev
+      );
       
       try {
-        // 1. 更新订单状态为 paid
         await supabase
           .from('store_orders')
           .update({
@@ -755,14 +780,12 @@ export const StorePage = () => {
             tx_hash: txId,
             updated_at: new Date().toISOString()
           })
-          .eq('order_no', currentOrder.orderNo);
+          .eq('order_no', latestOrder.orderNo);
 
-        console.log('[Crypto Auto] 订单已标记为 paid:', currentOrder.orderNo);
+        console.log('[Crypto Auto] 订单已标记为 paid:', latestOrder.orderNo);
 
-        // 2. 调用 store-auto-activate 触发自动激活
         const botToken = botId.trim();
         if (botToken && botToken.length >= 20) {
-          // 确定功能类型
           const productTags = product.tags || [];
           let featureType = 'chat';
           if (productTags.includes('chat') && productTags.includes('keyboard') && productTags.includes('mall')) {
@@ -779,11 +802,11 @@ export const StorePage = () => {
             featureType = 'shop';
           }
 
-          console.log('[Crypto Auto] 调用自动激活:', { orderNo: currentOrder.orderNo, featureType, botToken: botToken.slice(-8) });
+          console.log('[Crypto Auto] 调用自动激活:', { orderNo: latestOrder.orderNo, featureType, botToken: botToken.slice(-8) });
 
           const { data: activateResult, error: activateError } = await supabase.functions.invoke('store-auto-activate', {
             body: {
-              orderNo: currentOrder.orderNo,
+              orderNo: latestOrder.orderNo,
               botToken,
               featureType,
               validityDays: product.duration || 30,
@@ -791,32 +814,47 @@ export const StorePage = () => {
             }
           });
 
+          const updateCode = (code: string) => {
+            setOrders(prev => prev.map(o => 
+              o.orderNo === latestOrder.orderNo ? { ...o, status: 'paid' as const, code } : o
+            ));
+            setCurrentOrder(prev => prev && prev.orderNo === latestOrder.orderNo 
+              ? { ...prev, status: 'paid' as const, code } 
+              : prev
+            );
+          };
+
           if (activateError) {
             console.error('[Crypto Auto] 激活调用失败:', activateError);
-            updateOrderStatus('paid', `激活失败: ${activateError.message}`);
+            updateCode(`激活失败: ${activateError.message}`);
           } else if (activateResult?.success) {
             console.log('[Crypto Auto] 激活成功:', activateResult);
             const deliveredMsg = activateResult.message || `已激活: ${activateResult.activatedFeatures?.join(', ')}`;
-            updateOrderStatus('paid', deliveredMsg);
+            updateCode(deliveredMsg);
             
-            // 更新数据库 delivered_code
             await supabase
               .from('store_orders')
               .update({ delivered_code: deliveredMsg, updated_at: new Date().toISOString() })
-              .eq('order_no', currentOrder.orderNo);
+              .eq('order_no', latestOrder.orderNo);
             
             loadProducts();
           } else {
             console.error('[Crypto Auto] 激活失败:', activateResult?.error);
-            updateOrderStatus('paid', `激活失败: ${activateResult?.error || '未知错误'}`);
+            updateCode(`激活失败: ${activateResult?.error || '未知错误'}`);
           }
         } else {
           console.error('[Crypto Auto] 缺少有效的 bot_token');
-          updateOrderStatus('paid', '激活失败: 缺少机器人Token');
+          setCurrentOrder(prev => prev && prev.orderNo === latestOrder.orderNo 
+            ? { ...prev, status: 'paid' as const, code: '激活失败: 缺少机器人Token' } 
+            : prev
+          );
         }
       } catch (err) {
         console.error('[Crypto Auto] 处理异常:', err);
-        updateOrderStatus('paid', '激活处理异常，请联系客服');
+        setCurrentOrder(prev => prev && prev.orderNo === latestOrder.orderNo 
+          ? { ...prev, status: 'paid' as const, code: '激活处理异常，请联系客服' } 
+          : prev
+        );
       }
     }
     
