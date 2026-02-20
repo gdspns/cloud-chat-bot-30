@@ -2,8 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 // ========== TG商城类型定义 ==========
@@ -55,107 +55,122 @@ interface ShopConfig {
 // ========== TG商城多语言翻译系统 ==========
 const shopI18n: Record<string, { zh: string; en: string }> = {
   // 通用
-  'error_no_shop': { zh: '❌ 该机器人未配置商城功能', en: '❌ Shop not configured for this bot' },
-  'error_product_not_found': { zh: '❌ 商品不存在或已下架', en: '❌ Product not found or delisted' },
-  'error_no_stock': { zh: '暂无库存，请稍后再试', en: 'Out of stock, please try later' },
-  'error_order_not_found': { zh: '❌ 订单不存在或已过期', en: '❌ Order not found or expired' },
-  'error_order_completed': { zh: '❌ 订单已完成或已取消', en: '❌ Order completed or cancelled' },
-  'error_order_create_failed': { zh: '❌ 订单创建失败，请稍后再试', en: '❌ Order creation failed, please try later' },
-  'error_payment_failed': { zh: '❌ 支付系统错误，请稍后重试', en: '❌ Payment system error, please try again' },
-  'error_qr_failed': { zh: '❌ 获取付款码失败', en: '❌ Failed to get payment QR code' },
-  'error_order_expired': { zh: '❌ 订单已过期', en: '❌ Order expired' },
-  'error_shop_config': { zh: '❌ 商店配置错误', en: '❌ Shop configuration error' },
-  'error_payment_not_configured': { zh: '❌ 支付未配置，请联系管理员', en: '❌ Payment not configured, please contact admin' },
-  
+  error_no_shop: { zh: "❌ 该机器人未配置商城功能", en: "❌ Shop not configured for this bot" },
+  error_product_not_found: { zh: "❌ 商品不存在或已下架", en: "❌ Product not found or delisted" },
+  error_no_stock: { zh: "暂无库存，请稍后再试", en: "Out of stock, please try later" },
+  error_order_not_found: { zh: "❌ 订单不存在或已过期", en: "❌ Order not found or expired" },
+  error_order_completed: { zh: "❌ 订单已完成或已取消", en: "❌ Order completed or cancelled" },
+  error_order_create_failed: { zh: "❌ 订单创建失败，请稍后再试", en: "❌ Order creation failed, please try later" },
+  error_payment_failed: { zh: "❌ 支付系统错误，请稍后重试", en: "❌ Payment system error, please try again" },
+  error_qr_failed: { zh: "❌ 获取付款码失败", en: "❌ Failed to get payment QR code" },
+  error_order_expired: { zh: "❌ 订单已过期", en: "❌ Order expired" },
+  error_shop_config: { zh: "❌ 商店配置错误", en: "❌ Shop configuration error" },
+  error_payment_not_configured: {
+    zh: "❌ 支付未配置，请联系管理员",
+    en: "❌ Payment not configured, please contact admin",
+  },
+
   // /shop 商城
-  'shop_no_products': { zh: '📦 暂无可购买的商品', en: '📦 No products available' },
-  'shop_categories_title': { zh: '🏪 **商城商品分类**', en: '🏪 **Shop Categories**' },
-  'shop_total_products': { zh: '共 {count} 件商品，{cats} 个分类', en: 'Total {count} products in {cats} categories' },
-  'shop_click_category': { zh: '💡 点击下方分类查看商品', en: '💡 Click a category below to view products' },
-  'shop_category_items': { zh: '📂 {name} ({count}件)', en: '📂 {name} ({count} items)' },
-  'shop_back_to_categories': { zh: '🔙 返回分类列表', en: '🔙 Back to categories' },
-  'shop_category_title': { zh: '🏪 **{name}** ({count}件商品)', en: '🏪 **{name}** ({count} products)' },
-  'shop_stock': { zh: '库存', en: 'Stock' },
-  'shop_out_of_stock': { zh: '缺货', en: 'Out of stock' },
-  'shop_click_to_buy': { zh: '点击购买👉', en: 'Buy now👉' },
-  'shop_buy_tip': { zh: '💡 点击上方指令直接购买对应商品', en: '💡 Click the command above to buy the product' },
-  
+  shop_no_products: { zh: "📦 暂无可购买的商品", en: "📦 No products available" },
+  shop_categories_title: { zh: "🏪 **商城商品分类**", en: "🏪 **Shop Categories**" },
+  shop_total_products: { zh: "共 {count} 件商品，{cats} 个分类", en: "Total {count} products in {cats} categories" },
+  shop_click_category: { zh: "💡 点击下方分类查看商品", en: "💡 Click a category below to view products" },
+  shop_category_items: { zh: "📂 {name} ({count}件)", en: "📂 {name} ({count} items)" },
+  shop_back_to_categories: { zh: "🔙 返回分类列表", en: "🔙 Back to categories" },
+  shop_category_title: { zh: "🏪 **{name}** ({count}件商品)", en: "🏪 **{name}** ({count} products)" },
+  shop_stock: { zh: "库存", en: "Stock" },
+  shop_out_of_stock: { zh: "缺货", en: "Out of stock" },
+  shop_click_to_buy: { zh: "点击购买👉", en: "Buy now👉" },
+  shop_buy_tip: { zh: "💡 点击上方指令直接购买对应商品", en: "💡 Click the command above to buy the product" },
+
   // /buy 购买
-  'buy_usage': { zh: '❌ 使用方法: /buy <商品名>\n\n例如: /buy VIP会员\n\n发送 /shop 查看所有商品', en: '❌ Usage: /buy <product name>\n\nExample: /buy VIP\n\nSend /shop to view all products' },
-  'buy_no_products': { zh: '❌ 暂无可购买的商品', en: '❌ No products available' },
-  'buy_not_found': { zh: '❌ 未找到匹配商品', en: '❌ No matching product found' },
-  'buy_available_products': { zh: '📦 可用商品', en: '📦 Available products' },
-  'buy_use_command': { zh: '使用 /buy <商品名> 购买', en: 'Use /buy <product name> to purchase' },
-  'buy_found_multiple': { zh: '🔍 找到 {count} 个匹配 "{keyword}" 的商品', en: '🔍 Found {count} products matching "{keyword}"' },
-  
+  buy_usage: {
+    zh: "❌ 使用方法: /buy <商品名>\n\n例如: /buy VIP会员\n\n发送 /shop 查看所有商品",
+    en: "❌ Usage: /buy <product name>\n\nExample: /buy VIP\n\nSend /shop to view all products",
+  },
+  buy_no_products: { zh: "❌ 暂无可购买的商品", en: "❌ No products available" },
+  buy_not_found: { zh: "❌ 未找到匹配商品", en: "❌ No matching product found" },
+  buy_available_products: { zh: "📦 可用商品", en: "📦 Available products" },
+  buy_use_command: { zh: "使用 /buy <商品名> 购买", en: "Use /buy <product name> to purchase" },
+  buy_found_multiple: {
+    zh: '🔍 找到 {count} 个匹配 "{keyword}" 的商品',
+    en: '🔍 Found {count} products matching "{keyword}"',
+  },
+
   // 订单
-  'order_created': { zh: '🛒 *订单已创建*', en: '🛒 *Order Created*' },
-  'order_product': { zh: '📦 商品', en: '📦 Product' },
-  'order_amount': { zh: '💰 金额', en: '💰 Amount' },
-  'order_no': { zh: '📝 订单号', en: '📝 Order No' },
-  'order_stock': { zh: '📊 库存', en: '📊 Stock' },
-  'order_items': { zh: '件', en: 'items' },
-  'order_select_payment': { zh: '💳 *请选择支付方式:*', en: '💳 *Please select payment method:*' },
-  'order_valid_time': { zh: '⏰ 订单有效期: 30分钟', en: '⏰ Valid for: 30 minutes' },
-  'order_timeout_warning': { zh: '⚠️ 超时订单将自动取消', en: '⚠️ Order will be cancelled if timeout' },
-  'order_cancelled': { zh: '✅ 订单已取消', en: '✅ Order cancelled' },
-  'order_cancel_btn': { zh: '❌ 取消订单', en: '❌ Cancel Order' },
-  
+  order_created: { zh: "🛒 *订单已创建*", en: "🛒 *Order Created*" },
+  order_product: { zh: "📦 商品", en: "📦 Product" },
+  order_amount: { zh: "💰 金额", en: "💰 Amount" },
+  order_no: { zh: "📝 订单号", en: "📝 Order No" },
+  order_stock: { zh: "📊 库存", en: "📊 Stock" },
+  order_items: { zh: "件", en: "items" },
+  order_select_payment: { zh: "💳 *请选择支付方式:*", en: "💳 *Please select payment method:*" },
+  order_valid_time: { zh: "⏰ 订单有效期: 30分钟", en: "⏰ Valid for: 30 minutes" },
+  order_timeout_warning: { zh: "⚠️ 超时订单将自动取消", en: "⚠️ Order will be cancelled if timeout" },
+  order_cancelled: { zh: "✅ 订单已取消", en: "✅ Order cancelled" },
+  order_cancel_btn: { zh: "❌ 取消订单", en: "❌ Cancel Order" },
+
   // 支付详情
-  'payment_details_title': { zh: '🛒 *订单支付详情*', en: '🛒 *Payment Details*' },
-  'payment_method': { zh: '💎 支付方式', en: '💎 Payment Method' },
-  'payment_amount': { zh: '💰 需支付', en: '💰 Amount to pay' },
-  'payment_address': { zh: '📍 网络收款地址 (点击复制)', en: '📍 Wallet address (click to copy)' },
-  'payment_scan_qr': { zh: '📱 请扫描上方二维码完成支付', en: '📱 Please scan the QR code above to pay' },
-  'payment_h5_tip': { zh: '📱 请点击下方"去支付"按钮，在浏览器中打开后唤起支付宝完成支付', en: '📱 Click the "Pay Now" button below to complete payment via Alipay' },
-  'payment_deadline': { zh: '⏰ 支付截止', en: '⏰ Payment deadline' },
-  'payment_30min': { zh: '30分钟', en: '30 minutes' },
-  'payment_auto_cancel': { zh: '⚠️ 超时订单将自动取消并删除', en: '⚠️ Order will be auto-cancelled if timeout' },
-  'payment_auto_deliver': { zh: '✅ 支付成功后将自动发货到此对话', en: '✅ Order will be delivered here after payment' },
-  'payment_alipay': { zh: '支付宝', en: 'Alipay' },
-  'payment_wechat': { zh: '微信支付', en: 'WeChat Pay' },
-  'payment_go_pay': { zh: '💳 去支付', en: '💳 Pay Now' },
-  'payment_crypto_network': { zh: '当前支付网络协议为 （TRX/TRC20）', en: 'Payment network: TRX/TRC20' },
-  'payment_scan_wechat': { zh: '请用微信扫一扫完成支付！', en: 'Please scan with WeChat to pay!' },
-  'payment_scan_alipay': { zh: '请用支付宝扫一扫完成支付！', en: 'Please scan with Alipay to pay!' },
-  
+  payment_details_title: { zh: "🛒 *订单支付详情*", en: "🛒 *Payment Details*" },
+  payment_method: { zh: "💎 支付方式", en: "💎 Payment Method" },
+  payment_amount: { zh: "💰 需支付", en: "💰 Amount to pay" },
+  payment_address: { zh: "📍 网络收款地址 (点击复制)", en: "📍 Wallet address (click to copy)" },
+  payment_scan_qr: { zh: "📱 请扫描上方二维码完成支付", en: "📱 Please scan the QR code above to pay" },
+  payment_h5_tip: {
+    zh: '📱 请点击下方"去支付"按钮，在浏览器中打开后唤起支付宝完成支付',
+    en: '📱 Click the "Pay Now" button below to complete payment via Alipay',
+  },
+  payment_deadline: { zh: "⏰ 支付截止", en: "⏰ Payment deadline" },
+  payment_30min: { zh: "30分钟", en: "30 minutes" },
+  payment_auto_cancel: { zh: "⚠️ 超时订单将自动取消并删除", en: "⚠️ Order will be auto-cancelled if timeout" },
+  payment_auto_deliver: { zh: "✅ 支付成功后将自动发货到此对话", en: "✅ Order will be delivered here after payment" },
+  payment_alipay: { zh: "支付宝", en: "Alipay" },
+  payment_wechat: { zh: "微信支付", en: "WeChat Pay" },
+  payment_go_pay: { zh: "💳 去支付", en: "💳 Pay Now" },
+  payment_crypto_network: { zh: "当前支付网络协议为 （TRX/TRC20）", en: "Payment network: TRX/TRC20" },
+  payment_scan_wechat: { zh: "请用微信扫一扫完成支付！", en: "Please scan with WeChat to pay!" },
+  payment_scan_alipay: { zh: "请用支付宝扫一扫完成支付！", en: "Please scan with Alipay to pay!" },
+
   // /order 订单查询
-  'order_not_found': { zh: '❌ 未找到已付款订单', en: '❌ No paid order found' },
-  'order_details_title': { zh: '📋 **订单详情**', en: '📋 **Order Details**' },
-  'order_status_paid': { zh: '✅ 已支付', en: '✅ Paid' },
-  'order_created_at': { zh: '创建时间', en: 'Created at' },
-  'order_card_key': { zh: '📦 **卡密:**', en: '📦 **Card/Key:**' },
-  'order_no_history': { zh: '📋 您暂无已购买的订单', en: '📋 You have no purchased orders' },
-  'order_history_title': { zh: '📋 **您的已购订单** (最近10条)', en: '📋 **Your Purchased Orders** (Last 10)' },
-  'order_click_to_view': { zh: '💡 点击上面订单号可复制粘贴发送查询详情', en: '💡 Click order number above to copy and send for details' },
-  'order_status': { zh: '状态', en: 'Status' },
-  
+  order_not_found: { zh: "❌ 未找到已付款订单", en: "❌ No paid order found" },
+  order_details_title: { zh: "📋 **订单详情**", en: "📋 **Order Details**" },
+  order_status_paid: { zh: "✅ 已支付", en: "✅ Paid" },
+  order_created_at: { zh: "创建时间", en: "Created at" },
+  order_card_key: { zh: "📦 **卡密:**", en: "📦 **Card/Key:**" },
+  order_no_history: { zh: "📋 您暂无已购买的订单", en: "📋 You have no purchased orders" },
+  order_history_title: { zh: "📋 **您的已购订单** (最近10条)", en: "📋 **Your Purchased Orders** (Last 10)" },
+  order_click_to_view: {
+    zh: "💡 点击上面订单号可复制粘贴发送查询详情",
+    en: "💡 Click order number above to copy and send for details",
+  },
+  order_status: { zh: "状态", en: "Status" },
+
   // 语言切换
-  'lang_switched_zh': { zh: '🌐 已切换为中文', en: '🌐 Switched to Chinese' },
-  'lang_switched_en': { zh: '🌐 Language switched to English', en: '🌐 Language switched to English' },
-  
+  lang_switched_zh: { zh: "🌐 已切换为中文", en: "🌐 Switched to Chinese" },
+  lang_switched_en: { zh: "🌐 Language switched to English", en: "🌐 Language switched to English" },
+
   // 默认分类
-  'default_category': { zh: '默认分类', en: 'Default' },
-  
+  default_category: { zh: "默认分类", en: "Default" },
+
   // /start 按钮
-  'btn_shop': { zh: '商城', en: 'Shop' },
-  'btn_order': { zh: '我的订单', en: 'My Orders' },
-  
+  btn_shop: { zh: "商城", en: "Shop" },
+  btn_order: { zh: "我的订单", en: "My Orders" },
+
   // 法币支付相关
-  'fiat_payment_title': { zh: '💳 *{method}支付*', en: '💳 *{method} Payment*' },
-  'fiat_scan_qr': { zh: '📱 请扫描上方二维码完成支付', en: '📱 Please scan the QR code above to pay' },
-  'fiat_timeout_warning': { zh: '⚠️ 超时订单将自动取消', en: '⚠️ Order will be auto-cancelled if timeout' },
-  'fiat_auto_deliver': { zh: '✅ 支付成功后将自动发货到此对话', en: '✅ Order will be delivered here after payment' },
+  fiat_payment_title: { zh: "💳 *{method}支付*", en: "💳 *{method} Payment*" },
+  fiat_scan_qr: { zh: "📱 请扫描上方二维码完成支付", en: "📱 Please scan the QR code above to pay" },
+  fiat_timeout_warning: { zh: "⚠️ 超时订单将自动取消", en: "⚠️ Order will be auto-cancelled if timeout" },
+  fiat_auto_deliver: { zh: "✅ 支付成功后将自动发货到此对话", en: "✅ Order will be delivered here after payment" },
 };
 
 // 获取翻译文本
-function t(key: string, lang: 'zh' | 'en', params?: Record<string, string | number>): string {
+function t(key: string, lang: "zh" | "en", params?: Record<string, string | number>): string {
   const item = shopI18n[key];
   if (!item) return key;
   let text = item[lang] || item.zh;
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
-      text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+      text = text.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
     });
   }
   return text;
@@ -171,7 +186,7 @@ function containsCjk(text: string): boolean {
 
 async function translateManyToEnglish(texts: string[]): Promise<Record<string, string>> {
   const result: Record<string, string> = {};
-  const unique = Array.from(new Set(texts.map(t => (t || '').trim()).filter(Boolean)));
+  const unique = Array.from(new Set(texts.map((t) => (t || "").trim()).filter(Boolean)));
 
   // cache hit
   for (const t of unique) {
@@ -179,10 +194,10 @@ async function translateManyToEnglish(texts: string[]): Promise<Record<string, s
     if (cached) result[t] = cached;
   }
 
-  const need = unique.filter(t => !result[t] && containsCjk(t));
+  const need = unique.filter((t) => !result[t] && containsCjk(t));
   if (need.length === 0) return result;
 
-  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) {
     // 没有启用AI网关时，直接返回原文（不阻断业务流）
     for (const t of need) result[t] = t;
@@ -191,32 +206,32 @@ async function translateManyToEnglish(texts: string[]): Promise<Record<string, s
 
   try {
     const prompt = [
-      'You are a professional Chinese->English translator for a Telegram shop bot.',
-      'Translate each item in the JSON array into natural, concise English.',
-      '- Keep brand names (e.g., Netflix) as proper nouns.',
-      '- Keep numbers, emojis, and formatting characters.',
-      '- Do NOT add extra commentary.',
-      'Return ONLY a JSON array of translated strings in the same order.'
-    ].join('\n');
+      "You are a professional Chinese->English translator for a Telegram shop bot.",
+      "Translate each item in the JSON array into natural, concise English.",
+      "- Keep brand names (e.g., Netflix) as proper nouns.",
+      "- Keep numbers, emojis, and formatting characters.",
+      "- Do NOT add extra commentary.",
+      "Return ONLY a JSON array of translated strings in the same order.",
+    ].join("\n");
 
-    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: "google/gemini-3-flash-preview",
         temperature: 0.2,
         messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: JSON.stringify(need) },
+          { role: "system", content: prompt },
+          { role: "user", content: JSON.stringify(need) },
         ],
       }),
     });
 
     const data = await resp.json();
-    const content = data?.choices?.[0]?.message?.content ?? '';
+    const content = data?.choices?.[0]?.message?.content ?? "";
 
     let translatedArr: string[] | null = null;
     try {
@@ -243,16 +258,16 @@ async function translateManyToEnglish(texts: string[]): Promise<Record<string, s
 
     return result;
   } catch (e) {
-    console.error('[TG Shop] translateManyToEnglish failed:', e);
+    console.error("[TG Shop] translateManyToEnglish failed:", e);
     for (const t of need) result[t] = t;
     return result;
   }
 }
 
-async function localizeText(text: string | null | undefined, lang: 'zh' | 'en'): Promise<string> {
-  if (!text) return '';
+async function localizeText(text: string | null | undefined, lang: "zh" | "en"): Promise<string> {
+  if (!text) return "";
   const trimmed = String(text);
-  if (lang !== 'en') return trimmed;
+  if (lang !== "en") return trimmed;
   if (!containsCjk(trimmed)) return trimmed;
   const map = await translateManyToEnglish([trimmed]);
   return map[trimmed] || trimmed;
@@ -277,9 +292,9 @@ function generateRandomDecimalCny(price: number, enabled: boolean): number {
 // 从币安获取TRX/USDT实时汇率
 async function getTrxUsdtRate(): Promise<number> {
   try {
-    const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=TRXUSDT');
+    const response = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=TRXUSDT");
     if (!response.ok) {
-      console.error('[TG Shop] Failed to fetch TRX rate from Binance:', response.status);
+      console.error("[TG Shop] Failed to fetch TRX rate from Binance:", response.status);
       return 0;
     }
     const data = await response.json();
@@ -287,7 +302,7 @@ async function getTrxUsdtRate(): Promise<number> {
     console.log(`[TG Shop] TRX/USDT rate from Binance: ${rate}`);
     return rate;
   } catch (error) {
-    console.error('[TG Shop] Error fetching TRX rate:', error);
+    console.error("[TG Shop] Error fetching TRX rate:", error);
     return 0;
   }
 }
@@ -297,9 +312,9 @@ async function getCnyUsdtRate(): Promise<number> {
   try {
     // 币安P2P参考价格，使用FDUSD/USDT作为参考 (或使用固定汇率作为备选)
     // 由于币安没有直接的CNY交易对，我们使用一个相对稳定的汇率API
-    const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    const response = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
     if (!response.ok) {
-      console.error('[TG Shop] Failed to fetch CNY rate:', response.status);
+      console.error("[TG Shop] Failed to fetch CNY rate:", response.status);
       // 使用备用固定汇率
       return 7.25;
     }
@@ -308,7 +323,7 @@ async function getCnyUsdtRate(): Promise<number> {
     console.log(`[TG Shop] USD/CNY rate: ${cnyRate}`);
     return cnyRate;
   } catch (error) {
-    console.error('[TG Shop] Error fetching CNY rate:', error);
+    console.error("[TG Shop] Error fetching CNY rate:", error);
     // 使用备用固定汇率
     return 7.25;
   }
@@ -321,7 +336,7 @@ async function convertTrxToUsdt(trxAmount: number): Promise<{ usdtAmount: number
     return { usdtAmount: 0, rate: 0 };
   }
   // TRX * TRX价格 = USDT
-  const usdtAmount = Math.round((trxAmount * rate) * 1000) / 1000;
+  const usdtAmount = Math.round(trxAmount * rate * 1000) / 1000;
   console.log(`[TG Shop] TRX ${trxAmount} -> USDT ${usdtAmount} (rate: ${rate})`);
   return { usdtAmount, rate };
 }
@@ -339,7 +354,7 @@ async function convertCnyToUsdt(cnyAmount: number): Promise<{ usdtAmount: number
 async function convertUsdtToCny(usdtAmount: number): Promise<{ cnyAmount: number; rate: number }> {
   const rate = await getCnyUsdtRate();
   // USDT * 汇率 = CNY
-  const cnyAmount = Math.round((usdtAmount * rate) * 100) / 100;
+  const cnyAmount = Math.round(usdtAmount * rate * 100) / 100;
   console.log(`[TG Shop] USDT ${usdtAmount} -> CNY ${cnyAmount} (rate: ${rate})`);
   return { cnyAmount, rate };
 }
@@ -369,49 +384,45 @@ async function handleBuyCommand(
   chatId: number,
   username: string | null,
   text: string,
-  lang: 'zh' | 'en' = 'zh'
+  lang: "zh" | "en" = "zh",
 ): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any; orderId?: string }> {
   // 解析命令: /buy <商品名或关键词> 或 /buy_<productId>（无横杆格式）
   const directBuyMatch = text.match(/^\/buy_([a-f0-9]{32})$/i);
-  
+
   // 如果是直接购买命令 /buy_<productId>（无横杆格式）
   if (directBuyMatch) {
     // 将无横杆的ID还原为UUID格式
     const rawId = directBuyMatch[1];
-    const productId = `${rawId.slice(0,8)}-${rawId.slice(8,12)}-${rawId.slice(12,16)}-${rawId.slice(16,20)}-${rawId.slice(20)}`;
+    const productId = `${rawId.slice(0, 8)}-${rawId.slice(8, 12)}-${rawId.slice(12, 16)}-${rawId.slice(16, 20)}-${rawId.slice(20)}`;
     return await createOrderForProduct(supabase, botToken, chatId, username, productId, undefined, undefined, lang);
   }
-  
+
   const match = text.match(/^\/buy\s+(.+)$/i);
   if (!match) {
-    return { 
-      handled: true, 
-      message: t('buy_usage', lang)
+    return {
+      handled: true,
+      message: t("buy_usage", lang),
     };
   }
 
   const keyword = match[1].trim().toLowerCase();
 
   // 获取商店配置
-  const { data: shopConfig } = await supabase
-    .from('shop_configs')
-    .select('*')
-    .eq('bot_token', botToken)
-    .maybeSingle();
+  const { data: shopConfig } = await supabase.from("shop_configs").select("*").eq("bot_token", botToken).maybeSingle();
 
   if (!shopConfig) {
-    return { handled: true, message: t('error_no_shop', lang) };
+    return { handled: true, message: t("error_no_shop", lang) };
   }
 
   // 搜索商品 (按名称或关键词)
   const { data: products } = await supabase
-    .from('shop_products')
-    .select('*')
-    .eq('bot_token', botToken)
-    .eq('is_active', true);
+    .from("shop_products")
+    .select("*")
+    .eq("bot_token", botToken)
+    .eq("is_active", true);
 
   if (!products || products.length === 0) {
-    return { handled: true, message: t('buy_no_products', lang) };
+    return { handled: true, message: t("buy_no_products", lang) };
   }
 
   // 模糊匹配所有商品
@@ -423,43 +434,43 @@ async function handleBuyCommand(
 
   if (matchedProducts.length === 0) {
     // 英文模式下：把商品列表里的中文商品名也自动翻译
-    const names = lang === 'en' ? (products as ShopProduct[]).map(p => p.name) : [];
-    const nameMap = lang === 'en' ? await translateManyToEnglish(names) : {};
+    const names = lang === "en" ? (products as ShopProduct[]).map((p) => p.name) : [];
+    const nameMap = lang === "en" ? await translateManyToEnglish(names) : {};
 
     const productList = (products as ShopProduct[])
       .map((p: ShopProduct) => {
-        const displayName = lang === 'en' ? (nameMap[p.name] || p.name) : p.name;
+        const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
         return `• ${displayName} - ${p.price} ${p.currency}`;
       })
-      .join('\n');
+      .join("\n");
 
     return {
       handled: true,
-      message: `${t('buy_not_found', lang)}: "${keyword}"\n\n${t('buy_available_products', lang)}:\n${productList}\n\n${t('buy_use_command', lang)}`,
+      message: `${t("buy_not_found", lang)}: "${keyword}"\n\n${t("buy_available_products", lang)}:\n${productList}\n\n${t("buy_use_command", lang)}`,
     };
   }
 
   // 如果匹配到多个商品，显示商品列表供用户选择
   if (matchedProducts.length > 1) {
-    const stockLabel = t('shop_stock', lang);
-    const outOfStockLabel = t('shop_out_of_stock', lang);
-    const buyLabel = t('shop_click_to_buy', lang);
+    const stockLabel = t("shop_stock", lang);
+    const outOfStockLabel = t("shop_out_of_stock", lang);
+    const buyLabel = t("shop_click_to_buy", lang);
 
     // 英文模式下：翻译匹配到的商品名
-    const names = lang === 'en' ? matchedProducts.map((p: ShopProduct) => p.name) : [];
-    const nameMap = lang === 'en' ? await translateManyToEnglish(names) : {};
+    const names = lang === "en" ? matchedProducts.map((p: ShopProduct) => p.name) : [];
+    const nameMap = lang === "en" ? await translateManyToEnglish(names) : {};
 
     const productLines = matchedProducts.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
       const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
-      const shortId = p.id.replace(/-/g, '');
-      const displayName = lang === 'en' ? (nameMap[p.name] || p.name) : p.name;
+      const shortId = p.id.replace(/-/g, "");
+      const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
       return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
     });
 
     return {
       handled: true,
-      message: `${t('buy_found_multiple', lang, { count: matchedProducts.length, keyword })}\n\n${productLines.join('\n\n')}\n\n────────────────\n${t('shop_buy_tip', lang)}`,
+      message: `${t("buy_found_multiple", lang, { count: matchedProducts.length, keyword })}\n\n${productLines.join("\n\n")}\n\n────────────────\n${t("shop_buy_tip", lang)}`,
     };
   }
 
@@ -477,19 +488,19 @@ async function createOrderForProduct(
   productId: string,
   preloadedProduct?: ShopProduct,
   preloadedShopConfig?: ShopConfig,
-  lang: 'zh' | 'en' = 'zh'
+  lang: "zh" | "en" = "zh",
 ): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any; orderId?: string }> {
   // 获取商店配置（如果没有预加载）
   let shopConfig = preloadedShopConfig;
   if (!shopConfig) {
     const { data: configData } = await supabase
-      .from('shop_configs')
-      .select('*')
-      .eq('bot_token', botToken)
+      .from("shop_configs")
+      .select("*")
+      .eq("bot_token", botToken)
       .maybeSingle();
 
     if (!configData) {
-      return { handled: true, message: t('error_no_shop', lang) };
+      return { handled: true, message: t("error_no_shop", lang) };
     }
     shopConfig = configData;
   }
@@ -498,74 +509,74 @@ async function createOrderForProduct(
   let product: ShopProduct | null = preloadedProduct || null;
   if (!product) {
     const { data: productData } = await supabase
-      .from('shop_products')
-      .select('*')
-      .eq('id', productId)
-      .eq('bot_token', botToken)
-      .eq('is_active', true)
+      .from("shop_products")
+      .select("*")
+      .eq("id", productId)
+      .eq("bot_token", botToken)
+      .eq("is_active", true)
       .maybeSingle();
-    
+
     if (!productData) {
-      return { handled: true, message: t('error_product_not_found', lang) };
+      return { handled: true, message: t("error_product_not_found", lang) };
     }
     product = productData as ShopProduct;
   }
 
   // TypeScript guard - 此时 product 必定存在
   if (!product) {
-    return { handled: true, message: t('error_product_not_found', lang) };
+    return { handled: true, message: t("error_product_not_found", lang) };
   }
 
   // 检查库存
   if (!product.stock_content || product.stock_content.length === 0) {
     const displayName = await localizeText(product.name, lang);
-    return { handled: true, message: `❌ "${displayName}" ${t('error_no_stock', lang)}` };
+    return { handled: true, message: `❌ "${displayName}" ${t("error_no_stock", lang)}` };
   }
 
   // 生成订单
   const orderNo = generateOrderNo();
   const basePrice = product.price;
-  
+
   // 计算过期时间 (30分钟后)
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
   // 创建订单 (payment_method 为 pending，等用户选择)
   const { data: newOrder, error: orderError } = await supabase
-    .from('shop_orders')
+    .from("shop_orders")
     .insert({
       bot_token: botToken,
       order_no: orderNo,
       product_id: product.id,
       product_name: product.name,
-      amount: basePrice,  // 保存原始价格，选择支付方式后会更新
+      amount: basePrice, // 保存原始价格，选择支付方式后会更新
       currency: product.currency,
-      payment_method: 'pending',
+      payment_method: "pending",
       telegram_user_id: chatId,
       telegram_username: username,
       telegram_chat_id: chatId,
       expires_at: expiresAt,
-      status: 'pending'
+      status: "pending",
     })
     .select()
     .single();
 
   if (orderError) {
-    console.error('[TG Shop] Order creation failed:', orderError);
-    return { handled: true, message: t('error_order_create_failed', lang) };
+    console.error("[TG Shop] Order creation failed:", orderError);
+    return { handled: true, message: t("error_order_create_failed", lang) };
   }
 
   // 计算各货币等值金额用于显示
   let usdtAmount = 0;
   let trxAmount = 0;
   let cnyAmount = 0;
-  
-  if (product.currency === 'CNY') {
+
+  if (product.currency === "CNY") {
     cnyAmount = basePrice;
     const cnyConversion = await convertCnyToUsdt(basePrice);
     usdtAmount = cnyConversion.usdtAmount;
     const trxConversion = await convertUsdtToTrx(usdtAmount);
     trxAmount = trxConversion.trxAmount;
-  } else if (product.currency === 'TRX') {
+  } else if (product.currency === "TRX") {
     trxAmount = basePrice;
     const trxConversion = await convertTrxToUsdt(basePrice);
     usdtAmount = trxConversion.usdtAmount;
@@ -582,7 +593,7 @@ async function createOrderForProduct(
 
   // 构建支付方式选择按钮
   const paymentButtons: any[][] = [];
-  
+
   // 虚拟货币支付选项
   if (shopConfig!.accept_usdt) {
     paymentButtons.push([{ text: `💎 USDT(TRC20) ≈${usdtAmount} USDT`, callback_data: `pay_usdt_${orderNo}` }]);
@@ -592,45 +603,49 @@ async function createOrderForProduct(
   }
   // 法币支付选项
   if (shopConfig!.enable_alipay) {
-    paymentButtons.push([{ text: `💳 ${t('payment_alipay', lang)} ¥${cnyAmount}`, callback_data: `pay_alipay_${orderNo}` }]);
+    paymentButtons.push([
+      { text: `💳 ${t("payment_alipay", lang)} ¥${cnyAmount}`, callback_data: `pay_alipay_${orderNo}` },
+    ]);
   }
   if (shopConfig!.enable_wechat) {
-    paymentButtons.push([{ text: `💚 ${t('payment_wechat', lang)} ¥${cnyAmount}`, callback_data: `pay_wechat_${orderNo}` }]);
+    paymentButtons.push([
+      { text: `💚 ${t("payment_wechat", lang)} ¥${cnyAmount}`, callback_data: `pay_wechat_${orderNo}` },
+    ]);
   }
-  
+
   // 取消按钮
-  paymentButtons.push([{ text: t('order_cancel_btn', lang), callback_data: `pay_cancel_${orderNo}` }]);
+  paymentButtons.push([{ text: t("order_cancel_btn", lang), callback_data: `pay_cancel_${orderNo}` }]);
 
   // 构建订单信息显示
   let amountDisplay = `${basePrice} ${product.currency}`;
-  if (product.currency === 'CNY' && usdtAmount > 0) {
+  if (product.currency === "CNY" && usdtAmount > 0) {
     amountDisplay += ` (≈${usdtAmount} USDT ≈${trxAmount} TRX)`;
-  } else if (product.currency === 'TRX' && usdtAmount > 0) {
+  } else if (product.currency === "TRX" && usdtAmount > 0) {
     amountDisplay += ` (≈${usdtAmount} USDT ≈¥${cnyAmount})`;
-  } else if (product.currency === 'USDT' && cnyAmount > 0) {
+  } else if (product.currency === "USDT" && cnyAmount > 0) {
     amountDisplay += ` (≈¥${cnyAmount} ≈${trxAmount} TRX)`;
   }
 
-  const itemsLabel = t('order_items', lang);
+  const itemsLabel = t("order_items", lang);
   const displayProductName = await localizeText(product.name, lang);
-  const message = `${t('order_created', lang)}
+  const message = `${t("order_created", lang)}
 
-${t('order_product', lang)}: ${displayProductName}
-${t('order_amount', lang)}: ${amountDisplay}
-${t('order_no', lang)}: \`${orderNo}\`
-${t('order_stock', lang)}: ${product.stock_content.length} ${itemsLabel}
+${t("order_product", lang)}: ${displayProductName}
+${t("order_amount", lang)}: ${amountDisplay}
+${t("order_no", lang)}: \`${orderNo}\`
+${t("order_stock", lang)}: ${product.stock_content.length} ${itemsLabel}
 
 ────────────────
-${t('order_select_payment', lang)}
+${t("order_select_payment", lang)}
 
-${t('order_valid_time', lang)}
-${t('order_timeout_warning', lang)}`;
+${t("order_valid_time", lang)}
+${t("order_timeout_warning", lang)}`;
 
-  return { 
-    handled: true, 
-    message, 
+  return {
+    handled: true,
+    message,
     inlineKeyboard: { inline_keyboard: paymentButtons },
-    orderId: newOrder.id 
+    orderId: newOrder.id,
   };
 }
 
@@ -641,8 +656,15 @@ async function handlePaymentMethodCallback(
   chatId: number,
   callbackData: string,
   messageId: number,
-  lang: 'zh' | 'en' = 'zh'
-): Promise<{ handled: boolean; message?: string; cryptoQrUrl?: string; orderId?: string; paymentMethod?: string; h5PayUrl?: string }> {
+  lang: "zh" | "en" = "zh",
+): Promise<{
+  handled: boolean;
+  message?: string;
+  cryptoQrUrl?: string;
+  orderId?: string;
+  paymentMethod?: string;
+  h5PayUrl?: string;
+}> {
   // 解析回调: pay_<method>_<orderNo>
   const match = callbackData.match(/^pay_(usdt|trx|alipay|wechat|cancel)_(.+)$/i);
   if (!match) {
@@ -654,44 +676,40 @@ async function handlePaymentMethodCallback(
 
   // 获取订单
   const { data: order, error: orderError } = await supabase
-    .from('shop_orders')
-    .select('*, shop_products(*)')
-    .eq('order_no', orderNo)
+    .from("shop_orders")
+    .select("*, shop_products(*)")
+    .eq("order_no", orderNo)
     .maybeSingle();
 
   if (orderError || !order) {
-    return { handled: true, message: t('error_order_not_found', lang) };
+    return { handled: true, message: t("error_order_not_found", lang) };
   }
 
-  if (order.status !== 'pending') {
-    return { handled: true, message: t('error_order_completed', lang) };
+  if (order.status !== "pending") {
+    return { handled: true, message: t("error_order_completed", lang) };
   }
 
   // 处理取消订单
-  if (paymentMethod === 'cancel') {
+  if (paymentMethod === "cancel") {
     await supabase
-      .from('shop_orders')
-      .update({ status: 'cancelled', payment_method: 'cancelled' })
-      .eq('order_no', orderNo);
-    
+      .from("shop_orders")
+      .update({ status: "cancelled", payment_method: "cancelled" })
+      .eq("order_no", orderNo);
+
     // 删除原消息
-    await sendTelegramMessage(botToken, 'deleteMessage', {
+    await sendTelegramMessage(botToken, "deleteMessage", {
       chat_id: chatId,
-      message_id: messageId
+      message_id: messageId,
     });
-    
-    return { handled: true, message: `${t('order_cancelled', lang)} \`${orderNo}\`` };
+
+    return { handled: true, message: `${t("order_cancelled", lang)} \`${orderNo}\`` };
   }
 
   // 获取商店配置
-  const { data: shopConfig } = await supabase
-    .from('shop_configs')
-    .select('*')
-    .eq('bot_token', botToken)
-    .maybeSingle();
+  const { data: shopConfig } = await supabase.from("shop_configs").select("*").eq("bot_token", botToken).maybeSingle();
 
   if (!shopConfig) {
-    return { handled: true, message: t('error_no_shop', lang) };
+    return { handled: true, message: t("error_no_shop", lang) };
   }
 
   // 英文模式下：订单内的商品名也要自动翻译展示
@@ -700,58 +718,58 @@ async function handlePaymentMethodCallback(
   // 根据选择的支付方式计算最终金额
   let finalAmount = order.amount;
   let displayCurrency = order.currency;
-  let cryptoQrUrl = '';
-  
+  let cryptoQrUrl = "";
+
   // 获取当前汇率用于锁定
   let lockedRateTrxUsdt: number | null = null;
   let lockedRateCnyUsd: number | null = null;
-  
+
   // 对于虚拟货币支付，需要转换金额并添加随机小数
-  if (paymentMethod === 'usdt' || paymentMethod === 'trx') {
+  if (paymentMethod === "usdt" || paymentMethod === "trx") {
     // 先转换为对应货币金额并锁定汇率
-    if (paymentMethod === 'usdt') {
-      if (order.currency === 'CNY') {
+    if (paymentMethod === "usdt") {
+      if (order.currency === "CNY") {
         const conversion = await convertCnyToUsdt(order.amount);
         finalAmount = conversion.usdtAmount;
         lockedRateCnyUsd = conversion.rate;
-      } else if (order.currency === 'TRX') {
+      } else if (order.currency === "TRX") {
         const conversion = await convertTrxToUsdt(order.amount);
         finalAmount = conversion.usdtAmount;
         lockedRateTrxUsdt = conversion.rate;
       }
       // 如果是USDT定价，finalAmount = order.amount
-      displayCurrency = 'USDT';
+      displayCurrency = "USDT";
     } else {
       // TRX
-      if (order.currency === 'CNY') {
+      if (order.currency === "CNY") {
         const cnyConversion = await convertCnyToUsdt(order.amount);
         lockedRateCnyUsd = cnyConversion.rate;
         const trxConversion = await convertUsdtToTrx(cnyConversion.usdtAmount);
         finalAmount = trxConversion.trxAmount;
         lockedRateTrxUsdt = trxConversion.rate;
-      } else if (order.currency === 'USDT') {
+      } else if (order.currency === "USDT") {
         const conversion = await convertUsdtToTrx(order.amount);
         finalAmount = conversion.trxAmount;
         lockedRateTrxUsdt = conversion.rate;
       }
       // 如果是TRX定价，finalAmount = order.amount
-      displayCurrency = 'TRX';
+      displayCurrency = "TRX";
     }
-    
+
     // 添加随机小数防撞单
     finalAmount = generateRandomDecimal(finalAmount, shopConfig.random_decimals);
-    
+
     // 生成二维码
     if (shopConfig.wallet_address) {
       cryptoQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shopConfig.wallet_address)}`;
     }
   } else {
     // 法币支付 - 转换为CNY
-    if (order.currency === 'USDT') {
+    if (order.currency === "USDT") {
       const conversion = await convertUsdtToCny(order.amount);
       finalAmount = conversion.cnyAmount;
       lockedRateCnyUsd = conversion.rate;
-    } else if (order.currency === 'TRX') {
+    } else if (order.currency === "TRX") {
       const trxConversion = await convertTrxToUsdt(order.amount);
       lockedRateTrxUsdt = trxConversion.rate;
       const cnyConversion = await convertUsdtToCny(trxConversion.usdtAmount);
@@ -760,56 +778,55 @@ async function handlePaymentMethodCallback(
     }
     // 法币也加随机小数防撞单 (只到分位 0.01-0.09)
     finalAmount = generateRandomDecimalCny(finalAmount, shopConfig.random_decimals);
-    displayCurrency = 'CNY';
+    displayCurrency = "CNY";
   }
 
   // 更新订单的支付方式、最终金额和锁定汇率
   await supabase
-    .from('shop_orders')
-    .update({ 
+    .from("shop_orders")
+    .update({
       payment_method: paymentMethod,
       amount: finalAmount,
       currency: displayCurrency,
       original_amount: order.amount,
       original_currency: order.currency,
       locked_rate_trx_usdt: lockedRateTrxUsdt,
-      locked_rate_cny_usd: lockedRateCnyUsd
+      locked_rate_cny_usd: lockedRateCnyUsd,
     })
-    .eq('order_no', orderNo);
+    .eq("order_no", orderNo);
 
   // 计算过期时间显示
   const expireTime = new Date(order.expires_at);
   const chinaTime = new Date(expireTime.getTime() + 8 * 60 * 60 * 1000);
-  const expireTimeStr = `${chinaTime.getUTCHours().toString().padStart(2, '0')}:${chinaTime.getUTCMinutes().toString().padStart(2, '0')}`;
+  const expireTimeStr = `${chinaTime.getUTCHours().toString().padStart(2, "0")}:${chinaTime.getUTCMinutes().toString().padStart(2, "0")}`;
 
   // 构建支付详情消息
-  let paymentInfo = '';
-  if (paymentMethod === 'usdt' || paymentMethod === 'trx') {
+  let paymentInfo = "";
+  if (paymentMethod === "usdt" || paymentMethod === "trx") {
     const currencyLabel = paymentMethod.toUpperCase();
-    paymentInfo = `${t('payment_method', lang)}: ${currencyLabel}
+    paymentInfo = `${t("payment_method", lang)}: ${currencyLabel}
 
-${t('payment_amount', lang)}: ${finalAmount} ${currencyLabel}
+${t("payment_amount", lang)}: ${finalAmount} ${currencyLabel}
 
-${t('payment_address', lang)}:
+${t("payment_address", lang)}:
 \`${shopConfig.wallet_address}\``;
   } else {
     // 法币支付：直接生成付款二维码（虎皮椒/云沟），避免用户再手动输入 /pay_* 指令
-    const provider = paymentMethod === 'alipay'
-      ? (shopConfig.alipay_provider || 'xunhu')
-      : (shopConfig.wechat_provider || 'xunhu');
+    const provider =
+      paymentMethod === "alipay" ? shopConfig.alipay_provider || "xunhu" : shopConfig.wechat_provider || "xunhu";
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const notifyUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${encodeURIComponent(botToken)}&type=${provider}`;
 
     // 检查是否启用H5支付（仅支付宝）
-    const useH5 = paymentMethod === 'alipay' && shopConfig.xunhu_alipay_h5 === true;
+    const useH5 = paymentMethod === "alipay" && shopConfig.xunhu_alipay_h5 === true;
 
     try {
       const paymentRes = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
         },
         body: JSON.stringify({
           bot_token: botToken,
@@ -827,48 +844,48 @@ ${t('payment_address', lang)}:
 
       if (paymentData?.success && (paymentData?.qr_code || paymentData?.h5_url)) {
         // 复用 cryptoQrUrl 的发送逻辑，在回调处理处会先发一张图
-        cryptoQrUrl = paymentData.qr_code || '';
+        cryptoQrUrl = paymentData.qr_code || "";
 
         if (useH5 && paymentData?.h5_url) {
           // H5模式：显示引导信息
-          paymentInfo = `${t('payment_method', lang)}: ${t('payment_alipay', lang)} (H5)
+          paymentInfo = `${t("payment_method", lang)}: ${t("payment_alipay", lang)} (H5)
 
-${t('payment_amount', lang)}: ¥${finalAmount}
+${t("payment_amount", lang)}: ¥${finalAmount}
 
-${t('payment_h5_tip', lang)}`;
-          
-          return { 
-            handled: true, 
-            message: `${t('payment_details_title', lang)}
+${t("payment_h5_tip", lang)}`;
 
-${t('order_product', lang)}: ${displayOrderProductName}
-${t('order_no', lang)}: \`${orderNo}\`
+          return {
+            handled: true,
+            message: `${t("payment_details_title", lang)}
+
+${t("order_product", lang)}: ${displayOrderProductName}
+${t("order_no", lang)}: \`${orderNo}\`
 
 ────────────────
 ${paymentInfo}
 ────────────────
 
-${t('payment_deadline', lang)}: ${expireTimeStr} (${t('payment_30min', lang)})
-${t('payment_auto_cancel', lang)}
-${t('payment_auto_deliver', lang)}`,
-            orderId: order.id, 
+${t("payment_deadline", lang)}: ${expireTimeStr} (${t("payment_30min", lang)})
+${t("payment_auto_cancel", lang)}
+${t("payment_auto_deliver", lang)}`,
+            orderId: order.id,
             paymentMethod,
-            h5PayUrl: paymentData.h5_url
+            h5PayUrl: paymentData.h5_url,
           };
         }
 
-        const payMethodName = paymentMethod === 'alipay' ? t('payment_alipay', lang) : t('payment_wechat', lang);
-        paymentInfo = `${t('payment_method', lang)}: ${payMethodName}
+        const payMethodName = paymentMethod === "alipay" ? t("payment_alipay", lang) : t("payment_wechat", lang);
+        paymentInfo = `${t("payment_method", lang)}: ${payMethodName}
 
-${t('payment_amount', lang)}: ¥${finalAmount}
+${t("payment_amount", lang)}: ¥${finalAmount}
 
-${t('payment_scan_qr', lang)}`;
+${t("payment_scan_qr", lang)}`;
       } else {
-        return { handled: true, message: `${t('error_qr_failed', lang)}: ${paymentData?.error || 'Unknown error'}` };
+        return { handled: true, message: `${t("error_qr_failed", lang)}: ${paymentData?.error || "Unknown error"}` };
       }
     } catch (e) {
-      console.error('[TG Shop] create-payment error (callback):', e);
-      return { handled: true, message: t('error_payment_failed', lang) };
+      console.error("[TG Shop] create-payment error (callback):", e);
+      return { handled: true, message: t("error_payment_failed", lang) };
     }
   }
 
@@ -882,6 +899,7 @@ tokenpocket（简称TP）
 直接付金额10.12TRX（手续费扣余额）
 币安充TRX提现到你的TP钱包
 付错额度不会发货联系人工客服处理
+虚拟货币转账使用能量租赁不会回调发货
 ✅ 支付成功后将自动发货到此对话`;
 
   const defaultPaymentNoticeEn = `⚠️ Order will be auto-cancelled if timeout
@@ -891,23 +909,25 @@ Example: 10.12 TRX + 1 TRX fee = Send 11.12 TRX from Binance
 Using TokenPocket: Send exact 10.12 TRX (fee from balance)
 Wrong amount = No delivery, contact support
 ✅ Auto-delivery after payment confirmed`;
-  
+
   // 如果用户有自定义支付说明使用自定义的，否则根据语言选择默认文案
   // 英文模式下：自定义文案也做自动翻译
   const paymentNotice = shopConfig.payment_notice
     ? await localizeText(shopConfig.payment_notice, lang)
-    : (lang === 'en' ? defaultPaymentNoticeEn : defaultPaymentNoticeZh);
+    : lang === "en"
+      ? defaultPaymentNoticeEn
+      : defaultPaymentNoticeZh;
 
-  const message = `${t('payment_details_title', lang)}
+  const message = `${t("payment_details_title", lang)}
 
-${t('order_product', lang)}: ${displayOrderProductName}
-${t('order_no', lang)}: \`${orderNo}\`
+${t("order_product", lang)}: ${displayOrderProductName}
+${t("order_no", lang)}: \`${orderNo}\`
 
 ────────────────
 ${paymentInfo}
 ────────────────
 
-${t('payment_deadline', lang)}: ${expireTimeStr} (${t('payment_30min', lang)})
+${t("payment_deadline", lang)}: ${expireTimeStr} (${t("payment_30min", lang)})
 ${paymentNotice}`;
 
   return { handled: true, message, cryptoQrUrl, orderId: order.id, paymentMethod };
@@ -918,73 +938,67 @@ async function handleShopCommand(
   supabase: any,
   botToken: string,
   expandedCategoryKey?: string,
-  lang: 'zh' | 'en' = 'zh'
+  lang: "zh" | "en" = "zh",
 ): Promise<{ handled: boolean; message?: string; inlineKeyboard?: any }> {
-  const { data: shopConfig } = await supabase
-    .from('shop_configs')
-    .select('*')
-    .eq('bot_token', botToken)
-    .maybeSingle();
+  const { data: shopConfig } = await supabase.from("shop_configs").select("*").eq("bot_token", botToken).maybeSingle();
 
   if (!shopConfig) {
-    return { handled: true, message: t('error_no_shop', lang) };
+    return { handled: true, message: t("error_no_shop", lang) };
   }
 
   const { data: products } = await supabase
-    .from('shop_products')
-    .select('*')
-    .eq('bot_token', botToken)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
+    .from("shop_products")
+    .select("*")
+    .eq("bot_token", botToken)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
 
   if (!products || products.length === 0) {
-    return { handled: true, message: t('shop_no_products', lang) };
+    return { handled: true, message: t("shop_no_products", lang) };
   }
 
   // 分类Key稳定（用于callback），展示名按语言（英文模式下自动翻译中文分类）
-  const DEFAULT_CAT_KEY = '__default__';
-  const defaultCatZh = '默认分类';
-  const defaultCatEn = 'Default';
+  const DEFAULT_CAT_KEY = "__default__";
+  const defaultCatZh = "默认分类";
+  const defaultCatEn = "Default";
 
   type CatBucket = { products: ShopProduct[]; displayName: string };
   const categoryBuckets: Record<string, CatBucket> = {};
 
   // 先按“原始分类key”分组
   for (const p of products as ShopProduct[]) {
-    const raw = (p.category || '').trim();
+    const raw = (p.category || "").trim();
     const key = raw ? raw : DEFAULT_CAT_KEY;
-    if (!categoryBuckets[key]) categoryBuckets[key] = { products: [], displayName: '' };
+    if (!categoryBuckets[key]) categoryBuckets[key] = { products: [], displayName: "" };
     categoryBuckets[key].products.push(p);
   }
 
   // 准备需要翻译的分类名（仅英文模式）
   const keys = Object.keys(categoryBuckets);
   const rawCategoryNamesToTranslate: string[] = [];
-  if (lang === 'en') {
+  if (lang === "en") {
     for (const k of keys) {
       if (k === DEFAULT_CAT_KEY) continue;
       if (k === defaultCatZh || k === defaultCatEn) continue;
       rawCategoryNamesToTranslate.push(k);
     }
   }
-  const catTranslations = lang === 'en'
-    ? await translateManyToEnglish(rawCategoryNamesToTranslate)
-    : {};
+  const catTranslations = lang === "en" ? await translateManyToEnglish(rawCategoryNamesToTranslate) : {};
 
   // 写入 displayName
   for (const k of keys) {
     if (k === DEFAULT_CAT_KEY || k === defaultCatZh || k === defaultCatEn) {
-      categoryBuckets[k].displayName = t('default_category', lang);
-    } else if (lang === 'en') {
+      categoryBuckets[k].displayName = t("default_category", lang);
+    } else if (lang === "en") {
       categoryBuckets[k].displayName = catTranslations[k] || k;
     } else {
       categoryBuckets[k].displayName = k;
     }
   }
 
-  const stockLabel = t('shop_stock', lang);
-  const outOfStockLabel = t('shop_out_of_stock', lang);
-  const itemsLabel = t('order_items', lang);
+  const stockLabel = t("shop_stock", lang);
+  const outOfStockLabel = t("shop_out_of_stock", lang);
+  const itemsLabel = t("order_items", lang);
 
   // 展开某个分类
   if (expandedCategoryKey && categoryBuckets[expandedCategoryKey]) {
@@ -993,31 +1007,35 @@ async function handleShopCommand(
     // 英文模式下翻译商品名/详情
     const namesToTranslate: string[] = [];
     const descToTranslate: string[] = [];
-    if (lang === 'en') {
+    if (lang === "en") {
       for (const p of bucket.products) {
         if (p.name) namesToTranslate.push(p.name);
         if (p.description) descToTranslate.push(p.description);
       }
     }
-    const nameMap = lang === 'en' ? await translateManyToEnglish(namesToTranslate) : {};
-    const descMap = lang === 'en' ? await translateManyToEnglish(descToTranslate) : {};
+    const nameMap = lang === "en" ? await translateManyToEnglish(namesToTranslate) : {};
+    const descMap = lang === "en" ? await translateManyToEnglish(descToTranslate) : {};
 
     const productLines = bucket.products.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
       const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
-      const shortId = p.id.replace(/-/g, '');
-      const displayName = lang === 'en' ? (nameMap[p.name] || p.name) : p.name;
-      const displayDesc = p.description ? (lang === 'en' ? (descMap[p.description] || p.description) : p.description) : '';
-      return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n   ${displayDesc || ''}\n   ${t('shop_click_to_buy', lang)} /buy\\_${shortId}`;
+      const shortId = p.id.replace(/-/g, "");
+      const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
+      const displayDesc = p.description
+        ? lang === "en"
+          ? descMap[p.description] || p.description
+          : p.description
+        : "";
+      return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n   ${displayDesc || ""}\n   ${t("shop_click_to_buy", lang)} /buy\\_${shortId}`;
     });
 
-    const inlineButtons: any[][] = [[{ text: t('shop_back_to_categories', lang), callback_data: 'shop_back' }]];
-    const message = `${t('shop_category_title', lang, { name: bucket.displayName, count: bucket.products.length })}
+    const inlineButtons: any[][] = [[{ text: t("shop_back_to_categories", lang), callback_data: "shop_back" }]];
+    const message = `${t("shop_category_title", lang, { name: bucket.displayName, count: bucket.products.length })}
 
-${productLines.join('\n\n')}
+${productLines.join("\n\n")}
 
 ────────────────
-${t('shop_buy_tip', lang)}`;
+${t("shop_buy_tip", lang)}`;
 
     return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons } };
   }
@@ -1035,26 +1053,25 @@ ${t('shop_buy_tip', lang)}`;
     return [{ text: `📂 ${name} (${count}${itemsLabel})`, callback_data: `shop_cat_${encodeURIComponent(key)}` }];
   });
 
-  const message = `${t('shop_categories_title', lang)}
+  const message = `${t("shop_categories_title", lang)}
 
-${t('shop_total_products', lang, { count: (products as any[]).length, cats: keys.length })}
+${t("shop_total_products", lang, { count: (products as any[]).length, cats: keys.length })}
 
 ────────────────
-${t('shop_click_category', lang)}`;
+${t("shop_click_category", lang)}`;
 
   return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons } };
 }
-
 
 function formatChinaTime(dateStr: string): string {
   const date = new Date(dateStr);
   const chinaTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
   const year = chinaTime.getUTCFullYear();
-  const month = (chinaTime.getUTCMonth() + 1).toString().padStart(2, '0');
-  const day = chinaTime.getUTCDate().toString().padStart(2, '0');
-  const hours = chinaTime.getUTCHours().toString().padStart(2, '0');
-  const minutes = chinaTime.getUTCMinutes().toString().padStart(2, '0');
-  const seconds = chinaTime.getUTCSeconds().toString().padStart(2, '0');
+  const month = (chinaTime.getUTCMonth() + 1).toString().padStart(2, "0");
+  const day = chinaTime.getUTCDate().toString().padStart(2, "0");
+  const hours = chinaTime.getUTCHours().toString().padStart(2, "0");
+  const minutes = chinaTime.getUTCMinutes().toString().padStart(2, "0");
+  const seconds = chinaTime.getUTCSeconds().toString().padStart(2, "0");
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
@@ -1063,69 +1080,69 @@ async function handleOrderCommand(
   botToken: string,
   chatId: number,
   text: string,
-  lang: 'zh' | 'en' = 'zh'
+  lang: "zh" | "en" = "zh",
 ): Promise<{ handled: boolean; message?: string }> {
   const match = text.match(/^(?:\/order|订单|查询|我的订单)\s*(.*)$/i);
   const orderNo = match?.[1]?.trim();
 
   if (orderNo) {
     const { data: order } = await supabase
-      .from('shop_orders')
-      .select('*')
-      .eq('bot_token', botToken)
-      .eq('order_no', orderNo)
-      .eq('status', 'paid')
+      .from("shop_orders")
+      .select("*")
+      .eq("bot_token", botToken)
+      .eq("order_no", orderNo)
+      .eq("status", "paid")
       .maybeSingle();
 
     if (!order) {
-      return { handled: true, message: `${t('order_not_found', lang)}: ${orderNo}` };
+      return { handled: true, message: `${t("order_not_found", lang)}: ${orderNo}` };
     }
 
     const localizedProductName = await localizeText(order.product_name, lang);
 
-    let message = `${t('order_details_title', lang)}
+    let message = `${t("order_details_title", lang)}
 
-${t('order_no', lang)}: \`${order.order_no}\`
-${t('order_product', lang)}: ${localizedProductName}
-${t('order_amount', lang)}: ${order.amount} ${order.currency}
-${t('order_status', lang)}: ${t('order_status_paid', lang)}
-${t('order_created_at', lang)}: ${formatChinaTime(order.created_at)}`;
+${t("order_no", lang)}: \`${order.order_no}\`
+${t("order_product", lang)}: ${localizedProductName}
+${t("order_amount", lang)}: ${order.amount} ${order.currency}
+${t("order_status", lang)}: ${t("order_status_paid", lang)}
+${t("order_created_at", lang)}: ${formatChinaTime(order.created_at)}`;
 
     if (order.delivery_content) {
-      message += `\n\n${t('order_card_key', lang)}\n\`${order.delivery_content}\``;
+      message += `\n\n${t("order_card_key", lang)}\n\`${order.delivery_content}\``;
     }
 
     return { handled: true, message };
   }
 
   const { data: orders } = await supabase
-    .from('shop_orders')
-    .select('*')
-    .eq('bot_token', botToken)
-    .eq('telegram_user_id', chatId)
-    .eq('status', 'paid')
-    .order('created_at', { ascending: false })
+    .from("shop_orders")
+    .select("*")
+    .eq("bot_token", botToken)
+    .eq("telegram_user_id", chatId)
+    .eq("status", "paid")
+    .order("created_at", { ascending: false })
     .limit(10);
 
   if (!orders || orders.length === 0) {
-    return { handled: true, message: t('order_no_history', lang) };
+    return { handled: true, message: t("order_no_history", lang) };
   }
 
   // 英文模式下，订单列表里的商品名也做自动翻译
-  const productNames = lang === 'en' ? orders.map((o: any) => String(o.product_name || '')) : [];
-  const nameMap = lang === 'en' ? await translateManyToEnglish(productNames) : {};
+  const productNames = lang === "en" ? orders.map((o: any) => String(o.product_name || "")) : [];
+  const nameMap = lang === "en" ? await translateManyToEnglish(productNames) : {};
 
   const orderLines = orders.map((o: any) => {
-    const displayName = lang === 'en' ? (nameMap[String(o.product_name || '')] || o.product_name) : o.product_name;
+    const displayName = lang === "en" ? nameMap[String(o.product_name || "")] || o.product_name : o.product_name;
     return `✅ \`/order ${o.order_no}\` - ${displayName} - ${o.amount} ${o.currency}`;
   });
 
-  const message = `${t('order_history_title', lang)}
+  const message = `${t("order_history_title", lang)}
 
-${orderLines.join('\n')}
+${orderLines.join("\n")}
 
 ────────────────
-${t('order_click_to_view', lang)}`;
+${t("order_click_to_view", lang)}`;
 
   return { handled: true, message };
 }
@@ -1133,14 +1150,14 @@ ${t('order_click_to_view', lang)}`;
 // 类型定义
 interface InlineButton {
   text: string;
-  type: 'url' | 'callback_data' | 'web_app';
+  type: "url" | "callback_data" | "web_app";
   value: string;
 }
 
 interface ReplyButton {
   text: string;
   textEn?: string;
-  actionType: 'text' | 'navigate';
+  actionType: "text" | "navigate";
   actionValue?: string;
 }
 
@@ -1153,7 +1170,7 @@ interface MenuPage {
 interface MessageData {
   id: string;
   label?: string;
-  type: 'text' | 'photo' | 'video';  // 添加视频类型支持
+  type: "text" | "photo" | "video"; // 添加视频类型支持
   content: string;
   mediaUrl?: string;
   inlineKeyboard?: InlineButton[][];
@@ -1162,7 +1179,7 @@ interface MessageData {
 
 interface AutoReplyRule {
   id: string;
-  triggerType: 'keyword' | 'command';
+  triggerType: "keyword" | "command";
   triggerValue: string;
   replyMessages: MessageData[];
 }
@@ -1186,99 +1203,99 @@ interface KeyboardConfig {
 async function sendTelegramMessage(botToken: string, method: string, body: any) {
   const url = `https://api.telegram.org/bot${botToken}/${method}`;
   console.log(`Calling Telegram API: ${method}`, JSON.stringify(body, null, 2));
-  
+
   const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  
+
   const result = await response.json();
   console.log(`Telegram API response:`, JSON.stringify(result, null, 2));
   return result;
 }
 
 // 获取用户的语言偏好
-function getUserLanguage(chatId: number, userLanguagePreferences: Record<string, string> | null): 'zh' | 'en' {
-  if (!userLanguagePreferences) return 'zh';
-  return (userLanguagePreferences[chatId.toString()] as 'zh' | 'en') || 'zh';
+function getUserLanguage(chatId: number, userLanguagePreferences: Record<string, string> | null): "zh" | "en" {
+  if (!userLanguagePreferences) return "zh";
+  return (userLanguagePreferences[chatId.toString()] as "zh" | "en") || "zh";
 }
 
 // 根据语言偏好生成键盘 - 支持自动翻译
 async function generateKeyboardWithLanguage(
   menuPage: MenuPage | undefined,
-  language: 'zh' | 'en',
-  bilingualEnabled: boolean
+  language: "zh" | "en",
+  bilingualEnabled: boolean,
 ): Promise<{ text: string }[][] | null> {
   if (!menuPage || menuPage.rows.length === 0) return null;
-  
+
   const keyboard: { text: string }[][] = [];
   for (const row of menuPage.rows) {
     const translatedRow: { text: string }[] = [];
     for (const btn of row) {
       let btnText = btn.text;
-      if (language === 'en') {
+      if (language === "en") {
         if (btn.textEn) {
           btnText = btn.textEn;
         } else {
           // 自动翻译按钮文字
-          btnText = await localizeText(btn.text, 'en');
+          btnText = await localizeText(btn.text, "en");
         }
       }
       translatedRow.push({ text: btnText });
     }
     keyboard.push(translatedRow);
   }
-  
+
   // 如果开启双语按钮，添加语言切换按钮到最后一行
   if (bilingualEnabled) {
-    const langButton = language === 'zh' 
-      ? { text: '🌐 English' }
-      : { text: '🌐 中文' };
+    const langButton = language === "zh" ? { text: "🌐 English" } : { text: "🌐 中文" };
     keyboard.push([langButton]);
   }
-  
+
   return keyboard;
 }
 
 // 处理菜单导航
 async function handleMenuNavigation(
-  botToken: string, 
-  chatId: number, 
-  text: string, 
+  botToken: string,
+  chatId: number,
+  text: string,
   menuPages: MenuPage[],
-  language: 'zh' | 'en' = 'zh',
-  bilingualEnabled: boolean = false
+  language: "zh" | "en" = "zh",
+  bilingualEnabled: boolean = false,
 ): Promise<boolean> {
   const textNorm = text.trim().toLowerCase();
-  
+
   for (const page of menuPages) {
     for (const row of page.rows) {
       for (const btn of row) {
         // 检查中文或英文文本匹配
         const zhMatch = btn.text.toLowerCase() === textNorm;
         const enMatch = btn.textEn && btn.textEn.toLowerCase() === textNorm;
-        
+
         // 如果开启双语且没有手动设置英文，尝试自动翻译匹配
         let autoTranslatedMatch = false;
-        if (!zhMatch && !enMatch && language === 'en' && bilingualEnabled && !btn.textEn) {
-          const translatedBtnText = await localizeText(btn.text, 'en');
+        if (!zhMatch && !enMatch && language === "en" && bilingualEnabled && !btn.textEn) {
+          const translatedBtnText = await localizeText(btn.text, "en");
           autoTranslatedMatch = translatedBtnText.toLowerCase() === textNorm;
         }
-        
-        if ((zhMatch || enMatch || autoTranslatedMatch) && btn.actionType === 'navigate' && btn.actionValue) {
-          const targetPage = menuPages.find(p => p.id === btn.actionValue);
+
+        if ((zhMatch || enMatch || autoTranslatedMatch) && btn.actionType === "navigate" && btn.actionValue) {
+          const targetPage = menuPages.find((p) => p.id === btn.actionValue);
           if (targetPage) {
             const keyboard = await generateKeyboardWithLanguage(targetPage, language, bilingualEnabled);
-            const displayName = language === 'en' ? await localizeText(targetPage.name, 'en') : targetPage.name;
-            await sendTelegramMessage(botToken, 'sendMessage', {
+            const displayName = language === "en" ? await localizeText(targetPage.name, "en") : targetPage.name;
+            await sendTelegramMessage(botToken, "sendMessage", {
               chat_id: chatId,
-              text: language === 'en' ? `📂 Switch to: ${displayName}` : `📂 切换菜单: ${targetPage.name}`,
-              reply_markup: keyboard ? {
-                keyboard,
-                resize_keyboard: true,
-                one_time_keyboard: false
-              } : undefined
+              text: language === "en" ? `📂 Switch to: ${displayName}` : `📂 切换菜单: ${targetPage.name}`,
+              reply_markup: keyboard
+                ? {
+                    keyboard,
+                    resize_keyboard: true,
+                    one_time_keyboard: false,
+                  }
+                : undefined,
             });
             console.log(`Menu navigation: ${page.name} -> ${targetPage.name}`);
             return true;
@@ -1298,115 +1315,117 @@ async function handleAutoReply(
   text: string,
   autoReplyRules: AutoReplyRule[],
   menuPages?: MenuPage[],
-  language: 'zh' | 'en' = 'zh',
-  bilingualEnabled: boolean = false
+  language: "zh" | "en" = "zh",
+  bilingualEnabled: boolean = false,
 ): Promise<boolean> {
   const textNorm = text.trim().toLowerCase();
-  const cleanText = textNorm.replace(/^\//, '');
+  const cleanText = textNorm.replace(/^\//, "");
   const firstToken = cleanText.split(/\s+/)[0];
 
   // 英文模式下，预翻译所有触发词用于匹配
   let triggerTranslations: Record<string, string> = {};
-  if (language === 'en' && bilingualEnabled) {
-    const triggers = autoReplyRules
-      .map(r => (r.triggerValue || '').trim())
-      .filter(t => t && containsCjk(t));
+  if (language === "en" && bilingualEnabled) {
+    const triggers = autoReplyRules.map((r) => (r.triggerValue || "").trim()).filter((t) => t && containsCjk(t));
     if (triggers.length > 0) {
       triggerTranslations = await translateManyToEnglish(triggers);
     }
   }
 
   const matchedRule = autoReplyRules.find((r) => {
-    const ruleVal = (r.triggerValue || '').trim().toLowerCase();
+    const ruleVal = (r.triggerValue || "").trim().toLowerCase();
     if (!ruleVal) return false;
 
-    const cleanRule = ruleVal.replace(/^\//, '');
+    const cleanRule = ruleVal.replace(/^\//, "");
 
-    if (r.triggerType === 'command') {
+    if (r.triggerType === "command") {
       return firstToken === cleanRule;
     }
 
     // keyword: 先匹配中文原文
     if (cleanText.includes(cleanRule)) return true;
-    
+
     // 英文模式下：也尝试匹配翻译后的英文关键词
-    if (language === 'en' && bilingualEnabled) {
-      const originalTrigger = (r.triggerValue || '').trim();
+    if (language === "en" && bilingualEnabled) {
+      const originalTrigger = (r.triggerValue || "").trim();
       const translatedTrigger = triggerTranslations[originalTrigger];
       if (translatedTrigger) {
         const translatedNorm = translatedTrigger.toLowerCase();
         if (cleanText.includes(translatedNorm) || translatedNorm.includes(cleanText)) return true;
       }
     }
-    
+
     return false;
   });
-  
+
   if (matchedRule) {
     console.log(`Auto-reply matched: ${matchedRule.triggerValue} (lang: ${language})`);
-    
-    const mainPage = menuPages?.find((p: MenuPage) => p.id === 'main');
+
+    const mainPage = menuPages?.find((p: MenuPage) => p.id === "main");
     const keyboard = await generateKeyboardWithLanguage(mainPage, language, bilingualEnabled);
-    const replyKeyboard = keyboard ? {
-      keyboard,
-      resize_keyboard: true,
-      one_time_keyboard: false
-    } : null;
-    
+    const replyKeyboard = keyboard
+      ? {
+          keyboard,
+          resize_keyboard: true,
+          one_time_keyboard: false,
+        }
+      : null;
+
     for (const reply of matchedRule.replyMessages) {
-      const body: any = { chat_id: chatId, parse_mode: 'HTML' };
-      
+      const body: any = { chat_id: chatId, parse_mode: "HTML" };
+
       if (reply.disableWebPagePreview) {
         body.disable_web_page_preview = true;
       }
-      
+
       // 英文模式下自动翻译回复内容
-      const replyContent = (language === 'en' && bilingualEnabled) 
-        ? await localizeText(reply.content, 'en') 
-        : reply.content;
-      
+      const replyContent =
+        language === "en" && bilingualEnabled ? await localizeText(reply.content, "en") : reply.content;
+
       // 处理内联键盘
       if (reply.inlineKeyboard && reply.inlineKeyboard.length > 0) {
         // 英文模式下翻译内联按钮文字
         let translatedInlineKeyboard = reply.inlineKeyboard;
-        if (language === 'en' && bilingualEnabled) {
-          const btnTexts = reply.inlineKeyboard.flat().map(btn => btn.text).filter(Boolean);
+        if (language === "en" && bilingualEnabled) {
+          const btnTexts = reply.inlineKeyboard
+            .flat()
+            .map((btn) => btn.text)
+            .filter(Boolean);
           const btnTextMap = btnTexts.length > 0 ? await translateManyToEnglish(btnTexts) : {};
-          translatedInlineKeyboard = reply.inlineKeyboard.map(row =>
-            row.map(btn => ({ ...btn, text: btnTextMap[btn.text] || btn.text }))
+          translatedInlineKeyboard = reply.inlineKeyboard.map((row) =>
+            row.map((btn) => ({ ...btn, text: btnTextMap[btn.text] || btn.text })),
           );
         }
-        
+
         body.reply_markup = {
-          inline_keyboard: translatedInlineKeyboard.map(row =>
-            row.map(btn => {
-              if (btn.type === 'url') {
+          inline_keyboard: translatedInlineKeyboard.map((row) =>
+            row.map((btn) => {
+              if (btn.type === "url") {
                 return { text: btn.text, url: btn.value };
-              } else if (btn.type === 'callback_data') {
+              } else if (btn.type === "callback_data") {
                 return { text: btn.text, callback_data: btn.value };
-              } else if (btn.type === 'web_app') {
+              } else if (btn.type === "web_app") {
                 return { text: btn.text, web_app: { url: btn.value } };
               }
               return { text: btn.text, callback_data: btn.value };
-            })
-          )
+            }),
+          ),
         };
       } else if (replyKeyboard) {
         body.reply_markup = replyKeyboard;
       }
-      
+
       try {
-        if (reply.type === 'photo' && reply.mediaUrl) {
+        if (reply.type === "photo" && reply.mediaUrl) {
           body.photo = reply.mediaUrl;
           body.caption = replyContent;
-          await sendTelegramMessage(botToken, 'sendPhoto', body);
-        } else if (reply.type === 'video' && reply.mediaUrl) {
+          await sendTelegramMessage(botToken, "sendPhoto", body);
+        } else if (reply.type === "video" && reply.mediaUrl) {
           body.video = reply.mediaUrl;
           body.caption = replyContent;
-          await sendTelegramMessage(botToken, 'sendVideo', body);
+          await sendTelegramMessage(botToken, "sendVideo", body);
         } else {
           body.text = replyContent;
-          await sendTelegramMessage(botToken, 'sendMessage', body);
+          await sendTelegramMessage(botToken, "sendMessage", body);
         }
       } catch (e) {
         console.error("Auto-reply send failed:", e);
@@ -1423,82 +1442,84 @@ async function handleCallbackQuery(
   botToken: string,
   callbackQuery: any,
   autoReplyRules: AutoReplyRule[],
-  language: 'zh' | 'en' = 'zh',
-  bilingualEnabled: boolean = false
+  language: "zh" | "en" = "zh",
+  bilingualEnabled: boolean = false,
 ): Promise<boolean> {
   const callbackData = callbackQuery.data;
   const chatId = callbackQuery.message?.chat?.id;
   const messageId = callbackQuery.message?.message_id;
-  
+
   if (!callbackData || !chatId) return false;
-  
+
   console.log(`Callback query received: ${callbackData}`);
-  
+
   // 先回应callback_query，避免loading状态
-  await sendTelegramMessage(botToken, 'answerCallbackQuery', {
-    callback_query_id: callbackQuery.id
+  await sendTelegramMessage(botToken, "answerCallbackQuery", {
+    callback_query_id: callbackQuery.id,
   });
-  
+
   // 查找匹配的自动回复规则
-  const matchedRule = autoReplyRules.find(r => {
+  const matchedRule = autoReplyRules.find((r) => {
     const ruleVal = r.triggerValue.toLowerCase();
     return callbackData.toLowerCase() === ruleVal;
   });
-  
+
   if (matchedRule) {
     console.log(`Callback matched rule: ${matchedRule.triggerValue} (lang: ${language})`);
-    
+
     for (const reply of matchedRule.replyMessages) {
-      const body: any = { chat_id: chatId, parse_mode: 'HTML' };
-      
+      const body: any = { chat_id: chatId, parse_mode: "HTML" };
+
       if (reply.disableWebPagePreview) {
         body.disable_web_page_preview = true;
       }
-      
+
       // 英文模式下自动翻译回复内容
-      const replyContent = (language === 'en' && bilingualEnabled)
-        ? await localizeText(reply.content, 'en')
-        : reply.content;
-      
+      const replyContent =
+        language === "en" && bilingualEnabled ? await localizeText(reply.content, "en") : reply.content;
+
       if (reply.inlineKeyboard && reply.inlineKeyboard.length > 0) {
         // 英文模式下翻译内联按钮文字
         let translatedInlineKeyboard = reply.inlineKeyboard;
-        if (language === 'en' && bilingualEnabled) {
-          const btnTexts = reply.inlineKeyboard.flat().map(btn => btn.text).filter(Boolean);
+        if (language === "en" && bilingualEnabled) {
+          const btnTexts = reply.inlineKeyboard
+            .flat()
+            .map((btn) => btn.text)
+            .filter(Boolean);
           const btnTextMap = btnTexts.length > 0 ? await translateManyToEnglish(btnTexts) : {};
-          translatedInlineKeyboard = reply.inlineKeyboard.map(row =>
-            row.map(btn => ({ ...btn, text: btnTextMap[btn.text] || btn.text }))
+          translatedInlineKeyboard = reply.inlineKeyboard.map((row) =>
+            row.map((btn) => ({ ...btn, text: btnTextMap[btn.text] || btn.text })),
           );
         }
-        
+
         body.reply_markup = {
-          inline_keyboard: translatedInlineKeyboard.map(row =>
-            row.map(btn => {
-              if (btn.type === 'url') {
+          inline_keyboard: translatedInlineKeyboard.map((row) =>
+            row.map((btn) => {
+              if (btn.type === "url") {
                 return { text: btn.text, url: btn.value };
-              } else if (btn.type === 'callback_data') {
+              } else if (btn.type === "callback_data") {
                 return { text: btn.text, callback_data: btn.value };
-              } else if (btn.type === 'web_app') {
+              } else if (btn.type === "web_app") {
                 return { text: btn.text, web_app: { url: btn.value } };
               }
               return { text: btn.text, callback_data: btn.value };
-            })
-          )
+            }),
+          ),
         };
       }
-      
+
       try {
-        if (reply.type === 'photo' && reply.mediaUrl) {
+        if (reply.type === "photo" && reply.mediaUrl) {
           body.photo = reply.mediaUrl;
           body.caption = replyContent;
-          await sendTelegramMessage(botToken, 'sendPhoto', body);
-        } else if (reply.type === 'video' && reply.mediaUrl) {
+          await sendTelegramMessage(botToken, "sendPhoto", body);
+        } else if (reply.type === "video" && reply.mediaUrl) {
           body.video = reply.mediaUrl;
           body.caption = replyContent;
-          await sendTelegramMessage(botToken, 'sendVideo', body);
+          await sendTelegramMessage(botToken, "sendVideo", body);
         } else {
           body.text = replyContent;
-          await sendTelegramMessage(botToken, 'sendMessage', body);
+          await sendTelegramMessage(botToken, "sendMessage", body);
         }
       } catch (e) {
         console.error("Callback reply failed:", e);
@@ -1506,7 +1527,7 @@ async function handleCallbackQuery(
     }
     return true;
   }
-  
+
   return false;
 }
 
@@ -1516,22 +1537,25 @@ async function sendMainMenu(
   chatId: number,
   menuPages: MenuPage[],
   greetingMessage?: string,
-  language: 'zh' | 'en' = 'zh',
-  bilingualEnabled: boolean = false
+  language: "zh" | "en" = "zh",
+  bilingualEnabled: boolean = false,
 ) {
-  const mainPage = menuPages.find(p => p.id === 'main');
+  const mainPage = menuPages.find((p) => p.id === "main");
   if (mainPage && mainPage.rows.length > 0) {
     const keyboard = await generateKeyboardWithLanguage(mainPage, language, bilingualEnabled);
-    await sendTelegramMessage(botToken, 'sendMessage', {
+    await sendTelegramMessage(botToken, "sendMessage", {
       chat_id: chatId,
-      text: greetingMessage || (language === 'en' ? '📂 Welcome! Please select from the menu' : '📂 欢迎使用，请选择菜单'),
-      reply_markup: keyboard ? {
-        keyboard,
-        resize_keyboard: true,
-        one_time_keyboard: false
-      } : undefined
+      text:
+        greetingMessage || (language === "en" ? "📂 Welcome! Please select from the menu" : "📂 欢迎使用，请选择菜单"),
+      reply_markup: keyboard
+        ? {
+            keyboard,
+            resize_keyboard: true,
+            one_time_keyboard: false,
+          }
+        : undefined,
     });
-    console.log('Main menu sent to user');
+    console.log("Main menu sent to user");
     return true;
   }
   return false;
@@ -1539,69 +1563,66 @@ async function sendMainMenu(
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    console.log('Received webhook:', JSON.stringify(body, null, 2));
+    console.log("Received webhook:", JSON.stringify(body, null, 2));
 
     // Extract bot token from URL path
     const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
+    const pathParts = url.pathname.split("/");
     const botToken = pathParts[pathParts.length - 1];
 
-    if (!botToken || botToken === 'telegram-webhook') {
-      console.log('No bot token in path');
-      return new Response(JSON.stringify({ error: 'Missing bot token' }), {
+    if (!botToken || botToken === "telegram-webhook") {
+      console.log("No bot token in path");
+      return new Response(JSON.stringify({ error: "Missing bot token" }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     // Find the bot activation by token (可能为空，菜单键盘可独立运行)
     const { data: activation } = await supabase
-      .from('bot_activations')
-      .select('*')
-      .eq('bot_token', botToken)
+      .from("bot_activations")
+      .select("*")
+      .eq("bot_token", botToken)
       .maybeSingle();
 
     // 检查双向聊天的授权状态（如果有绑定）
     let bidirectionalChatEnabled = false;
     let personalUserId = 0;
-    
+
     if (activation) {
       // 首先检查管理员是否手动关闭了双向聊天功能
       if (activation.is_active === false) {
-        console.log('Bidirectional chat disabled by admin toggle');
+        console.log("Bidirectional chat disabled by admin toggle");
         // 不返回错误，继续处理菜单键盘功能
       } else if (activation.expire_at && new Date(activation.expire_at) < new Date()) {
         // Check if bot is expired
-        console.log('Bot activation expired - disabling bidirectional chat');
-        await supabase
-          .from('bot_activations')
-          .update({ is_active: false })
-          .eq('id', activation.id);
+        console.log("Bot activation expired - disabling bidirectional chat");
+        await supabase.from("bot_activations").update({ is_active: false }).eq("id", activation.id);
         // 不返回错误，继续处理菜单键盘功能
-      } else if (activation.is_authorized || (activation.trial_messages_used < activation.trial_limit)) {
+      } else if (activation.is_authorized || activation.trial_messages_used < activation.trial_limit) {
         // 双向聊天功能可用
         bidirectionalChatEnabled = activation.app_enabled !== false;
         personalUserId = parseInt(activation.personal_user_id);
       } else {
-        console.log('Trial limit reached - bidirectional chat disabled');
+        console.log("Trial limit reached - bidirectional chat disabled");
       }
     }
 
     // 获取菜单键盘配置
     const { data: keyboardConfig } = await supabase
-      .from('keyboard_configs')
-      .select('*')
-      .eq('bot_token', botToken)
+      .from("keyboard_configs")
+      .select("*")
+      .eq("bot_token", botToken)
       .maybeSingle();
 
     // 检查菜单键盘是否过期或试用已结束
@@ -1609,439 +1630,442 @@ serve(async (req) => {
     if (keyboardConfig) {
       const now = new Date();
       const keyboardExpireAt = keyboardConfig.keyboard_expire_at ? new Date(keyboardConfig.keyboard_expire_at) : null;
-      const keyboardTrialStartedAt = keyboardConfig.keyboard_trial_started_at ? new Date(keyboardConfig.keyboard_trial_started_at) : null;
-      
+      const keyboardTrialStartedAt = keyboardConfig.keyboard_trial_started_at
+        ? new Date(keyboardConfig.keyboard_trial_started_at)
+        : null;
+
       // 如果已激活授权，检查是否过期
       if (keyboardExpireAt) {
         if (keyboardExpireAt < now) {
-          console.log('Keyboard menu expired - disabling keyboard features');
+          console.log("Keyboard menu expired - disabling keyboard features");
           keyboardMenuEnabled = false;
         }
       } else if (keyboardTrialStartedAt) {
         // 试用模式：24小时后过期
         const trialEndTime = new Date(keyboardTrialStartedAt.getTime() + 24 * 60 * 60 * 1000);
         if (now > trialEndTime) {
-          console.log('Keyboard menu trial expired (24h) - disabling keyboard features');
+          console.log("Keyboard menu trial expired (24h) - disabling keyboard features");
           keyboardMenuEnabled = false;
         }
       }
     }
 
-    const menuPages: MenuPage[] = keyboardMenuEnabled ? (keyboardConfig?.reply_keyboard || []) : [];
-    const autoReplyRules: AutoReplyRule[] = keyboardMenuEnabled ? (keyboardConfig?.auto_reply_rules || []) : [];
-    const forceMenuOnStart: boolean = keyboardMenuEnabled ? (keyboardConfig?.force_menu_on_start || false) : false;
+    const menuPages: MenuPage[] = keyboardMenuEnabled ? keyboardConfig?.reply_keyboard || [] : [];
+    const autoReplyRules: AutoReplyRule[] = keyboardMenuEnabled ? keyboardConfig?.auto_reply_rules || [] : [];
+    const forceMenuOnStart: boolean = keyboardMenuEnabled ? keyboardConfig?.force_menu_on_start || false : false;
     const activityLogEnabled: boolean = keyboardConfig?.activity_log_enabled !== false; // 默认为true
-    const bilingualEnabled: boolean = keyboardMenuEnabled ? (keyboardConfig?.bilingual_button_enabled || false) : false;
+    const bilingualEnabled: boolean = keyboardMenuEnabled ? keyboardConfig?.bilingual_button_enabled || false : false;
     let userLanguagePreferences: Record<string, string> = keyboardConfig?.user_language_preferences || {};
     const menuAdminChatId: number = keyboardConfig?.menu_admin_chat_id ? Number(keyboardConfig.menu_admin_chat_id) : 0;
 
-    console.log(`Keyboard config loaded: ${menuPages.length} pages, ${autoReplyRules.length} rules, activityLog: ${activityLogEnabled}, bilingual: ${bilingualEnabled}, bidirectionalChat: ${bidirectionalChatEnabled}, menuAdminChatId: ${menuAdminChatId}, keyboardMenuEnabled: ${keyboardMenuEnabled}`);
+    console.log(
+      `Keyboard config loaded: ${menuPages.length} pages, ${autoReplyRules.length} rules, activityLog: ${activityLogEnabled}, bilingual: ${bilingualEnabled}, bidirectionalChat: ${bidirectionalChatEnabled}, menuAdminChatId: ${menuAdminChatId}, keyboardMenuEnabled: ${keyboardMenuEnabled}`,
+    );
 
     // 处理 callback_query（内联按钮点击）
     if (body.callback_query) {
-      const callbackData = body.callback_query.data || '';
+      const callbackData = body.callback_query.data || "";
       const cbChatId = body.callback_query.message?.chat?.id;
       const cbMessageId = body.callback_query.message?.message_id;
-      
+
       // 先回应callback_query，避免loading状态
-      await sendTelegramMessage(botToken, 'answerCallbackQuery', {
-        callback_query_id: body.callback_query.id
+      await sendTelegramMessage(botToken, "answerCallbackQuery", {
+        callback_query_id: body.callback_query.id,
       });
-      
+
       // 优先检查是否是支付方式选择回调
-      if (callbackData.startsWith('pay_')) {
+      if (callbackData.startsWith("pay_")) {
         console.log(`[TG Shop] Payment method callback: ${callbackData}`);
-        
+
         // 获取用户语言偏好
         const { data: payShopCfg } = await supabase
-          .from('shop_configs')
-          .select('user_language_preferences')
-          .eq('bot_token', botToken)
+          .from("shop_configs")
+          .select("user_language_preferences")
+          .eq("bot_token", botToken)
           .maybeSingle();
         const payLangPrefs = payShopCfg?.user_language_preferences || {};
-        const payUserLang: 'zh' | 'en' = (payLangPrefs[cbChatId.toString()] as 'zh' | 'en') || 'zh';
-        
+        const payUserLang: "zh" | "en" = (payLangPrefs[cbChatId.toString()] as "zh" | "en") || "zh";
+
         const paymentResult = await handlePaymentMethodCallback(
           supabase,
           botToken,
           cbChatId,
           callbackData,
           cbMessageId,
-          payUserLang
+          payUserLang,
         );
-        
+
         if (paymentResult.handled) {
           // 删除原来的支付方式选择消息
-          await sendTelegramMessage(botToken, 'deleteMessage', {
+          await sendTelegramMessage(botToken, "deleteMessage", {
             chat_id: cbChatId,
-            message_id: cbMessageId
+            message_id: cbMessageId,
           });
-          
+
           if (paymentResult.message) {
             let qrMessageId: number | null = null;
-            
+
             // 如果有二维码，先发送二维码图片
             if (paymentResult.cryptoQrUrl) {
               // 根据支付方式选择不同的提示文案（多语言）
-              let qrCaption = '';
-              if (paymentResult.paymentMethod === 'usdt' || paymentResult.paymentMethod === 'trx') {
-                qrCaption = t('payment_crypto_network', payUserLang);
-              } else if (paymentResult.paymentMethod === 'wechat') {
-                qrCaption = t('payment_scan_wechat', payUserLang);
-              } else if (paymentResult.paymentMethod === 'alipay') {
-                qrCaption = t('payment_scan_alipay', payUserLang);
+              let qrCaption = "";
+              if (paymentResult.paymentMethod === "usdt" || paymentResult.paymentMethod === "trx") {
+                qrCaption = t("payment_crypto_network", payUserLang);
+              } else if (paymentResult.paymentMethod === "wechat") {
+                qrCaption = t("payment_scan_wechat", payUserLang);
+              } else if (paymentResult.paymentMethod === "alipay") {
+                qrCaption = t("payment_scan_alipay", payUserLang);
               }
-              
-              const qrResult = await sendTelegramMessage(botToken, 'sendPhoto', {
+
+              const qrResult = await sendTelegramMessage(botToken, "sendPhoto", {
                 chat_id: cbChatId,
                 photo: paymentResult.cryptoQrUrl,
-                caption: qrCaption || undefined
+                caption: qrCaption || undefined,
               });
               if (qrResult.ok && qrResult.result?.message_id) {
                 qrMessageId = qrResult.result.message_id;
               }
             }
-            
+
             // 发送支付详情（如果有H5链接，添加内联按钮）
             const sendMessageParams: any = {
               chat_id: cbChatId,
               text: paymentResult.message,
-              parse_mode: 'Markdown'
+              parse_mode: "Markdown",
             };
-            
+
             // H5支付模式：添加"去支付"按钮（多语言）
             if (paymentResult.h5PayUrl) {
               sendMessageParams.reply_markup = {
-                inline_keyboard: [[
-                  { text: t('payment_go_pay', payUserLang), url: paymentResult.h5PayUrl }
-                ]]
+                inline_keyboard: [[{ text: t("payment_go_pay", payUserLang), url: paymentResult.h5PayUrl }]],
               };
             }
-            
-            const msgResult = await sendTelegramMessage(botToken, 'sendMessage', sendMessageParams);
-            
+
+            const msgResult = await sendTelegramMessage(botToken, "sendMessage", sendMessageParams);
+
             // 保存消息ID以便超时后删除
             if (msgResult.ok && msgResult.result?.message_id && paymentResult.orderId) {
               const updateData: any = { telegram_message_id: msgResult.result.message_id };
               if (qrMessageId) {
                 updateData.telegram_qr_message_id = qrMessageId;
               }
-              await supabase
-                .from('shop_orders')
-                .update(updateData)
-                .eq('id', paymentResult.orderId);
+              await supabase.from("shop_orders").update(updateData).eq("id", paymentResult.orderId);
             }
           }
-          
+
           return new Response(JSON.stringify({ ok: true, payment_handled: true }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
       }
-      
+
       // 处理商城分类回调（展开分类或返回列表）
-      if (callbackData.startsWith('shop_cat_') || callbackData === 'shop_back') {
+      if (callbackData.startsWith("shop_cat_") || callbackData === "shop_back") {
         console.log(`[TG Shop] Category callback: ${callbackData}`);
-        
+
         let expandedCategory: string | undefined;
-        if (callbackData.startsWith('shop_cat_')) {
-          expandedCategory = decodeURIComponent(callbackData.replace('shop_cat_', ''));
+        if (callbackData.startsWith("shop_cat_")) {
+          expandedCategory = decodeURIComponent(callbackData.replace("shop_cat_", ""));
         }
-        
+
         // 获取用户语言偏好
         const { data: catShopCfg } = await supabase
-          .from('shop_configs')
-          .select('user_language_preferences')
-          .eq('bot_token', botToken)
+          .from("shop_configs")
+          .select("user_language_preferences")
+          .eq("bot_token", botToken)
           .maybeSingle();
         const catLangPrefs = catShopCfg?.user_language_preferences || {};
-        const catUserLang: 'zh' | 'en' = (catLangPrefs[cbChatId.toString()] as 'zh' | 'en') || 'zh';
-        
+        const catUserLang: "zh" | "en" = (catLangPrefs[cbChatId.toString()] as "zh" | "en") || "zh";
+
         const shopResult = await handleShopCommand(supabase, botToken, expandedCategory, catUserLang);
-        
+
         if (shopResult.handled && shopResult.message) {
           // 编辑原消息，更新内容
-          await sendTelegramMessage(botToken, 'editMessageText', {
+          await sendTelegramMessage(botToken, "editMessageText", {
             chat_id: cbChatId,
             message_id: cbMessageId,
             text: shopResult.message,
-            parse_mode: 'Markdown',
-            reply_markup: shopResult.inlineKeyboard
+            parse_mode: "Markdown",
+            reply_markup: shopResult.inlineKeyboard,
           });
         }
-        
+
         return new Response(JSON.stringify({ ok: true, shop_category_handled: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
+
       // 处理TG商城语言切换回调
-      if (callbackData === 'shop_lang_zh' || callbackData === 'shop_lang_en') {
+      if (callbackData === "shop_lang_zh" || callbackData === "shop_lang_en") {
         console.log(`[TG Shop] Language switch callback: ${callbackData}`);
-        
-        const newLang = callbackData === 'shop_lang_en' ? 'en' : 'zh';
-        
+
+        const newLang = callbackData === "shop_lang_en" ? "en" : "zh";
+
         // 获取商城配置
         const { data: shopConfigForLang } = await supabase
-          .from('shop_configs')
-          .select('*')
-          .eq('bot_token', botToken)
+          .from("shop_configs")
+          .select("*")
+          .eq("bot_token", botToken)
           .maybeSingle();
-        
+
         if (shopConfigForLang) {
           // 更新用户语言偏好
           const langPrefs = shopConfigForLang.user_language_preferences || {};
           langPrefs[cbChatId.toString()] = newLang;
-          
+
           await supabase
-            .from('shop_configs')
+            .from("shop_configs")
             .update({ user_language_preferences: langPrefs })
-            .eq('bot_token', botToken);
-          
+            .eq("bot_token", botToken);
+
           // 同步更新 keyboard_configs 的语言偏好，确保底部键盘也能切换
           if (bilingualEnabled) {
             userLanguagePreferences[cbChatId.toString()] = newLang;
             await supabase
-              .from('keyboard_configs')
+              .from("keyboard_configs")
               .update({ user_language_preferences: userLanguagePreferences })
-              .eq('bot_token', botToken);
+              .eq("bot_token", botToken);
           }
-          
+
           // 重新发送开始消息 - 使用翻译系统
-          const shopBtnText = newLang === 'en' 
-            ? t('btn_shop', 'en')
-            : (shopConfigForLang.shop_button_text || t('btn_shop', 'zh'));
-          const orderBtnText = newLang === 'en'
-            ? t('btn_order', 'en')
-            : (shopConfigForLang.order_button_text || t('btn_order', 'zh'));
-          
+          const shopBtnText =
+            newLang === "en" ? t("btn_shop", "en") : shopConfigForLang.shop_button_text || t("btn_shop", "zh");
+          const orderBtnText =
+            newLang === "en" ? t("btn_order", "en") : shopConfigForLang.order_button_text || t("btn_order", "zh");
+
           // 更新原消息的按钮
           const startButtons = [
             [
-              { text: `🛒 ${shopBtnText}`, callback_data: 'shop_cmd_shop' },
-              { text: `📋 ${orderBtnText}`, callback_data: 'shop_cmd_order' }
+              { text: `🛒 ${shopBtnText}`, callback_data: "shop_cmd_shop" },
+              { text: `📋 ${orderBtnText}`, callback_data: "shop_cmd_order" },
             ],
             [
-              { text: '🌐 ' + (newLang === 'en' ? '中文' : 'English'), callback_data: newLang === 'en' ? 'shop_lang_zh' : 'shop_lang_en' }
-            ]
+              {
+                text: "🌐 " + (newLang === "en" ? "中文" : "English"),
+                callback_data: newLang === "en" ? "shop_lang_zh" : "shop_lang_en",
+              },
+            ],
           ];
-          
+
           // 根据语言显示确认消息
-          const confirmMsg = newLang === 'en' 
-            ? '🌐 Language switched to English'
-            : '🌐 已切换为中文';
-          
-          await sendTelegramMessage(botToken, 'editMessageReplyMarkup', {
+          const confirmMsg = newLang === "en" ? "🌐 Language switched to English" : "🌐 已切换为中文";
+
+          await sendTelegramMessage(botToken, "editMessageReplyMarkup", {
             chat_id: cbChatId,
             message_id: cbMessageId,
-            reply_markup: { inline_keyboard: startButtons }
+            reply_markup: { inline_keyboard: startButtons },
           });
-          
+
           // 同时更新底部键盘按钮为对应语言
           if (bilingualEnabled && menuPages.length > 0) {
-            const mainPage = menuPages.find((p: MenuPage) => p.id === 'main');
-            const translatedKeyboard = await generateKeyboardWithLanguage(mainPage, newLang as 'zh' | 'en', bilingualEnabled);
-            await sendTelegramMessage(botToken, 'sendMessage', {
+            const mainPage = menuPages.find((p: MenuPage) => p.id === "main");
+            const translatedKeyboard = await generateKeyboardWithLanguage(
+              mainPage,
+              newLang as "zh" | "en",
+              bilingualEnabled,
+            );
+            await sendTelegramMessage(botToken, "sendMessage", {
               chat_id: cbChatId,
               text: confirmMsg,
-              reply_markup: translatedKeyboard ? {
-                keyboard: translatedKeyboard,
-                resize_keyboard: true,
-                one_time_keyboard: false
-              } : undefined
+              reply_markup: translatedKeyboard
+                ? {
+                    keyboard: translatedKeyboard,
+                    resize_keyboard: true,
+                    one_time_keyboard: false,
+                  }
+                : undefined,
             });
           } else {
             // 发送确认消息
-            await sendTelegramMessage(botToken, 'sendMessage', {
+            await sendTelegramMessage(botToken, "sendMessage", {
               chat_id: cbChatId,
-              text: confirmMsg
+              text: confirmMsg,
             });
           }
         }
-        
+
         return new Response(JSON.stringify({ ok: true, shop_lang_handled: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
+
       // 处理TG商城命令回调 (从/start消息的按钮)
-      if (callbackData === 'shop_cmd_shop' || callbackData === 'shop_cmd_order') {
+      if (callbackData === "shop_cmd_shop" || callbackData === "shop_cmd_order") {
         console.log(`[TG Shop] Command callback: ${callbackData}`);
-        
+
         // 获取用户语言偏好
         const { data: cmdShopCfg } = await supabase
-          .from('shop_configs')
-          .select('user_language_preferences')
-          .eq('bot_token', botToken)
+          .from("shop_configs")
+          .select("user_language_preferences")
+          .eq("bot_token", botToken)
           .maybeSingle();
         const cmdLangPrefs = cmdShopCfg?.user_language_preferences || {};
-        const cmdUserLang: 'zh' | 'en' = (cmdLangPrefs[cbChatId.toString()] as 'zh' | 'en') || 'zh';
-        
-        if (callbackData === 'shop_cmd_shop') {
+        const cmdUserLang: "zh" | "en" = (cmdLangPrefs[cbChatId.toString()] as "zh" | "en") || "zh";
+
+        if (callbackData === "shop_cmd_shop") {
           const shopResult = await handleShopCommand(supabase, botToken, undefined, cmdUserLang);
           if (shopResult.handled && shopResult.message) {
-            await sendTelegramMessage(botToken, 'sendMessage', {
+            await sendTelegramMessage(botToken, "sendMessage", {
               chat_id: cbChatId,
               text: shopResult.message,
-              parse_mode: 'Markdown',
-              reply_markup: shopResult.inlineKeyboard
+              parse_mode: "Markdown",
+              reply_markup: shopResult.inlineKeyboard,
             });
           }
         } else {
-          const orderResult = await handleOrderCommand(supabase, botToken, cbChatId, '/order', cmdUserLang);
+          const orderResult = await handleOrderCommand(supabase, botToken, cbChatId, "/order", cmdUserLang);
           if (orderResult.handled && orderResult.message) {
-            await sendTelegramMessage(botToken, 'sendMessage', {
+            await sendTelegramMessage(botToken, "sendMessage", {
               chat_id: cbChatId,
               text: orderResult.message,
-              parse_mode: 'Markdown'
+              parse_mode: "Markdown",
             });
           }
         }
-        
+
         return new Response(JSON.stringify({ ok: true, shop_cmd_handled: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
+
       // 其他回调走原有自动回复逻辑 - 传入语言参数实现自动翻译
       const cbUserLanguage = getUserLanguage(cbChatId, userLanguagePreferences);
-      const handled = await handleCallbackQuery(botToken, body.callback_query, autoReplyRules, cbUserLanguage, bilingualEnabled);
+      const handled = await handleCallbackQuery(
+        botToken,
+        body.callback_query,
+        autoReplyRules,
+        cbUserLanguage,
+        bilingualEnabled,
+      );
       console.log(`Callback query handled: ${handled}`);
-      
+
       // 确定活动记录接收者：优先双向聊天的personalUserId，否则使用菜单键盘的menuAdminChatId
       const activityRecipient = bidirectionalChatEnabled && personalUserId > 0 ? personalUserId : menuAdminChatId;
-      
+
       // 如果活动记录开启且有接收者，转发内联按钮点击事件
       if (activityLogEnabled && activityRecipient > 0) {
         const cbFromUser = body.callback_query.from;
-        const cbUserName = cbFromUser.first_name + (cbFromUser.last_name ? ' ' + cbFromUser.last_name : '');
-        
+        const cbUserName = cbFromUser.first_name + (cbFromUser.last_name ? " " + cbFromUser.last_name : "");
+
         if (cbChatId && cbChatId !== activityRecipient) {
           const activityText = `📋 用户操作记录\n来自: ${cbUserName}\n用户ID: ${cbChatId}\n操作: 点击内联按钮\n按钮数据: ${callbackData}`;
-          await sendTelegramMessage(botToken, 'sendMessage', {
+          await sendTelegramMessage(botToken, "sendMessage", {
             chat_id: activityRecipient,
             text: activityText,
           });
         }
       }
-      
+
       return new Response(JSON.stringify({ ok: true, callback_handled: handled }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const message = body.message;
     if (!message) {
       return new Response(JSON.stringify({ ok: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const chatId = message.chat.id;
     const fromUser = message.from;
-    let text = message.text || message.caption || '';
+    let text = message.text || message.caption || "";
     const messageId = message.message_id;
 
     // 处理图片消息
-    let photoUrl = '';
-    let photoFileId = '';
+    let photoUrl = "";
+    let photoFileId = "";
     if (message.photo && message.photo.length > 0) {
       const largestPhoto = message.photo[message.photo.length - 1];
       photoFileId = largestPhoto.file_id;
-      
-      const fileResponse = await fetch(
-        `https://api.telegram.org/bot${botToken}/getFile?file_id=${photoFileId}`
-      );
+
+      const fileResponse = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${photoFileId}`);
       const fileData = await fileResponse.json();
-      
+
       if (fileData.ok && fileData.result.file_path) {
         photoUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`;
-        text = `[图片:${photoFileId}] ${photoUrl}` + (text ? `\n${text}` : '');
+        text = `[图片:${photoFileId}] ${photoUrl}` + (text ? `\n${text}` : "");
       } else {
-        text = `[图片:${photoFileId}]` + (text ? `\n${text}` : '');
+        text = `[图片:${photoFileId}]` + (text ? `\n${text}` : "");
       }
-      console.log('Photo received:', { photoFileId, photoUrl });
+      console.log("Photo received:", { photoFileId, photoUrl });
     }
 
     // Check if this is a reply from personal user to forward (仅当双向聊天可用时)
     if (bidirectionalChatEnabled && activation && chatId === personalUserId && message.reply_to_message) {
       if (activation.app_enabled === false) {
-        console.log('App port disabled - reply blocked');
-        return new Response(JSON.stringify({ ok: true, blocked: 'app_port_disabled' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        console.log("App port disabled - reply blocked");
+        return new Response(JSON.stringify({ ok: true, blocked: "app_port_disabled" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const replyText = message.reply_to_message.text || message.reply_to_message.caption || '';
+      const replyText = message.reply_to_message.text || message.reply_to_message.caption || "";
       const chatIdMatch = replyText.match(/\[CHATID:(\d+):MSGID:(\d+)\]/);
-      
+
       if (chatIdMatch) {
         const targetChatId = parseInt(chatIdMatch[1]);
         const originalMsgId = parseInt(chatIdMatch[2]);
-        
+
         console.log(`Routing reply to chatId: ${targetChatId}, originalMsgId: ${originalMsgId}`);
-        
+
         let sendResult;
-        let messageContent = message.text || message.caption || '';
-        
+        let messageContent = message.text || message.caption || "";
+
         if (message.photo && message.photo.length > 0) {
           const replyPhotoFileId = message.photo[message.photo.length - 1].file_id;
-          const sendResponse = await fetch(
-            `https://api.telegram.org/bot${botToken}/sendPhoto`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: targetChatId,
-                photo: replyPhotoFileId,
-                caption: messageContent,
-                reply_to_message_id: originalMsgId,
-              }),
-            }
-          );
+          const sendResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: targetChatId,
+              photo: replyPhotoFileId,
+              caption: messageContent,
+              reply_to_message_id: originalMsgId,
+            }),
+          });
           sendResult = await sendResponse.json();
-          
+
           const fileResponse = await fetch(
-            `https://api.telegram.org/bot${botToken}/getFile?file_id=${replyPhotoFileId}`
+            `https://api.telegram.org/bot${botToken}/getFile?file_id=${replyPhotoFileId}`,
           );
           const fileData = await fileResponse.json();
           if (fileData.ok && fileData.result.file_path) {
             const replyPhotoUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`;
-            messageContent = `[图片:${replyPhotoFileId}] ${replyPhotoUrl}` + (messageContent ? `\n${messageContent}` : '');
+            messageContent =
+              `[图片:${replyPhotoFileId}] ${replyPhotoUrl}` + (messageContent ? `\n${messageContent}` : "");
           } else {
-            messageContent = `[图片:${replyPhotoFileId}]` + (messageContent ? `\n${messageContent}` : '');
+            messageContent = `[图片:${replyPhotoFileId}]` + (messageContent ? `\n${messageContent}` : "");
           }
         } else {
-          const sendResponse = await fetch(
-            `https://api.telegram.org/bot${botToken}/sendMessage`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: targetChatId,
-                text: messageContent,
-                reply_to_message_id: originalMsgId,
-              }),
-            }
-          );
+          const sendResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: targetChatId,
+              text: messageContent,
+              reply_to_message_id: originalMsgId,
+            }),
+          });
           sendResult = await sendResponse.json();
         }
 
-        console.log('Reply sent result:', JSON.stringify(sendResult, null, 2));
+        console.log("Reply sent result:", JSON.stringify(sendResult, null, 2));
 
         if (sendResult.ok) {
-          await supabase.from('messages').insert({
+          await supabase.from("messages").insert({
             bot_activation_id: activation.id,
             telegram_chat_id: targetChatId,
             telegram_message_id: sendResult.result?.message_id,
-            telegram_user_name: '我',
+            telegram_user_name: "我",
             content: messageContent,
-            direction: 'outgoing',
+            direction: "outgoing",
           });
         }
 
         return new Response(JSON.stringify({ ok: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
@@ -2049,148 +2073,165 @@ serve(async (req) => {
     // Skip messages from personal user that are not replies (仅当双向聊天可用时)
     if (bidirectionalChatEnabled && personalUserId > 0 && chatId === personalUserId) {
       return new Response(JSON.stringify({ ok: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     // 存储消息到数据库 (仅当双向聊天可用时)
-    const userName = fromUser.first_name + (fromUser.last_name ? ' ' + fromUser.last_name : '');
-    
+    const userName = fromUser.first_name + (fromUser.last_name ? " " + fromUser.last_name : "");
+
     if (bidirectionalChatEnabled && activation) {
-      await supabase.from('messages').insert({
+      await supabase.from("messages").insert({
         bot_activation_id: activation.id,
         telegram_chat_id: chatId,
         telegram_user_name: userName,
         telegram_message_id: messageId,
         content: text,
-        direction: 'incoming',
+        direction: "incoming",
         is_read: activation.web_enabled === false ? null : false,
       });
     }
 
     // 自动抓取用户数据到 bot_users 表 (菜单键盘功能需要)
     try {
-      await supabase.from('bot_users').upsert({
-        bot_token: botToken,
-        telegram_user_id: chatId,
-        first_name: fromUser.first_name || '',
-        last_name: fromUser.last_name || null,
-        username: fromUser.username || null,
-        last_seen_at: new Date().toISOString(),
-      }, { 
-        onConflict: 'bot_token,telegram_user_id',
-        ignoreDuplicates: false 
-      });
+      await supabase.from("bot_users").upsert(
+        {
+          bot_token: botToken,
+          telegram_user_id: chatId,
+          first_name: fromUser.first_name || "",
+          last_name: fromUser.last_name || null,
+          username: fromUser.username || null,
+          last_seen_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "bot_token,telegram_user_id",
+          ignoreDuplicates: false,
+        },
+      );
       console.log(`User ${chatId} saved/updated in bot_users`);
     } catch (e) {
-      console.error('Failed to save user to bot_users:', e);
+      console.error("Failed to save user to bot_users:", e);
     }
 
     // Update trial messages count if not authorized (仅当有activation时)
     if (activation && !activation.is_authorized) {
       await supabase
-        .from('bot_activations')
+        .from("bot_activations")
         .update({ trial_messages_used: activation.trial_messages_used + 1 })
-        .eq('id', activation.id);
-        
-      await supabase
-        .from('bot_trial_records')
-        .upsert({
+        .eq("id", activation.id);
+
+      await supabase.from("bot_trial_records").upsert(
+        {
           bot_token: botToken,
           messages_used: activation.trial_messages_used + 1,
           is_blocked: activation.trial_messages_used + 1 >= activation.trial_limit,
-        }, { onConflict: 'bot_token' });
+        },
+        { onConflict: "bot_token" },
+      );
     }
 
     // 菜单键盘功能 - 独立运行，不依赖双向聊天
     let keyboardHandled = false;
-    
+
     // 获取用户的语言偏好
     let userLanguage = getUserLanguage(chatId, userLanguagePreferences);
-    
+
     // 检查是否是语言切换按钮点击
-    if (bilingualEnabled && (text === '🌐 English' || text === '🌐 中文')) {
+    if (bilingualEnabled && (text === "🌐 English" || text === "🌐 中文")) {
       // 切换语言
-      const newLanguage: 'zh' | 'en' = text === '🌐 English' ? 'en' : 'zh';
+      const newLanguage: "zh" | "en" = text === "🌐 English" ? "en" : "zh";
       userLanguagePreferences[chatId.toString()] = newLanguage;
       userLanguage = newLanguage;
-      
+
       // 保存语言偏好到数据库
       await supabase
-        .from('keyboard_configs')
+        .from("keyboard_configs")
         .update({ user_language_preferences: userLanguagePreferences })
-        .eq('bot_token', botToken);
-      
+        .eq("bot_token", botToken);
+
       // 发送切换确认并更新键盘
-      const mainPage = menuPages.find((p: MenuPage) => p.id === 'main');
+      const mainPage = menuPages.find((p: MenuPage) => p.id === "main");
       const keyboard = await generateKeyboardWithLanguage(mainPage, newLanguage, bilingualEnabled);
-      
-      await sendTelegramMessage(botToken, 'sendMessage', {
+
+      await sendTelegramMessage(botToken, "sendMessage", {
         chat_id: chatId,
-        text: newLanguage === 'en' ? '🌐 Switched to English' : '🌐 已切换为中文',
-        reply_markup: keyboard ? {
-          keyboard,
-          resize_keyboard: true,
-          one_time_keyboard: false
-        } : undefined
+        text: newLanguage === "en" ? "🌐 Switched to English" : "🌐 已切换为中文",
+        reply_markup: keyboard
+          ? {
+              keyboard,
+              resize_keyboard: true,
+              one_time_keyboard: false,
+            }
+          : undefined,
       });
-      
+
       console.log(`Language switched to ${newLanguage} for user ${chatId}`);
       keyboardHandled = true;
     }
-    
+
     // ========== TG商城命令处理 ==========
     // 获取完整的商城配置
     const { data: shopConfigData } = await supabase
-      .from('shop_configs')
-      .select('*')
-      .eq('bot_token', botToken)
+      .from("shop_configs")
+      .select("*")
+      .eq("bot_token", botToken)
       .maybeSingle();
-    
-    let shopConfig = shopConfigData as (ShopConfig & { shop_expire_at?: string | null; shop_trial_started_at?: string | null }) | null;
+
+    let shopConfig = shopConfigData as
+      | (ShopConfig & { shop_expire_at?: string | null; shop_trial_started_at?: string | null })
+      | null;
     const customCommands = shopConfig?.custom_commands || { shop: [], buy: [], order: [] };
-    
+
     // 获取TG商城的用户语言偏好
     let shopUserLanguagePreferences: Record<string, string> = shopConfig?.user_language_preferences || {};
-    let shopUserLanguage: 'zh' | 'en' = (shopUserLanguagePreferences[chatId.toString()] as 'zh' | 'en') || 'zh';
-    
+    let shopUserLanguage: "zh" | "en" = (shopUserLanguagePreferences[chatId.toString()] as "zh" | "en") || "zh";
+
     // TG商城有效期/试用期检查
     let shopEnabled = true;
-    let shopExpiredMessage = '';
+    let shopExpiredMessage = "";
     if (shopConfig) {
       const now = new Date();
-      const shopExpireAt = (shopConfigData as any)?.shop_expire_at ? new Date((shopConfigData as any).shop_expire_at) : null;
-      const shopTrialStartedAt = (shopConfigData as any)?.shop_trial_started_at ? new Date((shopConfigData as any).shop_trial_started_at) : null;
-      
+      const shopExpireAt = (shopConfigData as any)?.shop_expire_at
+        ? new Date((shopConfigData as any).shop_expire_at)
+        : null;
+      const shopTrialStartedAt = (shopConfigData as any)?.shop_trial_started_at
+        ? new Date((shopConfigData as any).shop_trial_started_at)
+        : null;
+
       // 如果已激活授权，检查是否过期
       if (shopExpireAt) {
         if (shopExpireAt < now) {
-          console.log('[TG Shop] Shop expired - disabling shop features');
+          console.log("[TG Shop] Shop expired - disabling shop features");
           shopEnabled = false;
-          shopExpiredMessage = shopUserLanguage === 'en' 
-            ? '❌ Shop subscription expired. Please enter an activation code to renew.'
-            : '❌ 商城授权已过期，请输入激活码续期！';
+          shopExpiredMessage =
+            shopUserLanguage === "en"
+              ? "❌ Shop subscription expired. Please enter an activation code to renew."
+              : "❌ 商城授权已过期，请输入激活码续期！";
         }
       } else if (shopTrialStartedAt) {
         // 试用模式：24小时后过期
         const trialEndTime = new Date(shopTrialStartedAt.getTime() + 24 * 60 * 60 * 1000);
         if (now > trialEndTime) {
-          console.log('[TG Shop] Shop trial expired (24h) - disabling shop features');
+          console.log("[TG Shop] Shop trial expired (24h) - disabling shop features");
           shopEnabled = false;
-          shopExpiredMessage = shopUserLanguage === 'en'
-            ? '❌ Shop trial has expired. Please enter an activation code to activate.'
-            : '❌ 商城试用已过期，请输入激活码激活！';
+          shopExpiredMessage =
+            shopUserLanguage === "en"
+              ? "❌ Shop trial has expired. Please enter an activation code to activate."
+              : "❌ 商城试用已过期，请输入激活码激活！";
         }
       }
       // 注意：如果既没有 shop_expire_at 也没有 shop_trial_started_at，说明是首次使用，将在下面自动开启试用
     }
-    
+
     // 处理TG商城的语言切换回调（从/start消息的语言按钮）
-    if (!keyboardHandled && (text === '🌐 English' || text === '🌐 中文 / English' || text === 'shop_lang_en' || text === 'shop_lang_zh')) {
+    if (
+      !keyboardHandled &&
+      (text === "🌐 English" || text === "🌐 中文 / English" || text === "shop_lang_en" || text === "shop_lang_zh")
+    ) {
       // 这是通过消息文本触发的语言切换，但实际上我们应该在callback_query中处理
       // 这里不处理，留给callback_query处理
     }
-    
+
     // 中文模糊匹配函数 - 匹配2个字符即触发
     const fuzzyMatchChinese = (text: string, keywords: string[]): boolean => {
       if (!keywords || keywords.length === 0) return false;
@@ -2205,224 +2246,227 @@ serve(async (req) => {
         return false;
       });
     };
-    
+
     // 处理 /shop 命令或自定义中文命令
-    const isShopCommand = text.toLowerCase() === '/shop' || fuzzyMatchChinese(text, customCommands.shop);
+    const isShopCommand = text.toLowerCase() === "/shop" || fuzzyMatchChinese(text, customCommands.shop);
     if (!keyboardHandled && isShopCommand) {
       // 首次使用自动开启24小时试用
       if (shopConfig && !(shopConfigData as any)?.shop_expire_at && !(shopConfigData as any)?.shop_trial_started_at) {
-        console.log('[TG Shop] First use - starting 24h trial');
+        console.log("[TG Shop] First use - starting 24h trial");
         const trialStartTime = new Date().toISOString();
-        await supabase.from('shop_configs').update({
-          shop_trial_started_at: trialStartTime,
-          updated_at: new Date().toISOString()
-        }).eq('bot_token', botToken);
+        await supabase
+          .from("shop_configs")
+          .update({
+            shop_trial_started_at: trialStartTime,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("bot_token", botToken);
         // 更新本地变量
         shopEnabled = true;
       }
-      
+
       // 检查商城是否过期
       if (!shopEnabled) {
-        await sendTelegramMessage(botToken, 'sendMessage', {
+        await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: chatId,
           text: shopExpiredMessage,
-          parse_mode: 'Markdown'
+          parse_mode: "Markdown",
         });
         keyboardHandled = true;
-        console.log('[TG Shop] /shop command blocked - shop expired');
+        console.log("[TG Shop] /shop command blocked - shop expired");
       } else {
         const shopResult = await handleShopCommand(supabase, botToken, undefined, shopUserLanguage);
         if (shopResult.handled && shopResult.message) {
-          await sendTelegramMessage(botToken, 'sendMessage', {
+          await sendTelegramMessage(botToken, "sendMessage", {
             chat_id: chatId,
             text: shopResult.message,
-            parse_mode: 'Markdown',
-            reply_markup: shopResult.inlineKeyboard
+            parse_mode: "Markdown",
+            reply_markup: shopResult.inlineKeyboard,
           });
           keyboardHandled = true;
-          console.log('[TG Shop] /shop command handled');
+          console.log("[TG Shop] /shop command handled");
         }
       }
     }
-    
+
     // 处理 /buy 命令或自定义中文命令
     // 对于自定义命令，格式为 "购买 商品名" 或 "下单 商品名"
     let buyCommandText = text;
-    const isBuyEnglishCommand = text.toLowerCase().startsWith('/buy');
-    const isBuyChineseCommand = fuzzyMatchChinese(text.split(/\s+/)[0] || '', customCommands.buy);
-    
+    const isBuyEnglishCommand = text.toLowerCase().startsWith("/buy");
+    const isBuyChineseCommand = fuzzyMatchChinese(text.split(/\s+/)[0] || "", customCommands.buy);
+
     if (!keyboardHandled && (isBuyEnglishCommand || isBuyChineseCommand)) {
       // 检查商城是否过期
       if (!shopEnabled) {
-        await sendTelegramMessage(botToken, 'sendMessage', {
+        await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: chatId,
           text: shopExpiredMessage,
-          parse_mode: 'Markdown'
+          parse_mode: "Markdown",
         });
         keyboardHandled = true;
-        console.log('[TG Shop] /buy command blocked - shop expired');
+        console.log("[TG Shop] /buy command blocked - shop expired");
       } else {
         // 如果是中文命令，转换为 /buy 格式以便处理
         if (isBuyChineseCommand && !isBuyEnglishCommand) {
           const parts = text.split(/\s+/);
           if (parts.length > 1) {
-            buyCommandText = '/buy ' + parts.slice(1).join(' ');
+            buyCommandText = "/buy " + parts.slice(1).join(" ");
           } else {
-            buyCommandText = '/buy';
+            buyCommandText = "/buy";
           }
         }
-        
+
         const buyResult = await handleBuyCommand(
-          supabase, 
-          botToken, 
-          chatId, 
+          supabase,
+          botToken,
+          chatId,
           fromUser.username || null,
           buyCommandText,
-          shopUserLanguage
+          shopUserLanguage,
         );
         if (buyResult.handled && buyResult.message) {
           // 发送订单详情，带支付方式选择按钮
-          const msgResult = await sendTelegramMessage(botToken, 'sendMessage', {
+          const msgResult = await sendTelegramMessage(botToken, "sendMessage", {
             chat_id: chatId,
             text: buyResult.message,
-            parse_mode: 'Markdown',
-            reply_markup: buyResult.inlineKeyboard
+            parse_mode: "Markdown",
+            reply_markup: buyResult.inlineKeyboard,
           });
-          
+
           // 保存消息ID以便超时后删除
           if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
             await supabase
-              .from('shop_orders')
+              .from("shop_orders")
               .update({ telegram_message_id: msgResult.result.message_id })
-              .eq('id', buyResult.orderId);
+              .eq("id", buyResult.orderId);
             console.log(`[TG Shop] Saved message_id ${msgResult.result.message_id} for order ${buyResult.orderId}`);
           }
-          
+
           keyboardHandled = true;
-          console.log('[TG Shop] /buy command handled');
+          console.log("[TG Shop] /buy command handled");
         }
       }
     }
-    
+
     // 处理 /order 命令或自定义中文命令
     let orderCommandText = text;
-    const isOrderEnglishCommand = text.toLowerCase().startsWith('/order');
-    const isOrderChineseCommand = fuzzyMatchChinese(text.split(/\s+/)[0] || '', customCommands.order);
-    
+    const isOrderEnglishCommand = text.toLowerCase().startsWith("/order");
+    const isOrderChineseCommand = fuzzyMatchChinese(text.split(/\s+/)[0] || "", customCommands.order);
+
     if (!keyboardHandled && (isOrderEnglishCommand || isOrderChineseCommand)) {
       // 检查商城是否过期
       if (!shopEnabled) {
-        await sendTelegramMessage(botToken, 'sendMessage', {
+        await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: chatId,
           text: shopExpiredMessage,
-          parse_mode: 'Markdown'
+          parse_mode: "Markdown",
         });
         keyboardHandled = true;
-        console.log('[TG Shop] /order command blocked - shop expired');
+        console.log("[TG Shop] /order command blocked - shop expired");
       } else {
         // 如果是中文命令，转换为 /order 格式
         if (isOrderChineseCommand && !isOrderEnglishCommand) {
           const parts = text.split(/\s+/);
           if (parts.length > 1) {
-            orderCommandText = '/order ' + parts.slice(1).join(' ');
+            orderCommandText = "/order " + parts.slice(1).join(" ");
           } else {
-            orderCommandText = '/order';
+            orderCommandText = "/order";
           }
         }
-        
+
         const orderResult = await handleOrderCommand(supabase, botToken, chatId, orderCommandText, shopUserLanguage);
         if (orderResult.handled && orderResult.message) {
-          await sendTelegramMessage(botToken, 'sendMessage', {
+          await sendTelegramMessage(botToken, "sendMessage", {
             chat_id: chatId,
             text: orderResult.message,
-            parse_mode: 'Markdown'
+            parse_mode: "Markdown",
           });
           keyboardHandled = true;
-          console.log('[TG Shop] /order command handled');
+          console.log("[TG Shop] /order command handled");
         }
       }
     }
-    
+
     // 处理 /pay_alipay 或 /pay_wechat 命令 - 获取法币支付二维码
     const payMatch = text.match(/^\/pay_(alipay|wechat)_(.+)$/i);
     if (!keyboardHandled && payMatch) {
-      const payMethod = payMatch[1].toLowerCase() as 'alipay' | 'wechat';
+      const payMethod = payMatch[1].toLowerCase() as "alipay" | "wechat";
       const payOrderNo = payMatch[2];
-      
+
       console.log(`[TG Shop] Fiat payment request: ${payMethod} for order ${payOrderNo}`);
-      
+
       // 获取订单
       const { data: payOrder, error: payOrderError } = await supabase
-        .from('shop_orders')
-        .select('*')
-        .eq('order_no', payOrderNo)
-        .eq('bot_token', botToken)
+        .from("shop_orders")
+        .select("*")
+        .eq("order_no", payOrderNo)
+        .eq("bot_token", botToken)
         .maybeSingle();
-      
+
       if (payOrderError || !payOrder) {
-        await sendTelegramMessage(botToken, 'sendMessage', {
+        await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: chatId,
-          text: `${t('error_order_not_found', shopUserLanguage)}: ${payOrderNo}`,
-          parse_mode: 'Markdown'
+          text: `${t("error_order_not_found", shopUserLanguage)}: ${payOrderNo}`,
+          parse_mode: "Markdown",
         });
         keyboardHandled = true;
-      } else if (payOrder.status !== 'pending') {
-        await sendTelegramMessage(botToken, 'sendMessage', {
+      } else if (payOrder.status !== "pending") {
+        await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: chatId,
-          text: t('error_order_completed', shopUserLanguage),
-          parse_mode: 'Markdown'
+          text: t("error_order_completed", shopUserLanguage),
+          parse_mode: "Markdown",
         });
         keyboardHandled = true;
       } else {
         // 获取商店配置
         const { data: payShopConfig } = await supabase
-          .from('shop_configs')
-          .select('*')
-          .eq('bot_token', botToken)
+          .from("shop_configs")
+          .select("*")
+          .eq("bot_token", botToken)
           .maybeSingle();
-        
+
         if (!payShopConfig) {
-          await sendTelegramMessage(botToken, 'sendMessage', {
+          await sendTelegramMessage(botToken, "sendMessage", {
             chat_id: chatId,
-            text: t('error_shop_config', shopUserLanguage),
-            parse_mode: 'Markdown'
+            text: t("error_shop_config", shopUserLanguage),
+            parse_mode: "Markdown",
           });
           keyboardHandled = true;
         } else {
           // 确定使用哪个支付提供商
-          let provider = '';
-          if (payMethod === 'alipay') {
-            provider = payShopConfig.alipay_provider || 'xunhu';
+          let provider = "";
+          if (payMethod === "alipay") {
+            provider = payShopConfig.alipay_provider || "xunhu";
           } else {
-            provider = payShopConfig.wechat_provider || 'xunhu';
+            provider = payShopConfig.wechat_provider || "xunhu";
           }
-          
+
           // 检查提供商配置
-          if (provider === 'yungou' && (!payShopConfig.yungou_id || !payShopConfig.yungou_key)) {
-            await sendTelegramMessage(botToken, 'sendMessage', {
+          if (provider === "yungou" && (!payShopConfig.yungou_id || !payShopConfig.yungou_key)) {
+            await sendTelegramMessage(botToken, "sendMessage", {
               chat_id: chatId,
-              text: t('error_payment_not_configured', shopUserLanguage),
-              parse_mode: 'Markdown'
+              text: t("error_payment_not_configured", shopUserLanguage),
+              parse_mode: "Markdown",
             });
             keyboardHandled = true;
-          } else if (provider === 'xunhu' && (!payShopConfig.xunhu_id || !payShopConfig.xunhu_secret)) {
-            await sendTelegramMessage(botToken, 'sendMessage', {
+          } else if (provider === "xunhu" && (!payShopConfig.xunhu_id || !payShopConfig.xunhu_secret)) {
+            await sendTelegramMessage(botToken, "sendMessage", {
               chat_id: chatId,
-              text: t('error_payment_not_configured', shopUserLanguage),
-              parse_mode: 'Markdown'
+              text: t("error_payment_not_configured", shopUserLanguage),
+              parse_mode: "Markdown",
             });
             keyboardHandled = true;
           } else {
             // 调用 create-payment 函数获取支付链接
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+            const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
             const notifyUrl = `${supabaseUrl}/functions/v1/shop-payment-webhook?bot_token=${encodeURIComponent(botToken)}&type=${provider}`;
-            
+
             try {
               const paymentRes = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
-                method: 'POST',
-                headers: { 
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
                 },
                 body: JSON.stringify({
                   bot_token: botToken,
@@ -2431,64 +2475,67 @@ serve(async (req) => {
                   amount: payOrder.amount,
                   payment_method: payMethod,
                   provider: provider,
-                  notify_url: notifyUrl
-                })
+                  notify_url: notifyUrl,
+                }),
               });
-              
+
               const paymentData = await paymentRes.json();
-              console.log('[TG Shop] Create payment response:', paymentData);
-              
+              console.log("[TG Shop] Create payment response:", paymentData);
+
               if (paymentData.success && paymentData.qr_code) {
                 // 发送支付二维码 - 多语言支持
-                const paymentLabel = payMethod === 'alipay' ? t('payment_alipay', shopUserLanguage) : t('payment_wechat', shopUserLanguage);
+                const paymentLabel =
+                  payMethod === "alipay"
+                    ? t("payment_alipay", shopUserLanguage)
+                    : t("payment_wechat", shopUserLanguage);
                 const expireTime = new Date(payOrder.expires_at);
                 const chinaTime = new Date(expireTime.getTime() + 8 * 60 * 60 * 1000);
-                const expireTimeStr = `${chinaTime.getUTCHours().toString().padStart(2, '0')}:${chinaTime.getUTCMinutes().toString().padStart(2, '0')}`;
-                
+                const expireTimeStr = `${chinaTime.getUTCHours().toString().padStart(2, "0")}:${chinaTime.getUTCMinutes().toString().padStart(2, "0")}`;
+
                 const qrCaption = `💳 *${paymentLabel}*
 
-${t('order_product', shopUserLanguage)}: ${payOrder.product_name}
-${t('order_no', shopUserLanguage)}: \`${payOrderNo}\`
-${t('payment_amount', shopUserLanguage)}: ¥${payOrder.amount}
+${t("order_product", shopUserLanguage)}: ${payOrder.product_name}
+${t("order_no", shopUserLanguage)}: \`${payOrderNo}\`
+${t("payment_amount", shopUserLanguage)}: ¥${payOrder.amount}
 
 ────────────────
-${t('fiat_scan_qr', shopUserLanguage)}
+${t("fiat_scan_qr", shopUserLanguage)}
 
-${t('payment_deadline', shopUserLanguage)}: ${expireTimeStr} (${t('payment_30min', shopUserLanguage)})
-${t('fiat_timeout_warning', shopUserLanguage)}
-${t('fiat_auto_deliver', shopUserLanguage)}`;
-                
-                const qrMsgResult = await sendTelegramMessage(botToken, 'sendPhoto', {
+${t("payment_deadline", shopUserLanguage)}: ${expireTimeStr} (${t("payment_30min", shopUserLanguage)})
+${t("fiat_timeout_warning", shopUserLanguage)}
+${t("fiat_auto_deliver", shopUserLanguage)}`;
+
+                const qrMsgResult = await sendTelegramMessage(botToken, "sendPhoto", {
                   chat_id: chatId,
                   photo: paymentData.qr_code,
                   caption: qrCaption,
-                  parse_mode: 'Markdown'
+                  parse_mode: "Markdown",
                 });
-                
+
                 // 保存二维码消息ID
                 if (qrMsgResult.ok && qrMsgResult.result?.message_id) {
                   await supabase
-                    .from('shop_orders')
+                    .from("shop_orders")
                     .update({ telegram_qr_message_id: qrMsgResult.result.message_id })
-                    .eq('order_no', payOrderNo);
+                    .eq("order_no", payOrderNo);
                 }
-                
+
                 keyboardHandled = true;
-                console.log('[TG Shop] Fiat payment QR sent successfully');
+                console.log("[TG Shop] Fiat payment QR sent successfully");
               } else {
-                await sendTelegramMessage(botToken, 'sendMessage', {
+                await sendTelegramMessage(botToken, "sendMessage", {
                   chat_id: chatId,
-                  text: `${t('error_qr_failed', shopUserLanguage)}: ${paymentData.error || 'Unknown error'}`,
-                  parse_mode: 'Markdown'
+                  text: `${t("error_qr_failed", shopUserLanguage)}: ${paymentData.error || "Unknown error"}`,
+                  parse_mode: "Markdown",
                 });
                 keyboardHandled = true;
               }
             } catch (payError) {
-              console.error('[TG Shop] Create payment error:', payError);
-              await sendTelegramMessage(botToken, 'sendMessage', {
+              console.error("[TG Shop] Create payment error:", payError);
+              await sendTelegramMessage(botToken, "sendMessage", {
                 chat_id: chatId,
-                text: t('error_payment_failed', shopUserLanguage),
-                parse_mode: 'Markdown'
+                text: t("error_payment_failed", shopUserLanguage),
+                parse_mode: "Markdown",
               });
               keyboardHandled = true;
             }
@@ -2496,79 +2543,90 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
         }
       }
     }
-    
+
     // 处理 /start 命令
-    if (!keyboardHandled && text === '/start') {
+    if (!keyboardHandled && text === "/start") {
       // 检查TG商城是否启用了/start消息
       if (shopConfig?.start_enabled) {
-        console.log('[TG Shop] Sending shop start message');
-        
+        console.log("[TG Shop] Sending shop start message");
+
         // 使用翻译系统自动中英文切换
-        const shopBtnText = shopUserLanguage === 'en' 
-          ? t('btn_shop', 'en')
-          : (shopConfig.shop_button_text || t('btn_shop', 'zh'));
-        const orderBtnText = shopUserLanguage === 'en'
-          ? t('btn_order', 'en')
-          : (shopConfig.order_button_text || t('btn_order', 'zh'));
-        
+        const shopBtnText =
+          shopUserLanguage === "en" ? t("btn_shop", "en") : shopConfig.shop_button_text || t("btn_shop", "zh");
+        const orderBtnText =
+          shopUserLanguage === "en" ? t("btn_order", "en") : shopConfig.order_button_text || t("btn_order", "zh");
+
         const startButtons = {
           inline_keyboard: [
             [
-              { text: `🛒 ${shopBtnText}`, callback_data: 'shop_cmd_shop' },
-              { text: `📋 ${orderBtnText}`, callback_data: 'shop_cmd_order' }
+              { text: `🛒 ${shopBtnText}`, callback_data: "shop_cmd_shop" },
+              { text: `📋 ${orderBtnText}`, callback_data: "shop_cmd_order" },
             ],
             [
-              { text: '🌐 ' + (shopUserLanguage === 'en' ? '中文' : 'English'), callback_data: shopUserLanguage === 'en' ? 'shop_lang_zh' : 'shop_lang_en' }
-            ]
-          ]
+              {
+                text: "🌐 " + (shopUserLanguage === "en" ? "中文" : "English"),
+                callback_data: shopUserLanguage === "en" ? "shop_lang_zh" : "shop_lang_en",
+              },
+            ],
+          ],
         };
-        
-        const startMessage = shopConfig.start_message || (shopUserLanguage === 'en' ? '👋 Welcome! Please select a service:' : '👋 欢迎！请选择您需要的服务：');
-        
+
+        const startMessage =
+          shopConfig.start_message ||
+          (shopUserLanguage === "en" ? "👋 Welcome! Please select a service:" : "👋 欢迎！请选择您需要的服务：");
+
         const msgParams: any = {
           chat_id: chatId,
           reply_markup: startButtons,
-          parse_mode: 'Markdown'
+          parse_mode: "Markdown",
         };
-        
+
         if (shopConfig.start_disable_preview) {
           msgParams.disable_web_page_preview = true;
         }
-        
-        if (shopConfig.start_message_media_type === 'photo' && shopConfig.start_message_media_url) {
+
+        if (shopConfig.start_message_media_type === "photo" && shopConfig.start_message_media_url) {
           msgParams.photo = shopConfig.start_message_media_url;
           msgParams.caption = startMessage;
-          await sendTelegramMessage(botToken, 'sendPhoto', msgParams);
-        } else if (shopConfig.start_message_media_type === 'video' && shopConfig.start_message_media_url) {
+          await sendTelegramMessage(botToken, "sendPhoto", msgParams);
+        } else if (shopConfig.start_message_media_type === "video" && shopConfig.start_message_media_url) {
           msgParams.video = shopConfig.start_message_media_url;
           msgParams.caption = startMessage;
-          await sendTelegramMessage(botToken, 'sendVideo', msgParams);
+          await sendTelegramMessage(botToken, "sendVideo", msgParams);
         } else {
           msgParams.text = startMessage;
-          await sendTelegramMessage(botToken, 'sendMessage', msgParams);
+          await sendTelegramMessage(botToken, "sendMessage", msgParams);
         }
-        
+
         keyboardHandled = true;
       }
-      
+
       // 欢迎语逻辑：
       // 1. 同时有双向聊天和菜单键盘时 → 使用菜单键盘的/start自动回复
       // 2. 只有双向聊天时 → 使用双向聊天的欢迎语(activation.greeting_message)
-      
+
       const hasBidirectionalChat = bidirectionalChatEnabled && activation;
       const hasKeyboardMenu = keyboardMenuEnabled && menuPages.length > 0;
-      
+
       // 如果同时有双向聊天和菜单键盘，优先使用菜单键盘的/start自动回复
       if (hasBidirectionalChat && hasKeyboardMenu) {
         // 先检查自动回复规则中是否有 /start 命令
-        const hasStartAutoReply = autoReplyRules.some(r => {
-          const ruleVal = (r.triggerValue || '').trim().toLowerCase().replace(/^\//, '');
-          return r.triggerType === 'command' && ruleVal === 'start';
+        const hasStartAutoReply = autoReplyRules.some((r) => {
+          const ruleVal = (r.triggerValue || "").trim().toLowerCase().replace(/^\//, "");
+          return r.triggerType === "command" && ruleVal === "start";
         });
-        
+
         if (hasStartAutoReply) {
           // 使用菜单键盘的/start自动回复
-          keyboardHandled = await handleAutoReply(botToken, chatId, text, autoReplyRules, menuPages, userLanguage, bilingualEnabled);
+          keyboardHandled = await handleAutoReply(
+            botToken,
+            chatId,
+            text,
+            autoReplyRules,
+            menuPages,
+            userLanguage,
+            bilingualEnabled,
+          );
         } else if (forceMenuOnStart) {
           // 没有/start自动回复但配置了强制显示菜单
           await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled);
@@ -2584,7 +2642,15 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
           await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled);
           keyboardHandled = true;
         } else {
-          keyboardHandled = await handleAutoReply(botToken, chatId, text, autoReplyRules, menuPages, userLanguage, bilingualEnabled);
+          keyboardHandled = await handleAutoReply(
+            botToken,
+            chatId,
+            text,
+            autoReplyRules,
+            menuPages,
+            userLanguage,
+            bilingualEnabled,
+          );
           if (!keyboardHandled && menuPages.length > 0) {
             await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled);
             keyboardHandled = true;
@@ -2592,16 +2658,24 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
         }
       } else if (hasBidirectionalChat && activation?.greeting_message) {
         // 只有双向聊天，使用双向聊天的欢迎语
-        await sendTelegramMessage(botToken, 'sendMessage', {
+        await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: chatId,
           text: activation.greeting_message,
         });
         keyboardHandled = true;
       }
-      
+
       // 如果以上都没处理，检查自动回复规则
       if (!keyboardHandled) {
-        keyboardHandled = await handleAutoReply(botToken, chatId, text, autoReplyRules, menuPages, userLanguage, bilingualEnabled);
+        keyboardHandled = await handleAutoReply(
+          botToken,
+          chatId,
+          text,
+          autoReplyRules,
+          menuPages,
+          userLanguage,
+          bilingualEnabled,
+        );
       }
     } else if (!keyboardHandled) {
       // 先检查菜单导航
@@ -2611,28 +2685,37 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
 
       // 如果菜单没有处理，检查自动回复 - 自动回复消息也附带最新键盘
       if (!keyboardHandled && autoReplyRules.length > 0) {
-        keyboardHandled = await handleAutoReply(botToken, chatId, text, autoReplyRules, menuPages, userLanguage, bilingualEnabled);
+        keyboardHandled = await handleAutoReply(
+          botToken,
+          chatId,
+          text,
+          autoReplyRules,
+          menuPages,
+          userLanguage,
+          bilingualEnabled,
+        );
       }
-      
+
       // 非双向聊天模式下：无论消息是否被处理，都确保用户收到最新的底部键盘
       // 如果消息已被处理（自动回复/菜单按钮），handleAutoReply 已经附带了键盘
       // 如果消息未被处理，这里补发最新键盘
       if (!keyboardHandled && !bidirectionalChatEnabled && menuPages.length > 0) {
-        const mainPage = menuPages.find((p: MenuPage) => p.id === 'main');
+        const mainPage = menuPages.find((p: MenuPage) => p.id === "main");
         if (mainPage && mainPage.rows.length > 0) {
           const keyboard = await generateKeyboardWithLanguage(mainPage, userLanguage, bilingualEnabled);
           if (keyboard) {
-            const menuPromptText = userLanguage === 'en' ? '📂 Please use the menu to select a function' : '📂 请使用菜单选择功能';
-            await sendTelegramMessage(botToken, 'sendMessage', {
+            const menuPromptText =
+              userLanguage === "en" ? "📂 Please use the menu to select a function" : "📂 请使用菜单选择功能";
+            await sendTelegramMessage(botToken, "sendMessage", {
               chat_id: chatId,
               text: menuPromptText,
               reply_markup: {
                 keyboard,
                 resize_keyboard: true,
-                one_time_keyboard: false
-              }
+                one_time_keyboard: false,
+              },
             });
-            console.log('Keyboard refreshed for unhandled message (menu-only mode)');
+            console.log("Keyboard refreshed for unhandled message (menu-only mode)");
           }
         }
       }
@@ -2640,29 +2723,26 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
 
     // 确定活动记录接收者：优先双向聊天的personalUserId，否则使用菜单键盘的menuAdminChatId
     const activityRecipient = bidirectionalChatEnabled && personalUserId > 0 ? personalUserId : menuAdminChatId;
-    
+
     // 转发消息给管理员（支持无双向聊天绑定的菜单键盘机器人）
     if (activityRecipient > 0 && chatId !== activityRecipient) {
-      
       if (bidirectionalChatEnabled && personalUserId > 0) {
         // ===== 双向聊天模式：转发完整消息带发起私聊按钮 =====
         // 根据 activityLogEnabled 设置决定是否转发已自动处理的消息
         const shouldForward = activityLogEnabled || !keyboardHandled;
-        
+
         if (shouldForward) {
           // 构建发起私聊按钮 - 点击可直接跳转到用户私聊
           const privateChatButton = {
-            inline_keyboard: [[
-              { text: `💬 发起私聊 (${fromUser.first_name})`, url: `tg://user?id=${chatId}` }
-            ]]
+            inline_keyboard: [[{ text: `💬 发起私聊 (${fromUser.first_name})`, url: `tg://user?id=${chatId}` }]],
           };
-          
+
           // 转发消息到管理员（带发起私聊按钮）
           if (photoFileId) {
-            const forwardCaption = `📨 新消息\n来自: ${userName}\n[CHATID:${chatId}:MSGID:${messageId}]\n${keyboardHandled ? '✅ 已自动处理' : ''}\n\n${message.caption || ''}`;
+            const forwardCaption = `📨 新消息\n来自: ${userName}\n[CHATID:${chatId}:MSGID:${messageId}]\n${keyboardHandled ? "✅ 已自动处理" : ""}\n\n${message.caption || ""}`;
             await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 chat_id: personalUserId,
                 photo: photoFileId,
@@ -2671,10 +2751,10 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
               }),
             });
           } else {
-            const forwardText = `📨 新消息\n来自: ${userName}\n[CHATID:${chatId}:MSGID:${messageId}]\n${keyboardHandled ? '✅ 已自动处理' : ''}\n\n${text}`;
+            const forwardText = `📨 新消息\n来自: ${userName}\n[CHATID:${chatId}:MSGID:${messageId}]\n${keyboardHandled ? "✅ 已自动处理" : ""}\n\n${text}`;
             await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 chat_id: personalUserId,
                 text: forwardText,
@@ -2684,55 +2764,53 @@ ${t('fiat_auto_deliver', shopUserLanguage)}`;
           }
           console.log(`Bidirectional chat: Message forwarded to personalUserId: ${personalUserId}`);
         } else {
-          console.log('Activity log disabled - auto-processed message not forwarded');
+          console.log("Activity log disabled - auto-processed message not forwarded");
         }
-        
       } else if (menuAdminChatId > 0 && activityLogEnabled) {
         // ===== 菜单键盘模式（无双向聊天）：只发送简洁的活动记录，不带发起私聊按钮 =====
         // 仅在 activityLogEnabled 开启时发送活动记录
-        
+
         // 确定操作类型
-        let operationType = '发送消息';
-        if (text === '/start') {
-          operationType = '点击 /start 启动机器人';
-        } else if (text.startsWith('/')) {
+        let operationType = "发送消息";
+        if (text === "/start") {
+          operationType = "点击 /start 启动机器人";
+        } else if (text.startsWith("/")) {
           operationType = `发送指令: ${text}`;
         } else if (keyboardHandled) {
           operationType = `点击菜单按钮: ${text}`;
         } else {
-          operationType = `发送文字: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`;
+          operationType = `发送文字: ${text.substring(0, 50)}${text.length > 50 ? "..." : ""}`;
         }
-        
+
         // 如果是图片
         if (photoFileId) {
-          operationType = `发送图片${message.caption ? ` (附言: ${message.caption.substring(0, 30)}...)` : ''}`;
+          operationType = `发送图片${message.caption ? ` (附言: ${message.caption.substring(0, 30)}...)` : ""}`;
         }
-        
+
         const activityText = `📋 用户操作记录\n来自: ${userName}\n用户ID: ${chatId}\n操作: ${operationType}`;
-        
-        await sendTelegramMessage(botToken, 'sendMessage', {
+
+        await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: menuAdminChatId,
           text: activityText,
         });
-        
+
         console.log(`Menu bot: Activity record sent to menuAdminChatId: ${menuAdminChatId}`);
       } else {
-        console.log('Activity log disabled or no recipient configured');
+        console.log("Activity log disabled or no recipient configured");
       }
     } else {
-      console.log('No activity recipient configured or message from admin - skipping forward');
+      console.log("No activity recipient configured or message from admin - skipping forward");
     }
 
     return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
-    console.error('Webhook error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("Webhook error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
