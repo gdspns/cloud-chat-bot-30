@@ -155,6 +155,7 @@ export const StorePage = () => {
   const orderPollingRef = useRef<NodeJS.Timeout | null>(null);
   const cardKeyPollingRef = useRef<NodeJS.Timeout | null>(null);
   const cardKeyWaitCountRef = useRef(0);
+  const orderFulfilledRef = useRef(false);
 
   // --- 安全防护：禁止 F12, Ctrl+Shift+I, 部分右键 ---
   useEffect(() => {
@@ -322,7 +323,14 @@ export const StorePage = () => {
           return;
         }
         
-        if (dbOrder?.status === 'paid') {
+         if (dbOrder?.status === 'paid') {
+          // 防止轮询和链上监控重复处理
+          if (orderFulfilledRef.current) {
+            console.log('[轮询] 订单已处理过，跳过:', orderNo);
+            stopOrderPolling();
+            return;
+          }
+          
           console.log('检测到订单已支付:', orderNo, 'delivered_code:', dbOrder.delivered_code);
           stopMonitoring();
           
@@ -334,6 +342,7 @@ export const StorePage = () => {
             if (dbOrder.delivered_code) {
               // 后端已发货（cron 或 webhook），直接显示卡密
               console.log('[卡密] 后端已发货:', dbOrder.delivered_code);
+              orderFulfilledRef.current = true;
               stopOrderPolling();
               stopCardKeyPolling();
               setIsLoadingCardKey(false);
@@ -344,6 +353,7 @@ export const StorePage = () => {
             } else {
               // 已支付但后端尚未发货，前端主动调用 deliver-card-key 发货
               console.log('[卡密] 已支付但无 delivered_code，前端主动发货');
+              orderFulfilledRef.current = true;
               stopOrderPolling();
               setPaymentStep('success');
               const pid = selectedProductId || '';
@@ -536,7 +546,8 @@ export const StorePage = () => {
     setRealPayAmount(finalAmount); 
     setTimeLeft(600); 
     setPaymentStep('paying');
-    setHupiPayUrl(''); 
+    setHupiPayUrl('');
+    orderFulfilledRef.current = false;
     
     const newOrder: Order = {
       orderNo,
@@ -694,6 +705,12 @@ export const StorePage = () => {
     const product = products.find(p => p.id === selectedProductId);
     if (!product || !currentOrder) return;
 
+    // 防止轮询和链上监控重复处理
+    if (orderFulfilledRef.current) {
+      console.log('[completeOrder] 订单已处理过，跳过');
+      return;
+    }
+
     // 卡密商品：前端检测到链上交易后，先查数据库看是否已发货
     if (product.type === 'card') {
       console.log('[completeOrder] 卡密商品检测到链上交易:', txId);
@@ -708,6 +725,7 @@ export const StorePage = () => {
       if (dbOrder?.delivered_code) {
         // 后端已发货，直接显示
         console.log('[completeOrder] 后端已发货:', dbOrder.delivered_code);
+        orderFulfilledRef.current = true;
         stopOrderPolling();
         stopCardKeyPolling();
         setIsLoadingCardKey(false);
@@ -718,6 +736,7 @@ export const StorePage = () => {
       } else {
         // 后端尚未发货，前端主动调用 deliver-card-key
         console.log('[completeOrder] 前端主动调用发货');
+        orderFulfilledRef.current = true;
         stopOrderPolling();
         setPaymentStep('success');
         startCardKeyDelivery(currentOrder.orderNo, product.id);
