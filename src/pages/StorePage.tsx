@@ -327,12 +327,21 @@ export const StorePage = () => {
           const product = products.find(p => p.id === selectedProductId);
           const isCardProduct = product?.type === 'card';
 
-          // 1) 卡密商品：进入成功页并主动发货
+          // 1) 卡密商品：检查后端是否已发货
           if (isCardProduct && product?.id) {
             stopOrderPolling();
-            updateOrderStatus('paid', '');
-            setPaymentStep('success');
-            startCardKeyDelivery(orderNo, product.id);
+            if (dbOrder.delivered_code) {
+              // 后端 cron 已发货，直接显示卡密
+              console.log('[卡密] 后端已发货:', dbOrder.delivered_code);
+              updateOrderStatus('paid', dbOrder.delivered_code);
+              setPaymentStep('success');
+              loadProducts();
+            } else {
+              // 后端未发货，前端主动发货
+              updateOrderStatus('paid', '');
+              setPaymentStep('success');
+              startCardKeyDelivery(orderNo, product.id);
+            }
             return;
           }
 
