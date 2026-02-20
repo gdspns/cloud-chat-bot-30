@@ -1255,7 +1255,13 @@ async function generateKeyboardWithLanguage(
   return keyboard;
 }
 
-// 处理菜单导航
+// 获取用户当前所在的菜单页面ID
+function getUserCurrentPage(chatId: number, userLanguagePreferences: Record<string, string> | null): string {
+  if (!userLanguagePreferences) return "main";
+  return userLanguagePreferences[`${chatId}_page`] || "main";
+}
+
+// 处理菜单导航 - 优先匹配用户当前所在页面的按钮
 async function handleMenuNavigation(
   botToken: string,
   chatId: number,
@@ -1263,47 +1269,72 @@ async function handleMenuNavigation(
   menuPages: MenuPage[],
   language: "zh" | "en" = "zh",
   bilingualEnabled: boolean = false,
-): Promise<boolean> {
+  currentPageId: string = "main",
+): Promise<{ handled: boolean; targetPageId?: string }> {
   const textNorm = text.trim().toLowerCase();
 
-  for (const page of menuPages) {
+  // 辅助函数：在指定页面中查找匹配的导航按钮
+  async function findNavigateBtn(page: MenuPage): Promise<ReplyButton | null> {
     for (const row of page.rows) {
       for (const btn of row) {
-        // 检查中文或英文文本匹配
+        if (btn.actionType !== "navigate" || !btn.actionValue) continue;
         const zhMatch = btn.text.toLowerCase() === textNorm;
         const enMatch = btn.textEn && btn.textEn.toLowerCase() === textNorm;
-
-        // 如果开启双语且没有手动设置英文，尝试自动翻译匹配
         let autoTranslatedMatch = false;
         if (!zhMatch && !enMatch && language === "en" && bilingualEnabled && !btn.textEn) {
           const translatedBtnText = await localizeText(btn.text, "en");
           autoTranslatedMatch = translatedBtnText.toLowerCase() === textNorm;
         }
+        if (zhMatch || enMatch || autoTranslatedMatch) return btn;
+      }
+    }
+    return null;
+  }
 
-        if ((zhMatch || enMatch || autoTranslatedMatch) && btn.actionType === "navigate" && btn.actionValue) {
-          const targetPage = menuPages.find((p) => p.id === btn.actionValue);
-          if (targetPage) {
-            const keyboard = await generateKeyboardWithLanguage(targetPage, language, bilingualEnabled);
-            const displayName = language === "en" ? await localizeText(targetPage.name, "en") : targetPage.name;
-            await sendTelegramMessage(botToken, "sendMessage", {
-              chat_id: chatId,
-              text: language === "en" ? `📂 Switch to: ${displayName}` : `📂 切换菜单: ${targetPage.name}`,
-              reply_markup: keyboard
-                ? {
-                    keyboard,
-                    resize_keyboard: true,
-                    one_time_keyboard: false,
-                  }
-                : undefined,
-            });
-            console.log(`Menu navigation: ${page.name} -> ${targetPage.name}`);
-            return true;
-          }
-        }
+  // 1. 优先在用户当前所在的页面中查找
+  const currentPage = menuPages.find((p) => p.id === currentPageId);
+  if (currentPage) {
+    const matchedBtn = await findNavigateBtn(currentPage);
+    if (matchedBtn && matchedBtn.actionValue) {
+      const targetPage = menuPages.find((p) => p.id === matchedBtn.actionValue);
+      if (targetPage) {
+        const keyboard = await generateKeyboardWithLanguage(targetPage, language, bilingualEnabled);
+        const displayName = language === "en" ? await localizeText(targetPage.name, "en") : targetPage.name;
+        await sendTelegramMessage(botToken, "sendMessage", {
+          chat_id: chatId,
+          text: language === "en" ? `📂 Switch to: ${displayName}` : `📂 切换菜单: ${targetPage.name}`,
+          reply_markup: keyboard
+            ? { keyboard, resize_keyboard: true, one_time_keyboard: false }
+            : undefined,
+        });
+        console.log(`Menu navigation: ${currentPage.name} -> ${targetPage.name} (from current page)`);
+        return { handled: true, targetPageId: targetPage.id };
       }
     }
   }
-  return false;
+
+  // 2. 如果当前页面没找到，再扫描所有页面（兜底）
+  for (const page of menuPages) {
+    if (page.id === currentPageId) continue; // 已经检查过了
+    const matchedBtn = await findNavigateBtn(page);
+    if (matchedBtn && matchedBtn.actionValue) {
+      const targetPage = menuPages.find((p) => p.id === matchedBtn.actionValue);
+      if (targetPage) {
+        const keyboard = await generateKeyboardWithLanguage(targetPage, language, bilingualEnabled);
+        const displayName = language === "en" ? await localizeText(targetPage.name, "en") : targetPage.name;
+        await sendTelegramMessage(botToken, "sendMessage", {
+          chat_id: chatId,
+          text: language === "en" ? `📂 Switch to: ${displayName}` : `📂 切换菜单: ${targetPage.name}`,
+          reply_markup: keyboard
+            ? { keyboard, resize_keyboard: true, one_time_keyboard: false }
+            : undefined,
+        });
+        console.log(`Menu navigation: ${page.name} -> ${targetPage.name} (fallback scan)`);
+        return { handled: true, targetPageId: targetPage.id };
+      }
+    }
+  }
+  return { handled: false };
 }
 
 // 处理自动回复 - 同时附带最新的底部键盘
@@ -1530,7 +1561,7 @@ async function handleCallbackQuery(
   return false;
 }
 
-// 发送主菜单
+// 发送主菜单 - 同时重置用户当前页面为main
 async function sendMainMenu(
   botToken: string,
   chatId: number,
@@ -1538,6 +1569,8 @@ async function sendMainMenu(
   greetingMessage?: string,
   language: "zh" | "en" = "zh",
   bilingualEnabled: boolean = false,
+  supabaseClient?: any,
+  userLanguagePreferences?: Record<string, string>,
 ) {
   const mainPage = menuPages.find((p) => p.id === "main");
   if (mainPage && mainPage.rows.length > 0) {
@@ -1554,6 +1587,14 @@ async function sendMainMenu(
           }
         : undefined,
     });
+    // 重置用户当前页面为main
+    if (supabaseClient && userLanguagePreferences) {
+      userLanguagePreferences[`${chatId}_page`] = "main";
+      await supabaseClient
+        .from("keyboard_configs")
+        .update({ user_language_preferences: userLanguagePreferences })
+        .eq("bot_token", botToken);
+    }
     console.log("Main menu sent to user");
     return true;
   }
@@ -2140,6 +2181,7 @@ serve(async (req) => {
       // 切换语言
       const newLanguage: "zh" | "en" = text === "🌐 English" ? "en" : "zh";
       userLanguagePreferences[chatId.toString()] = newLanguage;
+      userLanguagePreferences[`${chatId}_page`] = "main"; // 切换语言时重置到主菜单
       userLanguage = newLanguage;
 
       // 保存语言偏好到数据库
@@ -2698,17 +2740,17 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
           );
         } else if (forceMenuOnStart) {
           // 没有/start自动回复但配置了强制显示菜单
-          await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled);
+          await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled, supabase, userLanguagePreferences);
           keyboardHandled = true;
         } else {
           // 没有配置/start自动回复，发送默认菜单
-          await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled);
+          await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled, supabase, userLanguagePreferences);
           keyboardHandled = true;
         }
       } else if (hasKeyboardMenu) {
         // 只有菜单键盘，使用菜单键盘的自动回复或默认菜单
         if (forceMenuOnStart) {
-          await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled);
+          await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled, supabase, userLanguagePreferences);
           keyboardHandled = true;
         } else {
           keyboardHandled = await handleAutoReply(
@@ -2721,7 +2763,7 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
             bilingualEnabled,
           );
           if (!keyboardHandled && menuPages.length > 0) {
-            await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled);
+            await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled, supabase, userLanguagePreferences);
             keyboardHandled = true;
           }
         }
@@ -2749,7 +2791,17 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
     } else if (!keyboardHandled) {
       // 先检查菜单导航
       if (menuPages.length > 0) {
-        keyboardHandled = await handleMenuNavigation(botToken, chatId, text, menuPages, userLanguage, bilingualEnabled);
+        const currentPageId = getUserCurrentPage(chatId, userLanguagePreferences);
+        const navResult = await handleMenuNavigation(botToken, chatId, text, menuPages, userLanguage, bilingualEnabled, currentPageId);
+        keyboardHandled = navResult.handled;
+        if (navResult.handled && navResult.targetPageId) {
+          // 保存用户当前所在的菜单页面
+          userLanguagePreferences[`${chatId}_page`] = navResult.targetPageId;
+          await supabase
+            .from("keyboard_configs")
+            .update({ user_language_preferences: userLanguagePreferences })
+            .eq("bot_token", botToken);
+        }
       }
 
       // 如果菜单没有处理，检查自动回复 - 自动回复消息也附带最新键盘
