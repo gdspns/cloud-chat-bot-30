@@ -22,6 +22,7 @@ const Index = () => {
   const [enableSound, setEnableSound] = useState(true);
   const [soundType, setSoundType] = useState("qq");
   const [isUserDisabled, setIsUserDisabled] = useState(false);
+  const [chatStartEnabled, setChatStartEnabled] = useState(true);
   const hasSyncedRef = useRef(false);
   const prevUserIdRef = useRef<string | null>(null);
   const botIdsRef = useRef<string[]>([]);
@@ -624,11 +625,26 @@ const Index = () => {
   };
 
   // 选择机器人
-  const handleSelectBot = (botId: string) => {
+  const handleSelectBot = async (botId: string) => {
     setSelectedBotId(botId);
     setSelectedChatId(null);
     localStorage.setItem('selectedBotId', botId);
     localStorage.removeItem('selectedChatId');
+    
+    // Load chatStartEnabled for this bot
+    const bot = bots.find(b => b.id === botId);
+    if (bot?.bot_token) {
+      const { data: kbConfig } = await supabase
+        .from('keyboard_configs')
+        .select('chat_start_enabled')
+        .eq('bot_token', bot.bot_token)
+        .maybeSingle();
+      if (kbConfig && (kbConfig as any).chat_start_enabled !== null && (kbConfig as any).chat_start_enabled !== undefined) {
+        setChatStartEnabled((kbConfig as any).chat_start_enabled);
+      } else {
+        setChatStartEnabled(true);
+      }
+    }
   };
 
   // 获取选中机器人
@@ -719,6 +735,17 @@ const Index = () => {
           soundType={soundType}
           onSoundTypeChange={setSoundType}
           onTestSound={playNotificationSound}
+          chatStartEnabled={chatStartEnabled}
+          onToggleChatStart={async () => {
+            const newVal = !chatStartEnabled;
+            setChatStartEnabled(newVal);
+            if (selectedBot?.bot_token) {
+              await supabase
+                .from('keyboard_configs')
+                .update({ chat_start_enabled: newVal } as any)
+                .eq('bot_token', selectedBot.bot_token);
+            }
+          }}
         />
       </div>
 
