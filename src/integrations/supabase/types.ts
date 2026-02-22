@@ -278,12 +278,14 @@ export type Database = {
           bot_first_name: string | null
           bot_token: string
           bot_username: string | null
+          chat_start_enabled: boolean | null
           commands: Json | null
           created_at: string
           flow_messages: Json | null
           force_menu_on_start: boolean | null
           id: string
           keyboard_expire_at: string | null
+          keyboard_start_enabled: boolean | null
           keyboard_trial_started_at: string | null
           last_cleanup_at: string | null
           menu_admin_chat_id: number | null
@@ -300,12 +302,14 @@ export type Database = {
           bot_first_name?: string | null
           bot_token: string
           bot_username?: string | null
+          chat_start_enabled?: boolean | null
           commands?: Json | null
           created_at?: string
           flow_messages?: Json | null
           force_menu_on_start?: boolean | null
           id?: string
           keyboard_expire_at?: string | null
+          keyboard_start_enabled?: boolean | null
           keyboard_trial_started_at?: string | null
           last_cleanup_at?: string | null
           menu_admin_chat_id?: number | null
@@ -322,12 +326,14 @@ export type Database = {
           bot_first_name?: string | null
           bot_token?: string
           bot_username?: string | null
+          chat_start_enabled?: boolean | null
           commands?: Json | null
           created_at?: string
           flow_messages?: Json | null
           force_menu_on_start?: boolean | null
           id?: string
           keyboard_expire_at?: string | null
+          keyboard_start_enabled?: boolean | null
           keyboard_trial_started_at?: string | null
           last_cleanup_at?: string | null
           menu_admin_chat_id?: number | null
