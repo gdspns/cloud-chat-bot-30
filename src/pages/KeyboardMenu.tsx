@@ -2191,6 +2191,31 @@ function SettingsPanel({
                   </button>
                 </div>
 
+                {/* 菜单键盘 /start 开关 */}
+                <div className="flex items-center justify-between bg-muted p-3 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Layout size={14} className="text-muted-foreground" />
+                    <div className="flex flex-col text-left">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        菜单键盘 /start
+                      </span>
+                      <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                        开启后用户点击/start会发送菜单键盘
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setKeyboardStartEnabled(!keyboardStartEnabled);
+                      setTimeout(() => syncConfigToCloud?.(), 100);
+                    }}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${keyboardStartEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${keyboardStartEnabled ? "translate-x-4" : "translate-x-1"}`}
+                    />
+                  </button>
+                </div>
 
 
                 {/* Deep Reset */}
