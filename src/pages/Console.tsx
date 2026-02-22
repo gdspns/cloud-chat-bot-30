@@ -48,6 +48,7 @@ export const Console = () => {
   const [enableSound, setEnableSound] = useState(true);
   const [soundType, setSoundType] = useState<"qq" | "ding" | "bell">("qq");
   const [unreadChats, setUnreadChats] = useState<Set<number>>(new Set());
+  const [chatStartEnabled, setChatStartEnabled] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Play notification sound
@@ -156,6 +157,18 @@ export const Console = () => {
         }
 
         setActivation(data as BotActivation);
+
+        // Load chatStartEnabled from keyboard_configs
+        if (data.bot_token) {
+          const { data: kbConfig } = await supabase
+            .from('keyboard_configs')
+            .select('chat_start_enabled')
+            .eq('bot_token', data.bot_token)
+            .maybeSingle();
+          if (kbConfig && (kbConfig as any).chat_start_enabled !== null && (kbConfig as any).chat_start_enabled !== undefined) {
+            setChatStartEnabled((kbConfig as any).chat_start_enabled);
+          }
+        }
       } catch (error) {
         console.error('Load activation failed:', error);
         toast({
@@ -337,6 +350,35 @@ export const Console = () => {
                 </span>
               )}
             </div>
+          </div>
+
+          {/* 双向聊天 /start 开关 */}
+          <div className="flex items-center justify-between bg-muted p-3 rounded-lg mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                双向聊天 /start 欢迎语
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                开启后用户点击/start会发送欢迎语
+              </span>
+            </div>
+            <button
+              onClick={async () => {
+                const newVal = !chatStartEnabled;
+                setChatStartEnabled(newVal);
+                if (activation?.bot_token) {
+                  await supabase
+                    .from('keyboard_configs')
+                    .update({ chat_start_enabled: newVal } as any)
+                    .eq('bot_token', activation.bot_token);
+                }
+              }}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${chatStartEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${chatStartEnabled ? "translate-x-4" : "translate-x-1"}`}
+              />
+            </button>
           </div>
 
           {/* Sound settings */}
