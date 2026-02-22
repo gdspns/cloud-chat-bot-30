@@ -18,6 +18,8 @@ interface ChatWindowProps {
   soundType: string;
   onSoundTypeChange: (type: string) => void;
   onTestSound: () => void;
+  chatStartEnabled?: boolean;
+  onToggleChatStart?: () => void;
 }
 
 export const ChatWindow = ({
@@ -30,6 +32,8 @@ export const ChatWindow = ({
   soundType,
   onSoundTypeChange,
   onTestSound,
+  chatStartEnabled,
+  onToggleChatStart,
 }: ChatWindowProps) => {
   const { t } = useLanguage();
   const [replyText, setReplyText] = useState("");
@@ -227,6 +231,19 @@ export const ChatWindow = ({
           </div>
           
           <div className="flex items-center gap-2">
+            {onToggleChatStart && (
+              <div className="flex items-center gap-1.5 mr-2">
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">/start欢迎语</span>
+                <button
+                  onClick={onToggleChatStart}
+                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${chatStartEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${chatStartEnabled ? "translate-x-3.5" : "translate-x-0.5"}`}
+                  />
+                </button>
+              </div>
+            )}
             <Button variant="ghost" size="sm" onClick={onToggleSound}>
               {enableSound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
@@ -283,6 +300,19 @@ export const ChatWindow = ({
         </div>
         
         <div className="flex items-center gap-2">
+          {onToggleChatStart && (
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">/start欢迎语</span>
+              <button
+                onClick={onToggleChatStart}
+                className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${chatStartEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${chatStartEnabled ? "translate-x-3.5" : "translate-x-0.5"}`}
+                />
+              </button>
+            </div>
+          )}
           <Button variant="ghost" size="sm" onClick={onToggleSound}>
             {enableSound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </Button>
