@@ -1196,6 +1196,8 @@ interface KeyboardConfig {
   menu_admin_chat_id: number | null;
   auto_cleanup_enabled: boolean | null;
   auto_cleanup_days: number | null;
+  chat_start_enabled: boolean | null;
+  keyboard_start_enabled: boolean | null;
 }
 
 // 发送Telegram消息的辅助函数
@@ -1697,6 +1699,8 @@ serve(async (req) => {
     const bilingualEnabled: boolean = keyboardMenuEnabled ? keyboardConfig?.bilingual_button_enabled || false : false;
     let userLanguagePreferences: Record<string, string> = keyboardConfig?.user_language_preferences || {};
     const menuAdminChatId: number = keyboardConfig?.menu_admin_chat_id ? Number(keyboardConfig.menu_admin_chat_id) : 0;
+    const chatStartEnabled: boolean = keyboardConfig?.chat_start_enabled !== false; // 默认为true
+    const keyboardStartEnabled: boolean = keyboardConfig?.keyboard_start_enabled !== false; // 默认为true
 
     console.log(
       `Keyboard config loaded: ${menuPages.length} pages, ${autoReplyRules.length} rules, activityLog: ${activityLogEnabled}, bilingual: ${bilingualEnabled}, bidirectionalChat: ${bidirectionalChatEnabled}, menuAdminChatId: ${menuAdminChatId}, keyboardMenuEnabled: ${keyboardMenuEnabled}`,
@@ -2716,8 +2720,8 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
       // 1. 同时有双向聊天和菜单键盘时 → 使用菜单键盘的/start自动回复
       // 2. 只有双向聊天时 → 使用双向聊天的欢迎语(activation.greeting_message)
 
-      const hasBidirectionalChat = bidirectionalChatEnabled && activation;
-      const hasKeyboardMenu = keyboardMenuEnabled && menuPages.length > 0;
+      const hasBidirectionalChat = bidirectionalChatEnabled && activation && chatStartEnabled;
+      const hasKeyboardMenu = keyboardMenuEnabled && menuPages.length > 0 && keyboardStartEnabled;
 
       // 如果同时有双向聊天和菜单键盘，优先使用菜单键盘的/start自动回复
       if (hasBidirectionalChat && hasKeyboardMenu) {
