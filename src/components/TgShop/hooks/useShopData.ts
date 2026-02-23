@@ -359,10 +359,27 @@ export function useShopData(botToken?: string) {
 
       if (configRes.data) {
         const rawData = configRes.data as unknown as DbConfig;
-        setConfig(dbConfigToConfig(rawData));
+        const loadedConfig = dbConfigToConfig(rawData);
+        
+        // Auto-start 24h trial if no expire and no trial started
+        if (!rawData.shop_expire_at && !rawData.shop_trial_started_at) {
+          const trialStartTime = new Date().toISOString();
+          await supabase
+            .from("shop_configs")
+            .update({ shop_trial_started_at: trialStartTime, updated_at: new Date().toISOString() } as any)
+            .eq("bot_token", botToken);
+          loadedConfig.shopTrialStartedAt = trialStartTime;
+        }
+        
+        setConfig(loadedConfig);
       } else {
-        // 使用默认配置但设置 token
-        setConfig({ ...defaultConfig, token: botToken });
+        // Create config with trial started
+        const trialStartTime = new Date().toISOString();
+        const newConfig = { ...defaultConfig, token: botToken, shopTrialStartedAt: trialStartTime };
+        const dbConfig = configToDbConfig(newConfig, botToken);
+        (dbConfig as any).shop_trial_started_at = trialStartTime;
+        await supabase.from("shop_configs").insert(dbConfig as any);
+        setConfig(newConfig);
       }
     } catch (error) {
       console.error("Failed to load shop data:", error);
