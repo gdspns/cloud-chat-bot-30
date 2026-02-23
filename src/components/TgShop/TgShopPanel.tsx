@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from "react";
-import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag, CreditCard } from "lucide-react";
+import React, { useState, useCallback, useEffect } from "react";
+import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag, CreditCard, Timer } from "lucide-react";
 import { ShopTab } from "./types";
 import { ShopNavButton } from "./ShopNavButton";
 import { ProductManager } from "./ProductManager";
@@ -38,6 +38,56 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
 
   // Custom categories from config (persisted to database)
   const customCategories = config.customCategories || [];
+
+  // Countdown timer for trial/subscription
+  const [countdown, setCountdown] = useState('');
+  const [isExpired, setIsExpired] = useState(false);
+
+  useEffect(() => {
+    const calcCountdown = () => {
+      let expireTime: Date | null = null;
+      
+      if (config.shopExpireAt) {
+        expireTime = new Date(config.shopExpireAt);
+      } else if (config.shopTrialStartedAt) {
+        const trialStart = new Date(config.shopTrialStartedAt);
+        expireTime = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      if (!expireTime) {
+        setCountdown('');
+        setIsExpired(false);
+        return;
+      }
+
+      const now = new Date();
+      const diff = expireTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setCountdown('00:00:00');
+        setIsExpired(true);
+        return;
+      }
+
+      setIsExpired(false);
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      
+      if (h >= 24) {
+        const days = Math.floor(h / 24);
+        const remainH = h % 24;
+        setCountdown(`${days}${language === 'zh' ? '天' : 'd'} ${String(remainH).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+      } else {
+        setCountdown(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+      }
+    };
+
+    calcCountdown();
+    const timer = setInterval(calcCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [config.shopExpireAt, config.shopTrialStartedAt, language]);
+
 
   const handleClearOrders = async (status: 'pending' | 'paid' | 'cancelled') => {
     const success = await clearOrdersByStatus(status);
@@ -130,6 +180,17 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
             >
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             </button>
+
+            {countdown && (
+              <div className={`flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 rounded-full border text-[10px] md:text-xs font-mono font-medium ${
+                isExpired
+                  ? 'bg-destructive/10 border-destructive/50 text-destructive'
+                  : 'bg-orange-500/10 border-orange-500/50 text-orange-600'
+              }`}>
+                <Timer size={12} className={isExpired ? '' : 'animate-pulse'} />
+                <span>{isExpired ? (language === 'zh' ? '已过期' : 'Expired') : countdown}</span>
+              </div>
+            )}
 
             <div className={`flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-full border ${
               config.status === 'online' 
