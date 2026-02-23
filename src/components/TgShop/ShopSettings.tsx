@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink, Plus, X, Key, MessageCircle, Globe, Image, Video, Link, Type, Eye, EyeOff, Smile, Languages } from "lucide-react";
+import { Bot, CreditCard, Wallet, Power, PlugZap, RefreshCw, Coins, Copy, Check, ExternalLink, Plus, X, Key, MessageCircle, Globe, Image, Video, Link, Type, Eye, EyeOff, Smile, Languages, Timer } from "lucide-react";
 import { ShopConfig } from "./types";
 import { useLanguage } from "@/hooks/use-language";
 import { WelcomeMessageEditor } from "./WelcomeMessageEditor";
@@ -9,6 +9,67 @@ interface ShopSettingsProps {
   onSave: (config: Partial<ShopConfig>) => void;
   showToast: (type: "success" | "error" | "info", message: string) => void;
   botToken?: string;
+}
+
+function TrialCountdown({ shopExpireAt, shopTrialStartedAt, language, t }: {
+  shopExpireAt?: string | null;
+  shopTrialStartedAt?: string | null;
+  language: string;
+  t: (key: string) => string;
+}) {
+  const [countdown, setCountdown] = React.useState('');
+  const [expired, setExpired] = React.useState(false);
+
+  React.useEffect(() => {
+    const calc = () => {
+      let end: Date | null = null;
+      if (shopExpireAt) {
+        end = new Date(shopExpireAt);
+      } else if (shopTrialStartedAt) {
+        end = new Date(new Date(shopTrialStartedAt).getTime() + 24 * 60 * 60 * 1000);
+      }
+      if (!end) { setCountdown(''); setExpired(false); return; }
+      const diff = end.getTime() - Date.now();
+      if (diff <= 0) { setCountdown('00:00:00'); setExpired(true); return; }
+      setExpired(false);
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      if (h >= 24) {
+        const d = Math.floor(h / 24), rh = h % 24;
+        setCountdown(`${d}${language === 'zh' ? '天' : 'd'} ${String(rh).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+      } else {
+        setCountdown(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+      }
+    };
+    calc();
+    const timer = setInterval(calc, 1000);
+    return () => clearInterval(timer);
+  }, [shopExpireAt, shopTrialStartedAt, language]);
+
+  if (!countdown && !shopExpireAt && !shopTrialStartedAt) {
+    return <div className="mt-2 text-xs"><span className="text-muted-foreground">💡 {t('tgshop.settings.trialHint')}</span></div>;
+  }
+
+  return (
+    <div className={`mt-2 flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg border ${
+      expired
+        ? 'bg-destructive/10 border-destructive/30 text-destructive'
+        : 'bg-orange-500/10 border-orange-500/30 text-orange-600'
+    }`}>
+      <Timer size={14} className={expired ? '' : 'animate-pulse'} />
+      {expired ? (
+        <span>❌ {shopExpireAt ? t('tgshop.settings.expired') : t('tgshop.settings.trialExpired')} - {t('tgshop.settings.renewCode')}</span>
+      ) : (
+        <span className="font-mono font-medium">
+          {shopExpireAt
+            ? `✅ ${language === 'zh' ? '剩余' : 'Remaining'}: ${countdown}`
+            : `⏳ ${language === 'zh' ? '试用剩余' : 'Trial'}: ${countdown}`
+          }
+        </span>
+      )}
+    </div>
+  );
 }
 
 export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettingsProps) {
@@ -247,33 +308,13 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   <Key size={12} /> {t('tgshop.settings.bind')}
                 </button>
               </div>
-              {/* 状态提示 */}
-              <div className="mt-2 text-xs">
-                {localConfig.shopExpireAt ? (
-                  new Date(localConfig.shopExpireAt) > new Date() ? (
-                    <span className="text-green-600">
-                      ✅ {t('tgshop.settings.validUntil')}: {new Date(localConfig.shopExpireAt).toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US')}
-                    </span>
-                  ) : (
-                    <span className="text-destructive">
-                      ❌ {t('tgshop.settings.expired')} ({new Date(localConfig.shopExpireAt).toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US')}) - {t('tgshop.settings.renewCode')}
-                    </span>
-                  )
-                ) : localConfig.shopTrialStartedAt ? (
-                  (() => {
-                    const trialStart = new Date(localConfig.shopTrialStartedAt);
-                    const trialEnd = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
-                    const now = new Date();
-                    if (now > trialEnd) {
-                      return <span className="text-destructive">❌ {t('tgshop.settings.trialExpired')}</span>;
-                    }
-                    const hoursLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60));
-                    return <span className="text-amber-600">⏳ {t('tgshop.settings.trialRemaining').replace('{hours}', hoursLeft.toString())}</span>;
-                  })()
-                ) : (
-                  <span className="text-muted-foreground">💡 {t('tgshop.settings.trialHint')}</span>
-                )}
-              </div>
+              {/* 状态提示 + 倒计时 */}
+              <TrialCountdown
+                shopExpireAt={localConfig.shopExpireAt}
+                shopTrialStartedAt={localConfig.shopTrialStartedAt}
+                language={language}
+                t={t}
+              />
             </div>
           </div>
         </div>
@@ -384,7 +425,6 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
             </div>
           )}
         </div>
-
 
         {/* Telegram 购买命令 + 支付说明并排 */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
