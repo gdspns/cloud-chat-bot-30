@@ -3,10 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Package, Eye, EyeOff, ChevronDown, ChevronUp, Copy, Bot } from "lucide-react";
+import { RefreshCw, Package, Eye, EyeOff, ChevronDown, ChevronUp, Copy, Bot, Trash2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 
 interface ShopProduct {
   id: string;
@@ -51,7 +55,6 @@ export function BotShopProducts() {
 
   useEffect(() => { loadProducts(); }, []);
 
-  // Group products by bot_token
   const grouped = products.reduce<Record<string, ShopProduct[]>>((acc, p) => {
     if (!acc[p.bot_token]) acc[p.bot_token] = [];
     acc[p.bot_token].push(p);
@@ -76,15 +79,22 @@ export function BotShopProducts() {
     });
   };
 
-  const maskToken = (token: string) => {
-    if (token.length <= 10) return token;
-    return token.slice(0, 6) + "****" + token.slice(-4);
-  };
-
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       toast({ title: "已复制" });
     });
+  };
+
+  const deleteProduct = async (productId: string) => {
+    try {
+      const { error } = await supabase.from("shop_products").delete().eq("id", productId);
+      if (error) throw error;
+      toast({ title: "删除成功", description: "商品已删除" });
+      await loadProducts();
+    } catch (err) {
+      console.error("Failed to delete product:", err);
+      toast({ title: "删除失败", description: "无法删除商品", variant: "destructive" });
+    }
   };
 
   return (
@@ -128,10 +138,10 @@ export function BotShopProducts() {
                     <Bot className="h-5 w-5 text-primary shrink-0" />
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-medium">{maskToken(token)}</span>
+                        <span className="font-mono text-xs font-medium break-all">{token}</span>
                         <button
                           onClick={(e) => { e.stopPropagation(); copyText(token); }}
-                          className="p-0.5 rounded hover:bg-muted"
+                          className="p-0.5 rounded hover:bg-muted shrink-0"
                         >
                           <Copy className="h-3 w-3 text-muted-foreground" />
                         </button>
@@ -160,6 +170,7 @@ export function BotShopProducts() {
                             <TableHead className="w-[80px]">分类</TableHead>
                             <TableHead className="w-[60px]">库存</TableHead>
                             <TableHead>卡密内容</TableHead>
+                            <TableHead className="w-[60px]">操作</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -223,6 +234,29 @@ export function BotShopProducts() {
                                       )}
                                     </div>
                                   )}
+                                </TableCell>
+                                <TableCell>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>确认删除商品</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          确定要删除商品「{product.name}」吗？该操作会同时从该机器人的TG商城中删除此商品，且不可恢复。
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>取消</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => deleteProduct(product.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                          删除
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
                                 </TableCell>
                               </TableRow>
                             );
