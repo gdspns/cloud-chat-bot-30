@@ -2490,13 +2490,13 @@ serve(async (req) => {
             );
           }
         } else {
-          // 禁用：清除试用记录和有效期
+          // 禁用：清除有效期，将试用开始时间设为很早的过去时间（防止重新打开面板时自动开启试用）
           if (shopConfig) {
             await supabase
               .from('shop_configs')
               .update({
                 shop_expire_at: null,
-                shop_trial_started_at: null,
+                shop_trial_started_at: '2000-01-01T00:00:00.000Z',
                 updated_at: new Date().toISOString(),
               })
               .eq('bot_token', botToken);
