@@ -19,6 +19,7 @@ import { ProductManagement } from "@/components/ProductManagement";
 import BatchKeyImport from "@/components/BatchKeyImport";
 import { OrderCenter } from "@/components/OrderCenter";
 import { GatewayConfig } from "@/components/GatewayConfig";
+import { BotShopProducts } from "@/components/BotShopProducts";
 
 interface BotActivation {
   id: string;
@@ -1339,6 +1340,10 @@ export const Admin = () => {
                 <CreditCard className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">网关配置</span>
               </TabsTrigger>
+              <TabsTrigger value="botproducts">
+                <ClipboardList className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">机器人商品</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -1950,6 +1955,13 @@ export const Admin = () => {
           <TabsContent value="gateway" className="space-y-4">
             <Card className="p-6">
               <GatewayConfig />
+            </Card>
+          </TabsContent>
+
+          {/* 机器人商品 */}
+          <TabsContent value="botproducts" className="space-y-4">
+            <Card className="p-6">
+              <BotShopProducts />
             </Card>
           </TabsContent>
         </Tabs>
