@@ -2174,8 +2174,21 @@ serve(async (req) => {
           });
         }
 
+        if (!expireAt) {
+          return new Response(JSON.stringify({ ok: false, error: '缺少过期时间' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         // 将过期时间设置为当天的23:59:59
         const expireDate = new Date(expireAt);
+        if (isNaN(expireDate.getTime())) {
+          return new Response(JSON.stringify({ ok: false, error: '无效的日期格式' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         expireDate.setHours(23, 59, 59, 999);
         const normalizedExpireAt = expireDate.toISOString();
 
@@ -2221,8 +2234,21 @@ serve(async (req) => {
           });
         }
 
+        if (!expireAt) {
+          return new Response(JSON.stringify({ ok: false, error: '缺少过期时间' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         // 将过期时间设置为当天的23:59:59
         const expireDate = new Date(expireAt);
+        if (isNaN(expireDate.getTime())) {
+          return new Response(JSON.stringify({ ok: false, error: '无效的日期格式' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         expireDate.setHours(23, 59, 59, 999);
         const normalizedExpireAt = expireDate.toISOString();
 
@@ -2542,8 +2568,21 @@ serve(async (req) => {
           });
         }
 
+        if (!expireAt) {
+          return new Response(JSON.stringify({ ok: false, error: '缺少过期时间' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         // 将过期时间设置为当天的23:59:59
         const expireDate = new Date(expireAt);
+        if (isNaN(expireDate.getTime())) {
+          return new Response(JSON.stringify({ ok: false, error: '无效的日期格式' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         expireDate.setHours(23, 59, 59, 999);
         const normalizedExpireAt = expireDate.toISOString();
 
