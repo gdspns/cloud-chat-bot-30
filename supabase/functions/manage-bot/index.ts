@@ -2478,12 +2478,14 @@ serve(async (req) => {
           .maybeSingle();
 
         if (enabled) {
-          // 启用：如果没有有效期且没有试用记录，开始24小时试用
-          if (!shopConfig?.shop_expire_at && !shopConfig?.shop_trial_started_at) {
+          // 启用：重新开始24小时试用（如果没有有效的到期时间）
+          const hasValidExpiry = shopConfig?.shop_expire_at && new Date(shopConfig.shop_expire_at) > new Date();
+          if (!hasValidExpiry) {
             await supabase.from('shop_configs').upsert(
               {
                 bot_token: botToken,
                 shop_trial_started_at: new Date().toISOString(),
+                shop_expire_at: null,
                 updated_at: new Date().toISOString(),
               } as any,
               { onConflict: 'bot_token' }
