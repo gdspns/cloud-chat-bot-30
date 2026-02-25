@@ -2478,13 +2478,29 @@ serve(async (req) => {
           .maybeSingle();
 
         if (enabled) {
-          // 启用：重新开始24小时试用（如果没有有效的到期时间）
+          // 启用：只有从未试用过的才给新试用，已用过试用的不再重复给
           const hasValidExpiry = shopConfig?.shop_expire_at && new Date(shopConfig.shop_expire_at) > new Date();
-          if (!hasValidExpiry) {
+          const hasUsedTrial = shopConfig?.shop_trial_started_at && shopConfig.shop_trial_started_at !== null;
+          
+          if (hasValidExpiry) {
+            // 有有效到期时间，无需操作
+          } else if (!hasUsedTrial) {
+            // 从未试用过，开启24小时试用
             await supabase.from('shop_configs').upsert(
               {
                 bot_token: botToken,
                 shop_trial_started_at: new Date().toISOString(),
+                shop_expire_at: null,
+                updated_at: new Date().toISOString(),
+              } as any,
+              { onConflict: 'bot_token' }
+            );
+          } else {
+            // 试用已用过且无有效期，恢复为过期状态（保留原试用记录）
+            await supabase.from('shop_configs').upsert(
+              {
+                bot_token: botToken,
+                shop_trial_started_at: shopConfig.shop_trial_started_at,
                 shop_expire_at: null,
                 updated_at: new Date().toISOString(),
               } as any,
