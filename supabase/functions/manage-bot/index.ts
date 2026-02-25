@@ -2483,16 +2483,34 @@ serve(async (req) => {
           if (hasValidExpiry) {
             // 有有效到期时间，无需操作
           } else {
-            // 无有效期（无论是否用过试用），管理员启用时重新开启24小时试用
-            await supabase.from('shop_configs').upsert(
-              {
-                bot_token: botToken,
-                shop_trial_started_at: new Date().toISOString(),
-                shop_expire_at: null,
-                updated_at: new Date().toISOString(),
-              } as any,
-              { onConflict: 'bot_token' }
-            );
+            // 检查是否用过试用
+            const trialStart = shopConfig?.shop_trial_started_at;
+            const hasUsedTrial = trialStart && trialStart !== null && new Date(trialStart).getFullYear() > 2000;
+            
+            if (hasUsedTrial) {
+              // 试用已用过，管理员启用时授权30天（不再给试用）
+              const expireAt = new Date();
+              expireAt.setDate(expireAt.getDate() + 30);
+              await supabase.from('shop_configs').upsert(
+                {
+                  bot_token: botToken,
+                  shop_expire_at: expireAt.toISOString(),
+                  updated_at: new Date().toISOString(),
+                } as any,
+                { onConflict: 'bot_token' }
+              );
+            } else {
+              // 从未试用过，开启24小时试用
+              await supabase.from('shop_configs').upsert(
+                {
+                  bot_token: botToken,
+                  shop_trial_started_at: new Date().toISOString(),
+                  shop_expire_at: null,
+                  updated_at: new Date().toISOString(),
+                } as any,
+                { onConflict: 'bot_token' }
+              );
+            }
           }
         } else {
           // 禁用：清除有效期，将试用开始时间设为很早的过去时间（防止重新打开面板时自动开启试用）
