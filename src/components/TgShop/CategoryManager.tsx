@@ -11,6 +11,7 @@ interface CategoryManagerProps {
   customCategories: string[];
   onAddCustomCategory: (category: string) => void;
   onRemoveCustomCategory: (category: string) => void;
+  readOnly?: boolean;
 }
 
 export function CategoryManager({ 
@@ -20,7 +21,8 @@ export function CategoryManager({
   isSyncing,
   customCategories,
   onAddCustomCategory,
-  onRemoveCustomCategory
+  onRemoveCustomCategory,
+  readOnly = false
 }: CategoryManagerProps) {
   const { t } = useLanguage();
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -183,7 +185,7 @@ export function CategoryManager({
           />
           <button
             onClick={handleAddCategory}
-            disabled={isUpdating || isSyncing}
+            disabled={isUpdating || isSyncing || readOnly}
             className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors flex items-center gap-1.5 disabled:opacity-50"
           >
             <Plus size={16} />
@@ -258,7 +260,7 @@ export function CategoryManager({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => startEdit(name)}
-                        disabled={isUpdating || isSyncing}
+                        disabled={isUpdating || isSyncing || readOnly}
                         className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors disabled:opacity-50"
                         title={t('common.edit')}
                       >
@@ -267,7 +269,7 @@ export function CategoryManager({
                       {name !== defaultCategory && (
                         <button
                           onClick={() => handleDeleteCategory(name)}
-                          disabled={isUpdating || isSyncing}
+                          disabled={isUpdating || isSyncing || readOnly}
                           className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors disabled:opacity-50"
                           title={t('common.delete')}
                         >

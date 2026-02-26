@@ -11,6 +11,7 @@ interface ProductManagerProps {
   showToast: (type: "success" | "error" | "info", message: string) => void;
   isSyncing: boolean;
   customCategories?: string[];
+  readOnly?: boolean;
 }
 
 export function ProductManager({ 
@@ -20,7 +21,8 @@ export function ProductManager({
   onDeleteProduct, 
   showToast,
   isSyncing,
-  customCategories = []
+  customCategories = [],
+  readOnly = false
 }: ProductManagerProps) {
   const { t, language } = useLanguage();
   const defaultCategory = t('tgshop.product.defaultCategory');
@@ -325,7 +327,7 @@ export function ProductManager({
 
             <button 
               onClick={handleSave}
-              disabled={isSaving || isSyncing}
+              disabled={isSaving || isSyncing || readOnly}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2.5 rounded-lg shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-50"
             >
               {isSaving ? (
@@ -348,7 +350,8 @@ export function ProductManager({
           <h2 className="font-semibold text-foreground">{t('tgshop.product.productList')}</h2>
           <button 
             onClick={handleNew} 
-            className="p-1.5 hover:bg-primary/10 text-primary rounded flex items-center gap-1 text-sm"
+            disabled={readOnly}
+            className="p-1.5 hover:bg-primary/10 text-primary rounded flex items-center gap-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={16} />
             <span>{t('tgshop.product.new')}</span>

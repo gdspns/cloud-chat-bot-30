@@ -7,9 +7,10 @@ interface PaymentSettingsProps {
   config: ShopConfig;
   onSave: (config: Partial<ShopConfig>) => void;
   showToast: (type: "success" | "error" | "info", message: string) => void;
+  readOnly?: boolean;
 }
 
-export function PaymentSettings({ config, onSave, showToast }: PaymentSettingsProps) {
+export function PaymentSettings({ config, onSave, showToast, readOnly }: PaymentSettingsProps) {
   const { t, language } = useLanguage();
   const [localConfig, setLocalConfig] = React.useState(config);
   const [copied, setCopied] = React.useState(false);
@@ -351,7 +352,8 @@ export function PaymentSettings({ config, onSave, showToast }: PaymentSettingsPr
         {/* 保存按钮 */}
         <button 
           onClick={handleSaveClick}
-          className="w-full font-bold py-3 rounded-lg shadow-lg transition-all bg-primary hover:bg-primary/90 text-primary-foreground"
+          disabled={readOnly}
+          className="w-full font-bold py-3 rounded-lg shadow-lg transition-all bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
         >
           {language === 'zh' ? '保存支付配置' : 'Save Payment Config'}
         </button>
