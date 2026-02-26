@@ -88,12 +88,6 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
     return () => clearInterval(timer);
   }, [config.shopExpireAt, config.shopTrialStartedAt, language]);
 
-  // Force back to settings tab when expired
-  useEffect(() => {
-    if (isExpired && activeTab !== 'settings') {
-      setActiveTab('settings');
-    }
-  }, [isExpired, activeTab]);
 
 
   const handleClearOrders = async (status: 'pending' | 'paid' | 'cancelled') => {
@@ -228,32 +222,28 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
             label={t('tgshop.panel.navProducts')} 
             shortLabel={language === 'zh' ? '商品' : 'Items'}
             active={activeTab === 'products'} 
-            onClick={() => setActiveTab('products')} 
-            disabled={isExpired}
+            onClick={() => setActiveTab('products')}
           />
           <ShopNavButton 
             icon={<Tag size={16}/>} 
             label={t('tgshop.panel.navCategories')} 
             shortLabel={language === 'zh' ? '分类' : 'Tags'}
             active={activeTab === 'categories'} 
-            onClick={() => setActiveTab('categories')} 
-            disabled={isExpired}
+            onClick={() => setActiveTab('categories')}
           />
           <ShopNavButton 
             icon={<ShoppingCart size={16}/>} 
             label={t('tgshop.panel.navOrders')} 
             shortLabel={language === 'zh' ? '订单' : 'Orders'}
             active={activeTab === 'orders'} 
-            onClick={() => setActiveTab('orders')} 
-            disabled={isExpired}
+            onClick={() => setActiveTab('orders')}
           />
           <ShopNavButton 
             icon={<CreditCard size={16}/>} 
             label={language === 'zh' ? '支付网关' : 'Payment'} 
             shortLabel={language === 'zh' ? '支付' : 'Pay'}
             active={activeTab === 'payment'} 
-            onClick={() => setActiveTab('payment')} 
-            disabled={isExpired}
+            onClick={() => setActiveTab('payment')}
           />
         </nav>
       </header>
@@ -289,6 +279,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 showToast={showToast}
                 isSyncing={isSyncing}
                 customCategories={customCategories}
+                readOnly={isExpired}
               />
             )}
             {activeTab === 'categories' && (
@@ -300,6 +291,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 customCategories={customCategories}
                 onAddCustomCategory={handleAddCustomCategory}
                 onRemoveCustomCategory={handleRemoveCustomCategory}
+                readOnly={isExpired}
               />
             )}
             {activeTab === 'orders' && (
@@ -308,6 +300,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 onRefresh={refreshData}
                 onClearOrders={handleClearOrders}
                 isLoading={isLoading}
+                readOnly={isExpired}
               />
             )}
             {activeTab === 'payment' && (
@@ -315,6 +308,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
                 config={config}
                 onSave={handleSaveConfig}
                 showToast={showToast}
+                readOnly={isExpired}
               />
             )}
           </div>

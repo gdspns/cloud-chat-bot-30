@@ -20,9 +20,10 @@ interface OrderManagerProps {
   onRefresh?: () => Promise<void>;
   onClearOrders?: (status: Order['status']) => Promise<void>;
   isLoading?: boolean;
+  readOnly?: boolean;
 }
 
-export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: OrderManagerProps) {
+export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, readOnly }: OrderManagerProps) {
   const { t, language } = useLanguage();
   const [activeFilter, setActiveFilter] = useState<OrderFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -139,7 +140,7 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading }: Or
                   {orderCounts[tab.key]}
                 </span>
               </button>
-              {tab.showClear && orderCounts[tab.key] > 0 && activeFilter === tab.key && onClearOrders && (
+              {tab.showClear && orderCounts[tab.key] > 0 && activeFilter === tab.key && onClearOrders && !readOnly && (
                 <button
                   onClick={() => handleClearClick(tab.key as Order['status'])}
                   className="p-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors"
