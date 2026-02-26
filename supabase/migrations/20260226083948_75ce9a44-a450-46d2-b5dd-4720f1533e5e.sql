@@ -1,0 +1,1 @@
+ALTER TABLE public.shop_configs ADD COLUMN shop_saved_expire_at timestamp with time zone DEFAULT NULL;
