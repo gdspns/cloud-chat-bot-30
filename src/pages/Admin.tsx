@@ -1111,28 +1111,33 @@ export const Admin = () => {
   // 获取TG商城状态
   const getShopStatus = (botToken: string) => {
     const config = shopConfigs[botToken];
-    if (!config) return { enabled: false, expireAt: null, status: 'none' };
+    if (!config) return { enabled: false, expireAt: null, status: 'none', savedExpireAt: null };
     
     const now = new Date();
     const expireAt = config.shop_expire_at ? new Date(config.shop_expire_at) : null;
     const trialStartedAt = config.shop_trial_started_at ? new Date(config.shop_trial_started_at) : null;
+    const savedExpireAt = (config as any).shop_saved_expire_at || null;
     
     if (expireAt) {
       if (expireAt < now) {
-        return { enabled: false, expireAt: config.shop_expire_at, status: 'expired' };
+        // 管理员禁用（有保存的到期时间）vs 真正过期
+        if (savedExpireAt && new Date(savedExpireAt) > now) {
+          return { enabled: false, expireAt: savedExpireAt, status: 'admin_disabled', savedExpireAt };
+        }
+        return { enabled: false, expireAt: config.shop_expire_at, status: 'expired', savedExpireAt: null };
       }
-      return { enabled: true, expireAt: config.shop_expire_at, status: 'authorized' };
+      return { enabled: true, expireAt: config.shop_expire_at, status: 'authorized', savedExpireAt: null };
     }
     
     if (trialStartedAt) {
       const trialEndTime = new Date(trialStartedAt.getTime() + 24 * 60 * 60 * 1000);
       if (now > trialEndTime) {
-        return { enabled: false, expireAt: null, status: 'trial_expired' };
+        return { enabled: false, expireAt: null, status: 'trial_expired', savedExpireAt: null };
       }
-      return { enabled: true, expireAt: null, status: 'trial' };
+      return { enabled: true, expireAt: null, status: 'trial', savedExpireAt: null };
     }
     
-    return { enabled: false, expireAt: null, status: 'none' };
+    return { enabled: false, expireAt: null, status: 'none', savedExpireAt: null };
   };
 
   const handleAdminReply = async () => {
@@ -1649,9 +1654,11 @@ export const Admin = () => {
                             : <Badge variant="secondary" className="text-xs">未配置</Badge>;
                           const shopStatusBadge = shopStatus.status === 'authorized' && shopStatus.expireAt
                             ? <Badge variant="default" className="text-xs">有效至 {new Date(shopStatus.expireAt).toLocaleDateString()}</Badge>
+                            : shopStatus.status === 'admin_disabled' && shopStatus.savedExpireAt
+                            ? <Badge variant="outline" className="text-xs">已禁用（有效至 {new Date(shopStatus.savedExpireAt).toLocaleDateString()}）</Badge>
                             : shopStatus.status === 'expired' ? <Badge variant="destructive" className="text-xs">已过期</Badge>
                             : shopStatus.status === 'trial' ? <Badge variant="outline" className="text-xs">试用中</Badge>
-                            : shopStatus.status === 'trial_expired' ? <Badge variant="destructive" className="text-xs">试用已结束</Badge>
+                            : shopStatus.status === 'trial_expired' ? <Badge variant="destructive" className="text-xs">试用已结束，请激活</Badge>
                             : <Badge variant="secondary" className="text-xs">未配置</Badge>;
                           const activeFeature = expandedFeatures.has(`${activation.id}-chat`) ? 'chat'
                             : expandedFeatures.has(`${activation.id}-keyboard`) ? 'keyboard'

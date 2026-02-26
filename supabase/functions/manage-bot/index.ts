@@ -2504,27 +2504,28 @@ serve(async (req) => {
           .maybeSingle();
 
         if (enabled) {
-          const hasValidExpiry = shopConfig?.shop_expire_at && new Date(shopConfig.shop_expire_at) > new Date();
+          // 启用：恢复原来的状态
+          const savedExpire = shopConfig?.shop_saved_expire_at;
           
-          if (hasValidExpiry) {
-            // 有有效到期时间，无需操作
+          if (savedExpire && new Date(savedExpire) > new Date()) {
+            // 有保存的有效到期时间，恢复它
+            await supabase.from('shop_configs').update({
+              shop_expire_at: savedExpire,
+              shop_saved_expire_at: null,
+              updated_at: new Date().toISOString(),
+            }).eq('bot_token', botToken);
           } else {
-            // 检查是否用过试用
+            // 没有保存的有效到期时间，检查试用状态
             const trialStart = shopConfig?.shop_trial_started_at;
-            const hasUsedTrial = trialStart && trialStart !== null && new Date(trialStart).getFullYear() > 2000;
+            const hasUsedTrial = trialStart && new Date(trialStart).getFullYear() > 2000;
             
             if (hasUsedTrial) {
-              // 试用已用过，管理员启用时授权30天（不再给试用）
-              const expireAt = new Date();
-              expireAt.setDate(expireAt.getDate() + 30);
-              await supabase.from('shop_configs').upsert(
-                {
-                  bot_token: botToken,
-                  shop_expire_at: expireAt.toISOString(),
-                  updated_at: new Date().toISOString(),
-                } as any,
-                { onConflict: 'bot_token' }
-              );
+              // 试用已用过，恢复为试用过期状态（不自动授权，需要用户激活）
+              await supabase.from('shop_configs').update({
+                shop_expire_at: null,
+                shop_saved_expire_at: null,
+                updated_at: new Date().toISOString(),
+              }).eq('bot_token', botToken);
             } else {
               // 从未试用过，开启24小时试用
               await supabase.from('shop_configs').upsert(
@@ -2532,6 +2533,7 @@ serve(async (req) => {
                   bot_token: botToken,
                   shop_trial_started_at: new Date().toISOString(),
                   shop_expire_at: null,
+                  shop_saved_expire_at: null,
                   updated_at: new Date().toISOString(),
                 } as any,
                 { onConflict: 'bot_token' }
@@ -2539,13 +2541,16 @@ serve(async (req) => {
             }
           }
         } else {
-          // 禁用：清除有效期，将试用开始时间设为很早的过去时间（防止重新打开面板时自动开启试用）
+          // 禁用：保存当前有效期到 shop_saved_expire_at，然后标记为过期
           if (shopConfig) {
+            const currentExpire = shopConfig.shop_expire_at;
+            const hasValidExpiry = currentExpire && new Date(currentExpire) > new Date();
+            
             await supabase
               .from('shop_configs')
               .update({
-                shop_expire_at: null,
-                shop_trial_started_at: '2000-01-01T00:00:00.000Z',
+                shop_saved_expire_at: hasValidExpiry ? currentExpire : null,
+                shop_expire_at: '2000-01-01T00:00:00.000Z',
                 updated_at: new Date().toISOString(),
               })
               .eq('bot_token', botToken);

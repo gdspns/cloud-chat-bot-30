@@ -416,6 +416,7 @@ export type Database = {
           shop_button_text: string | null
           shop_button_text_en: string | null
           shop_expire_at: string | null
+          shop_saved_expire_at: string | null
           shop_trial_started_at: string | null
           shop_welcome_content: string | null
           shop_welcome_disable_preview: boolean | null
@@ -473,6 +474,7 @@ export type Database = {
           shop_button_text?: string | null
           shop_button_text_en?: string | null
           shop_expire_at?: string | null
+          shop_saved_expire_at?: string | null
           shop_trial_started_at?: string | null
           shop_welcome_content?: string | null
           shop_welcome_disable_preview?: boolean | null
@@ -530,6 +532,7 @@ export type Database = {
           shop_button_text?: string | null
           shop_button_text_en?: string | null
           shop_expire_at?: string | null
+          shop_saved_expire_at?: string | null
           shop_trial_started_at?: string | null
           shop_welcome_content?: string | null
           shop_welcome_disable_preview?: boolean | null
