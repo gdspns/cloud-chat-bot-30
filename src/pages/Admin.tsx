@@ -1043,6 +1043,7 @@ export const Admin = () => {
 
   // 管理员设置TG商城过期时间
   const handleAdminSetShopExpire = async (botToken: string, expireAt: string) => {
+    if (!expireAt) return;
     try {
       const { data, error } = await supabase.functions.invoke('manage-bot', {
         body: { action: 'admin-set-shop-expire', botToken, expireAt }
