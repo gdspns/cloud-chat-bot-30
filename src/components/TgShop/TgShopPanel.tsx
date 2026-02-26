@@ -88,6 +88,13 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
     return () => clearInterval(timer);
   }, [config.shopExpireAt, config.shopTrialStartedAt, language]);
 
+  // Force back to settings tab when expired
+  useEffect(() => {
+    if (isExpired && activeTab !== 'settings') {
+      setActiveTab('settings');
+    }
+  }, [isExpired, activeTab]);
+
 
   const handleClearOrders = async (status: 'pending' | 'paid' | 'cancelled') => {
     const success = await clearOrdersByStatus(status);
@@ -222,6 +229,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
             shortLabel={language === 'zh' ? '商品' : 'Items'}
             active={activeTab === 'products'} 
             onClick={() => setActiveTab('products')} 
+            disabled={isExpired}
           />
           <ShopNavButton 
             icon={<Tag size={16}/>} 
@@ -229,6 +237,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
             shortLabel={language === 'zh' ? '分类' : 'Tags'}
             active={activeTab === 'categories'} 
             onClick={() => setActiveTab('categories')} 
+            disabled={isExpired}
           />
           <ShopNavButton 
             icon={<ShoppingCart size={16}/>} 
@@ -236,6 +245,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
             shortLabel={language === 'zh' ? '订单' : 'Orders'}
             active={activeTab === 'orders'} 
             onClick={() => setActiveTab('orders')} 
+            disabled={isExpired}
           />
           <ShopNavButton 
             icon={<CreditCard size={16}/>} 
@@ -243,6 +253,7 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
             shortLabel={language === 'zh' ? '支付' : 'Pay'}
             active={activeTab === 'payment'} 
             onClick={() => setActiveTab('payment')} 
+            disabled={isExpired}
           />
         </nav>
       </header>
