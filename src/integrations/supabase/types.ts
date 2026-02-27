@@ -390,6 +390,42 @@ export type Database = {
           },
         ]
       }
+      shop_balance_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          bot_token: string
+          created_at: string
+          description: string | null
+          id: string
+          order_no: string | null
+          telegram_user_id: number
+          type: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          bot_token: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_no?: string | null
+          telegram_user_id: number
+          type: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          bot_token?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_no?: string | null
+          telegram_user_id?: number
+          type?: string
+        }
+        Relationships: []
+      }
       shop_configs: {
         Row: {
           accept_trx: boolean | null
@@ -580,6 +616,7 @@ export type Database = {
           locked_rate_cny_usd: number | null
           locked_rate_trx_usdt: number | null
           order_no: string
+          order_type: string
           original_amount: number | null
           original_currency: string | null
           payment_method: string
@@ -606,6 +643,7 @@ export type Database = {
           locked_rate_cny_usd?: number | null
           locked_rate_trx_usdt?: number | null
           order_no: string
+          order_type?: string
           original_amount?: number | null
           original_currency?: string | null
           payment_method: string
@@ -632,6 +670,7 @@ export type Database = {
           locked_rate_cny_usd?: number | null
           locked_rate_trx_usdt?: number | null
           order_no?: string
+          order_type?: string
           original_amount?: number | null
           original_currency?: string | null
           payment_method?: string
@@ -669,6 +708,7 @@ export type Database = {
           name: string
           price: number
           stock_content: string[] | null
+          type: string
           updated_at: string
         }
         Insert: {
@@ -683,6 +723,7 @@ export type Database = {
           name: string
           price: number
           stock_content?: string[] | null
+          type?: string
           updated_at?: string
         }
         Update: {
@@ -697,6 +738,43 @@ export type Database = {
           name?: string
           price?: number
           stock_content?: string[] | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shop_user_balances: {
+        Row: {
+          balance: number
+          bot_token: string
+          created_at: string
+          currency: string
+          first_name: string | null
+          id: string
+          telegram_user_id: number
+          telegram_username: string | null
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          bot_token: string
+          created_at?: string
+          currency?: string
+          first_name?: string | null
+          id?: string
+          telegram_user_id: number
+          telegram_username?: string | null
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          bot_token?: string
+          created_at?: string
+          currency?: string
+          first_name?: string | null
+          id?: string
+          telegram_user_id?: number
+          telegram_username?: string | null
           updated_at?: string
         }
         Relationships: []

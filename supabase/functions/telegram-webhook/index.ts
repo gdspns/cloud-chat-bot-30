@@ -17,6 +17,7 @@ interface ShopProduct {
   is_active: boolean;
   keywords: string[] | null;
   category: string | null;
+  type?: string; // 'goods' | 'recharge'
 }
 
 interface ShopConfig {
@@ -161,6 +162,17 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
   fiat_scan_qr: { zh: "📱 请扫描上方二维码完成支付", en: "📱 Please scan the QR code above to pay" },
   fiat_timeout_warning: { zh: "⚠️ 超时订单将自动取消", en: "⚠️ Order will be auto-cancelled if timeout" },
   fiat_auto_deliver: { zh: "✅ 支付成功后将自动发货到此对话", en: "✅ Order will be delivered here after payment" },
+
+  // 余额相关
+  balance_title: { zh: "💳 您当前的账户可用余额为：", en: "💳 Your current available balance is: " },
+  balance_no_account: { zh: "💳 您的账户余额为 0，尚未充值。", en: "💳 Your balance is 0. No recharge yet." },
+  balance_recharge_hint: { zh: "\n\n💡 发送 /recharge 进行充值", en: "\n\n💡 Send /recharge to top up" },
+  recharge_title: { zh: "💰 **充值中心**", en: "💰 **Recharge Center**" },
+  recharge_no_products: { zh: "暂无充值商品，请联系管理员配置", en: "No recharge products available. Contact admin." },
+  recharge_select: { zh: "💡 点击下方充值金额进行充值", en: "💡 Click amount below to recharge" },
+  balance_pay: { zh: "💰 余额支付", en: "💰 Balance Pay" },
+  balance_insufficient: { zh: "❌ 余额不足！当前余额: {balance} {currency}\n需要: {amount} {currency}\n\n💡 发送 /recharge 充值", en: "❌ Insufficient balance! Current: {balance} {currency}\nRequired: {amount} {currency}\n\n💡 Send /recharge to top up" },
+  balance_pay_success: { zh: "✅ **余额支付成功！**", en: "✅ **Balance payment successful!**" },
 };
 
 // 获取翻译文本
@@ -527,8 +539,8 @@ async function createOrderForProduct(
     return { handled: true, message: t("error_product_not_found", lang) };
   }
 
-  // 检查库存
-  if (!product.stock_content || product.stock_content.length === 0) {
+  // 检查库存 (充值商品不需要库存)
+  if (product.type !== 'recharge' && (!product.stock_content || product.stock_content.length === 0)) {
     const displayName = await localizeText(product.name, lang);
     return { handled: true, message: `❌ "${displayName}" ${t("error_no_stock", lang)}` };
   }
@@ -548,7 +560,7 @@ async function createOrderForProduct(
       order_no: orderNo,
       product_id: product.id,
       product_name: product.name,
-      amount: basePrice, // 保存原始价格，选择支付方式后会更新
+      amount: basePrice,
       currency: product.currency,
       payment_method: "pending",
       telegram_user_id: chatId,
@@ -556,6 +568,7 @@ async function createOrderForProduct(
       telegram_chat_id: chatId,
       expires_at: expiresAt,
       status: "pending",
+      order_type: product.type === 'recharge' ? 'recharge' : 'purchase',
     })
     .select()
     .single();
@@ -613,6 +626,24 @@ async function createOrderForProduct(
     ]);
   }
 
+  // 余额支付选项 (仅对非充值商品显示)
+  if (product.type !== 'recharge') {
+    // 查询用户余额
+    const { data: userBalance } = await supabase
+      .from('shop_user_balances')
+      .select('balance, currency')
+      .eq('bot_token', botToken)
+      .eq('telegram_user_id', chatId)
+      .maybeSingle();
+
+    if (userBalance && parseFloat(userBalance.balance) > 0) {
+      const balanceDisplay = parseFloat(userBalance.balance).toFixed(2);
+      paymentButtons.push([
+        { text: `${t("balance_pay", lang)} (${balanceDisplay} ${userBalance.currency})`, callback_data: `pay_balance_${orderNo}` },
+      ]);
+    }
+  }
+
   // 取消按钮
   paymentButtons.push([{ text: t("order_cancel_btn", lang), callback_data: `pay_cancel_${orderNo}` }]);
 
@@ -666,7 +697,7 @@ async function handlePaymentMethodCallback(
   h5PayUrl?: string;
 }> {
   // 解析回调: pay_<method>_<orderNo>
-  const match = callbackData.match(/^pay_(usdt|trx|alipay|wechat|cancel)_(.+)$/i);
+  const match = callbackData.match(/^pay_(usdt|trx|alipay|wechat|balance|cancel)_(.+)$/i);
   if (!match) {
     return { handled: false };
   }
@@ -703,6 +734,109 @@ async function handlePaymentMethodCallback(
     });
 
     return { handled: true, message: `${t("order_cancelled", lang)} \`${orderNo}\`` };
+  }
+
+  // 处理余额支付
+  if (paymentMethod === "balance") {
+    // 获取用户余额
+    const { data: userBalance } = await supabase
+      .from('shop_user_balances')
+      .select('*')
+      .eq('bot_token', botToken)
+      .eq('telegram_user_id', chatId)
+      .maybeSingle();
+
+    // 需要用商品原始币种的价格来扣余额
+    const deductAmount = parseFloat(order.original_amount || order.amount);
+    const deductCurrency = order.original_currency || order.currency;
+    const currentBalance = userBalance ? parseFloat(userBalance.balance) : 0;
+
+    if (currentBalance < deductAmount) {
+      return {
+        handled: true,
+        message: t("balance_insufficient", lang, {
+          balance: currentBalance.toFixed(2),
+          amount: deductAmount.toFixed(2),
+          currency: deductCurrency,
+        }),
+      };
+    }
+
+    // 扣除余额
+    const newBalance = currentBalance - deductAmount;
+    await supabase
+      .from('shop_user_balances')
+      .update({ balance: newBalance, updated_at: new Date().toISOString() })
+      .eq('id', userBalance.id);
+
+    // 记录消费流水
+    await supabase
+      .from('shop_balance_transactions')
+      .insert({
+        bot_token: botToken,
+        telegram_user_id: chatId,
+        type: 'purchase',
+        amount: -deductAmount,
+        balance_after: newBalance,
+        order_no: orderNo,
+        description: `购买 ${order.product_name}`,
+      });
+
+    // 获取商品库存并发货
+    let deliveryContent = '';
+    if (order.product_id) {
+      const { data: product } = await supabase
+        .from('shop_products')
+        .select('stock_content')
+        .eq('id', order.product_id)
+        .single();
+
+      if (product?.stock_content && product.stock_content.length > 0) {
+        deliveryContent = product.stock_content[0];
+        const remainingStock = product.stock_content.slice(1);
+        await supabase
+          .from('shop_products')
+          .update({ stock_content: remainingStock })
+          .eq('id', order.product_id);
+      } else {
+        deliveryContent = '库存不足，请联系管理员补货';
+      }
+    }
+
+    // 更新订单
+    await supabase
+      .from('shop_orders')
+      .update({
+        status: 'paid',
+        payment_method: 'balance',
+        amount: deductAmount,
+        currency: deductCurrency,
+        delivery_content: deliveryContent,
+        delivered_at: new Date().toISOString(),
+      })
+      .eq('order_no', orderNo);
+
+    // 删除原消息
+    await sendTelegramMessage(botToken, "deleteMessage", {
+      chat_id: chatId,
+      message_id: messageId,
+    });
+
+    const displayProductName = await localizeText(order.product_name, lang);
+    const message = `${t("balance_pay_success", lang)}
+
+${t("order_product", lang)}: ${displayProductName}
+${t("order_amount", lang)}: ${deductAmount} ${deductCurrency}
+${t("order_no", lang)}: \`${orderNo}\`
+💳 ${lang === 'zh' ? '剩余余额' : 'Remaining balance'}: ${newBalance.toFixed(2)} ${deductCurrency}
+
+────────────────
+📦 **${lang === 'zh' ? '您的卡密' : 'Your card/key'}：**
+\`${deliveryContent}\`
+────────────────
+${lang === 'zh' ? '感谢您的惠顾！点击卡密可复制！' : 'Thank you! Click to copy!'}`;
+
+    return { handled: true, message };
   }
 
   // 获取商店配置
@@ -2291,6 +2425,87 @@ serve(async (req) => {
         return false;
       });
     };
+
+    // ========== /balance 余额查询 ==========
+    const isBalanceCommand = text.toLowerCase() === "/balance" || text === "查询余额" || text === "余额";
+    if (!keyboardHandled && isBalanceCommand && shopEnabled && shopConfig) {
+      const { data: userBal } = await supabase
+        .from('shop_user_balances')
+        .select('balance, currency')
+        .eq('bot_token', botToken)
+        .eq('telegram_user_id', chatId)
+        .maybeSingle();
+
+      let balMsg = '';
+      if (userBal && parseFloat(userBal.balance) > 0) {
+        balMsg = `${t("balance_title", shopUserLanguage)}**${parseFloat(userBal.balance).toFixed(2)} ${userBal.currency}**${t("balance_recharge_hint", shopUserLanguage)}`;
+      } else {
+        balMsg = `${t("balance_no_account", shopUserLanguage)}${t("balance_recharge_hint", shopUserLanguage)}`;
+      }
+
+      await sendTelegramMessage(botToken, "sendMessage", {
+        chat_id: chatId,
+        text: balMsg,
+        parse_mode: "Markdown",
+      });
+      keyboardHandled = true;
+      console.log("[TG Shop] /balance command handled");
+    }
+
+    // ========== /recharge 充值 ==========
+    const isRechargeCommand = text.toLowerCase() === "/recharge" || text === "充值" || text === "充值余额";
+    if (!keyboardHandled && isRechargeCommand && shopEnabled && shopConfig) {
+      // 获取 type=recharge 的商品
+      const { data: rechargeProducts } = await supabase
+        .from('shop_products')
+        .select('*')
+        .eq('bot_token', botToken)
+        .eq('is_active', true)
+        .eq('type', 'recharge')
+        .order('price', { ascending: true });
+
+      if (!rechargeProducts || rechargeProducts.length === 0) {
+        await sendTelegramMessage(botToken, "sendMessage", {
+          chat_id: chatId,
+          text: t("recharge_no_products", shopUserLanguage),
+          parse_mode: "Markdown",
+        });
+      } else {
+        // 查询当前余额
+        const { data: curBal } = await supabase
+          .from('shop_user_balances')
+          .select('balance, currency')
+          .eq('bot_token', botToken)
+          .eq('telegram_user_id', chatId)
+          .maybeSingle();
+
+        const currentBal = curBal ? parseFloat(curBal.balance).toFixed(2) : '0.00';
+        const balCurrency = curBal?.currency || rechargeProducts[0].currency;
+
+        const productLines = rechargeProducts.map((p: any) => {
+          const shortId = p.id.replace(/-/g, "");
+          const displayName = p.name;
+          return `💰 **${displayName}** - ${p.price} ${p.currency}\n   /buy\\_${shortId}`;
+        });
+
+        const msg = `${t("recharge_title", shopUserLanguage)}
+
+💳 ${shopUserLanguage === 'zh' ? '当前余额' : 'Current balance'}: **${currentBal} ${balCurrency}**
+
+${productLines.join("\n\n")}
+
+────────────────
+${t("recharge_select", shopUserLanguage)}`;
+
+        await sendTelegramMessage(botToken, "sendMessage", {
+          chat_id: chatId,
+          text: msg,
+          parse_mode: "Markdown",
+        });
+      }
+      keyboardHandled = true;
+      console.log("[TG Shop] /recharge command handled");
+    }
 
     // 处理 /shop 命令或自定义中文命令
     const isShopCommand = text.toLowerCase() === "/shop" || fuzzyMatchChinese(text, customCommands.shop);

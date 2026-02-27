@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag, CreditCard, Timer } from "lucide-react";
+import { Settings, Package, ShoppingCart, Activity, Cloud, CloudOff, RefreshCw, Tag, CreditCard, Timer, Wallet } from "lucide-react";
 import { ShopTab } from "./types";
 import { ShopNavButton } from "./ShopNavButton";
 import { ProductManager } from "./ProductManager";
@@ -7,6 +7,7 @@ import { CategoryManager } from "./CategoryManager";
 import { OrderManager } from "./OrderManager";
 import { ShopSettings } from "./ShopSettings";
 import { PaymentSettings } from "./PaymentSettings";
+import { BalanceManager } from "./BalanceManager";
 import { useShopData } from "./hooks/useShopData";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -245,6 +246,13 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
             active={activeTab === 'payment'} 
             onClick={() => setActiveTab('payment')}
           />
+          <ShopNavButton 
+            icon={<Wallet size={16}/>} 
+            label={language === 'zh' ? '用户余额' : 'Balance'} 
+            shortLabel={language === 'zh' ? '余额' : 'Balance'}
+            active={activeTab === 'balance'} 
+            onClick={() => setActiveTab('balance')}
+          />
         </nav>
       </header>
 
@@ -256,8 +264,14 @@ export function TgShopPanel({ botToken, showToast }: TgShopPanelProps) {
             <span className="text-sm text-muted-foreground">{t('tgshop.panel.loading')}</span>
           </div>
         </div>
-      )}
-
+            )}
+            {activeTab === 'balance' && (
+              <BalanceManager 
+                botToken={botToken}
+                showToast={showToast}
+                readOnly={isExpired}
+              />
+            )}
       {/* Main content area */}
       {!isLoading && (
         <main className="flex-1 overflow-hidden">
