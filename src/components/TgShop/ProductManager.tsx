@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen, ChevronDown, ShoppingBag, Wallet } from "lucide-react";
 import { Product } from "./types";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -201,6 +201,44 @@ export function ProductManager({
           </div>
           
           <div className="p-4 space-y-4 bg-card rounded-b-lg border border-t-0">
+            {/* 商品类型选择 */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                {language === 'zh' ? '商品类型' : 'Product Type'}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, type: 'auto'})}
+                  className={`flex items-center gap-2 p-3 border rounded-lg text-sm font-medium transition-colors ${
+                    formData.type !== 'recharge'
+                      ? 'bg-primary/10 border-primary text-primary ring-1 ring-primary'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <ShoppingBag size={16} />
+                  {language === 'zh' ? '发卡商品' : 'Card Product'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, type: 'recharge', stockContent: '', stockCount: 0})}
+                  className={`flex items-center gap-2 p-3 border rounded-lg text-sm font-medium transition-colors ${
+                    formData.type === 'recharge'
+                      ? 'bg-primary/10 border-primary text-primary ring-1 ring-primary'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Wallet size={16} />
+                  {language === 'zh' ? '充值商品' : 'Recharge Product'}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {formData.type === 'recharge'
+                  ? (language === 'zh' ? '充值商品：用户付款后金额自动充入余额账户' : 'Recharge: Payment amount is added to user balance')
+                  : (language === 'zh' ? '发卡商品：用户付款后自动发送卡密' : 'Card: Card keys are delivered after payment')}
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">{t('tgshop.product.productName')}</label>
               <input 
@@ -310,20 +348,34 @@ export function ProductManager({
               />
             </div>
 
-            <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
-              <label className="block text-sm font-medium text-foreground mb-1 flex justify-between">
-                <span>{t('tgshop.product.stockTitle')}</span>
-                <span className="text-primary font-bold">{formData.stockCount} {t('tgshop.product.stockCount')}</span>
-              </label>
-              <textarea 
-                rows={4}
-                value={formData.stockContent}
-                onChange={(e) => setFormData({...formData, stockContent: e.target.value})}
-                className="w-full p-2 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none font-mono text-xs"
-                placeholder={t('tgshop.product.stockPlaceholder')}
-              />
-              <p className="text-xs text-muted-foreground mt-1">{t('tgshop.product.stockHint')}</p>
-            </div>
+            {formData.type !== 'recharge' ? (
+              <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+                <label className="block text-sm font-medium text-foreground mb-1 flex justify-between">
+                  <span>{t('tgshop.product.stockTitle')}</span>
+                  <span className="text-primary font-bold">{formData.stockCount} {t('tgshop.product.stockCount')}</span>
+                </label>
+                <textarea 
+                  rows={4}
+                  value={formData.stockContent}
+                  onChange={(e) => setFormData({...formData, stockContent: e.target.value})}
+                  className="w-full p-2 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none font-mono text-xs"
+                  placeholder={t('tgshop.product.stockPlaceholder')}
+                />
+                <p className="text-xs text-muted-foreground mt-1">{t('tgshop.product.stockHint')}</p>
+              </div>
+            ) : (
+              <div className="bg-accent/50 p-3 rounded-lg border border-accent">
+                <div className="flex items-center gap-2 text-sm text-foreground">
+                  <Wallet size={16} className="text-primary" />
+                  <span className="font-medium">{language === 'zh' ? '充值商品说明' : 'Recharge Product Info'}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {language === 'zh'
+                    ? '充值商品无需库存卡密。用户购买后，商品价格金额将自动充入其余额账户。'
+                    : 'No stock needed. The product price will be credited to the user\'s balance after payment.'}
+                </p>
+              </div>
+            )}
 
             <button 
               onClick={handleSave}
@@ -380,12 +432,21 @@ export function ProductManager({
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-foreground truncate text-sm">{p.name}</div>
+                          <div className="font-medium text-foreground truncate text-sm flex items-center gap-1.5">
+                            {p.name}
+                            {p.type === 'recharge' && (
+                              <span className="inline-flex items-center gap-0.5 bg-accent text-accent-foreground px-1.5 py-0.5 rounded text-[10px] font-normal shrink-0">
+                                <Wallet size={10} /> {language === 'zh' ? '充值' : 'Recharge'}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-1">
                             <code className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded font-mono">
                               /buy_{p.id.slice(0, 8)}
                             </code>
-                            <span className="text-xs text-muted-foreground">{t('tgshop.product.stock')}: {p.stockCount || 0}</span>
+                            {p.type !== 'recharge' && (
+                              <span className="text-xs text-muted-foreground">{t('tgshop.product.stock')}: {p.stockCount || 0}</span>
+                            )}
                           </div>
                         </div>
                         <span className="font-bold text-primary text-sm shrink-0 ml-2">{p.price} {p.currency}</span>
