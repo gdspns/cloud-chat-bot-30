@@ -81,6 +81,7 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
   shop_category_title: { zh: "🏪 **{name}** ({count}件商品)", en: "🏪 **{name}** ({count} products)" },
   shop_stock: { zh: "库存", en: "Stock" },
   shop_out_of_stock: { zh: "缺货", en: "Out of stock" },
+  shop_recharge_product: { zh: "余额充值", en: "Balance recharge" },
   shop_click_to_buy: { zh: "点击购买👉", en: "Buy now👉" },
   shop_buy_tip: { zh: "💡 点击上方指令直接购买对应商品", en: "💡 Click the command above to buy the product" },
 
@@ -474,7 +475,8 @@ async function handleBuyCommand(
 
     const productLines = matchedProducts.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
-      const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
+      const isRecharge = p.type === 'recharge';
+      const stockText = isRecharge ? `(${t("shop_recharge_product", lang)})` : stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, "");
       const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
       return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
@@ -1151,7 +1153,8 @@ async function handleShopCommand(
 
     const productLines = bucket.products.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
-      const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
+      const isRecharge = p.type === 'recharge';
+      const stockText = isRecharge ? `(${t("shop_recharge_product", lang)})` : stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, "");
       const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
       const displayDesc = p.description
@@ -2697,7 +2700,8 @@ ${t("recharge_select", shopUserLanguage)}`;
 
             const productLines = kwMatched.map((p: ShopProduct) => {
               const stock = p.stock_content?.length || 0;
-              const stockText = stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
+              const isRecharge = p.type === 'recharge';
+              const stockText = isRecharge ? `(${t("shop_recharge_product", shopUserLanguage)})` : stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
               const shortId = p.id.replace(/-/g, "");
               const displayName = shopUserLanguage === "en" ? nameMap[p.name] || p.name : p.name;
               return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
