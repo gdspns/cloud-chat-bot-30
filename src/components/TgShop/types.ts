@@ -10,7 +10,7 @@ export interface Product {
   stockContent: string;
   stockCount: number;
   description: string;
-  type: 'auto' | 'manual';
+  type: 'auto' | 'manual' | 'recharge';
   category: string;
   createdAt?: string;
   updatedAt?: string;
