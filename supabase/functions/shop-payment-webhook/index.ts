@@ -133,62 +133,182 @@ Deno.serve(async (req) => {
     const expectedAmount = parseFloat(order.amount)
     if (Math.abs(amount - expectedAmount) > 0.1) {
       console.warn(`[Shop Webhook] Amount mismatch: expected ${expectedAmount}, got ${amount}`)
-      // 记录但不阻止，某些情况下可能有汇率差异
     }
 
-    // 获取商品库存
-    let deliveryContent = ''
-    if (order.product_id) {
-      const { data: product } = await supabase
-        .from('shop_products')
-        .select('stock_content')
-        .eq('id', order.product_id)
-        .single()
+    // 判断是否是充值订单
+    const isRechargeOrder = order.order_type === 'recharge'
 
-      if (product?.stock_content && product.stock_content.length > 0) {
-        // 取出第一个库存项
-        deliveryContent = product.stock_content[0]
-        
-        // 更新库存 (移除已发货的项)
-        const remainingStock = product.stock_content.slice(1)
+    if (isRechargeOrder) {
+      // ========== 充值订单：增加用户余额 ==========
+      console.log(`[Shop Webhook] Processing recharge order ${orderNo} for user ${order.telegram_user_id}`)
+
+      // 获取商品信息以确定充值金额和币种
+      const rechargeAmount = parseFloat(order.original_amount || order.amount)
+      const rechargeCurrency = order.original_currency || order.currency
+
+      // 获取或创建用户余额记录
+      const { data: existingBalance } = await supabase
+        .from('shop_user_balances')
+        .select('*')
+        .eq('bot_token', botToken)
+        .eq('telegram_user_id', order.telegram_user_id)
+        .maybeSingle()
+
+      let newBalance = rechargeAmount
+      if (existingBalance) {
+        newBalance = parseFloat(existingBalance.balance) + rechargeAmount
         await supabase
-          .from('shop_products')
-          .update({ stock_content: remainingStock })
-          .eq('id', order.product_id)
+          .from('shop_user_balances')
+          .update({ balance: newBalance, updated_at: new Date().toISOString() })
+          .eq('id', existingBalance.id)
       } else {
-        deliveryContent = '库存不足，请联系管理员补货'
+        await supabase
+          .from('shop_user_balances')
+          .insert({
+            bot_token: botToken,
+            telegram_user_id: order.telegram_user_id,
+            telegram_username: order.telegram_username,
+            balance: newBalance,
+            currency: rechargeCurrency,
+          })
       }
-    }
 
-    // 更新订单状态
-    const { error: updateError } = await supabase
-      .from('shop_orders')
-      .update({
-        status: 'paid',
-        tx_hash: txHash,
-        delivery_content: deliveryContent,
-        delivered_at: new Date().toISOString()
-      })
-      .eq('id', order.id)
+      // 记录充值流水
+      await supabase
+        .from('shop_balance_transactions')
+        .insert({
+          bot_token: botToken,
+          telegram_user_id: order.telegram_user_id,
+          type: 'recharge',
+          amount: rechargeAmount,
+          balance_after: newBalance,
+          order_no: orderNo,
+          description: `充值 ${rechargeAmount} ${rechargeCurrency}`,
+        })
 
-    if (updateError) {
-      console.error('[Shop Webhook] Failed to update order:', updateError)
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to update order' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+      // 更新订单状态
+      await supabase
+        .from('shop_orders')
+        .update({
+          status: 'paid',
+          tx_hash: txHash,
+          delivery_content: `充值成功 +${rechargeAmount} ${rechargeCurrency}`,
+          delivered_at: new Date().toISOString()
+        })
+        .eq('id', order.id)
 
-    // 获取店铺配置以获取 bot token 发送消息
-    const { data: shopConfig } = await supabase
-      .from('shop_configs')
-      .select('*')
-      .eq('bot_token', botToken)
-      .maybeSingle()
+      // 获取店铺配置
+      const { data: shopConfig } = await supabase
+        .from('shop_configs')
+        .select('*')
+        .eq('bot_token', botToken)
+        .maybeSingle()
 
-    // 发送 Telegram 消息通知用户
-    if (order.telegram_user_id && shopConfig) {
-      const message = `✅ **支付成功！**
+      // 通知用户充值成功
+      if (order.telegram_user_id && shopConfig) {
+        const message = `✅ **充值成功！**
+
+💰 充值金额: ${rechargeAmount} ${rechargeCurrency}
+💳 当前余额: ${newBalance.toFixed(2)} ${rechargeCurrency}
+📝 订单号: \`${orderNo}\`
+${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
+────────────────
+感谢充值！您可以使用余额购买商品。`
+
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: order.telegram_user_id,
+              text: message,
+              parse_mode: 'Markdown'
+            })
+          })
+        } catch (e) {
+          console.error('[Shop Webhook] Failed to send recharge notification:', e)
+        }
+      }
+
+      // 通知管理员
+      if (shopConfig?.admin_id) {
+        const adminMessage = `💰 **用户充值成功！**
+
+订单号: \`${orderNo}\`
+用户: ${order.telegram_username || order.telegram_user_id || 'Unknown'}
+充值金额: ${rechargeAmount} ${rechargeCurrency}
+当前余额: ${newBalance.toFixed(2)} ${rechargeCurrency}
+${txHash ? `TxHash: \`${txHash}\`\n` : ''}`
+
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: shopConfig.admin_id,
+              text: adminMessage,
+              parse_mode: 'Markdown'
+            })
+          })
+        } catch (e) {
+          console.error('[Shop Webhook] Failed to notify admin:', e)
+        }
+      }
+
+      console.log(`[Shop Webhook] Recharge order ${orderNo} completed: +${rechargeAmount} ${rechargeCurrency}, new balance: ${newBalance}`)
+
+    } else {
+      // ========== 普通发卡订单：原有逻辑 ==========
+      // 获取商品库存
+      let deliveryContent = ''
+      if (order.product_id) {
+        const { data: product } = await supabase
+          .from('shop_products')
+          .select('stock_content')
+          .eq('id', order.product_id)
+          .single()
+
+        if (product?.stock_content && product.stock_content.length > 0) {
+          deliveryContent = product.stock_content[0]
+          const remainingStock = product.stock_content.slice(1)
+          await supabase
+            .from('shop_products')
+            .update({ stock_content: remainingStock })
+            .eq('id', order.product_id)
+        } else {
+          deliveryContent = '库存不足，请联系管理员补货'
+        }
+      }
+
+      // 更新订单状态
+      const { error: updateError } = await supabase
+        .from('shop_orders')
+        .update({
+          status: 'paid',
+          tx_hash: txHash,
+          delivery_content: deliveryContent,
+          delivered_at: new Date().toISOString()
+        })
+        .eq('id', order.id)
+
+      if (updateError) {
+        console.error('[Shop Webhook] Failed to update order:', updateError)
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to update order' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // 获取店铺配置
+      const { data: shopConfig } = await supabase
+        .from('shop_configs')
+        .select('*')
+        .eq('bot_token', botToken)
+        .maybeSingle()
+
+      // 发送 Telegram 消息通知用户
+      if (order.telegram_user_id && shopConfig) {
+        const message = `✅ **支付成功！**
 
 💰 订单号: \`/order ${orderNo}\`
 🎁 商品: ${order.product_name}
@@ -201,25 +321,24 @@ ${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
 感谢您的惠顾！点击卡密可复制！
 点击上面订单号可复制粘贴发送查询！`
 
-      try {
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: order.telegram_user_id,
-            text: message,
-            parse_mode: 'Markdown'
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: order.telegram_user_id,
+              text: message,
+              parse_mode: 'Markdown'
+            })
           })
-        })
-        console.log('[Shop Webhook] Delivery message sent to user:', order.telegram_user_id)
-      } catch (e) {
-        console.error('[Shop Webhook] Failed to send Telegram message:', e)
+        } catch (e) {
+          console.error('[Shop Webhook] Failed to send Telegram message:', e)
+        }
       }
-    }
 
-    // 通知管理员
-    if (shopConfig?.admin_id) {
-      const adminMessage = `📦 **新订单完成！**
+      // 通知管理员
+      if (shopConfig?.admin_id) {
+        const adminMessage = `📦 **新订单完成！**
 
 订单号: \`${orderNo}\`
 商品: ${order.product_name}
@@ -228,22 +347,23 @@ ${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
 ${txHash ? `TxHash: \`${txHash}\`\n` : ''}
 已自动发货 ✅`
 
-      try {
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: shopConfig.admin_id,
-            text: adminMessage,
-            parse_mode: 'Markdown'
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: shopConfig.admin_id,
+              text: adminMessage,
+              parse_mode: 'Markdown'
+            })
           })
-        })
-      } catch (e) {
-        console.error('[Shop Webhook] Failed to notify admin:', e)
+        } catch (e) {
+          console.error('[Shop Webhook] Failed to notify admin:', e)
+        }
       }
-    }
 
-    console.log(`[Shop Webhook] Order ${orderNo} processed successfully, delivered: ${deliveryContent.slice(0, 20)}...`)
+      console.log(`[Shop Webhook] Order ${orderNo} processed successfully, delivered: ${deliveryContent.slice(0, 20)}...`)
+    }
 
     // 返回不同支付平台期望的响应格式
     if (paymentType === 'yungou') {
