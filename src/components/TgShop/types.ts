@@ -58,6 +58,8 @@ export interface ShopConfig {
     shop: string[];
     buy: string[];
     order: string[];
+    balance: string[];
+    recharge: string[];
   };
   paymentNotice: string;
   // 激活相关字段

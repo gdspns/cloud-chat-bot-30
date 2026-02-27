@@ -133,7 +133,7 @@ const defaultConfig: ShopConfig = {
   alipayProvider: "xunhu",
   enableWechat: false,
   wechatProvider: "xunhu",
-  customCommands: { shop: [], buy: [], order: [] },
+  customCommands: { shop: [], buy: [], order: [], balance: [], recharge: [] },
   paymentNotice: defaultPaymentNotice,
   // 新增默认值
   startEnabled: false,
@@ -238,7 +238,7 @@ function dbConfigToConfig(dbConfig: DbConfig): ShopConfig {
     alipayProvider: dbConfig.alipay_provider as "yungou" | "xunhu",
     enableWechat: dbConfig.enable_wechat,
     wechatProvider: dbConfig.wechat_provider as "yungou" | "xunhu",
-    customCommands: dbConfig.custom_commands || { shop: [], buy: [], order: [] },
+    customCommands: { shop: [], buy: [], order: [], balance: [], recharge: [], ...(dbConfig.custom_commands || {}) },
     paymentNotice: dbConfig.payment_notice || defaultPaymentNotice,
     shopExpireAt: dbConfig.shop_expire_at,
     shopTrialStartedAt: dbConfig.shop_trial_started_at,

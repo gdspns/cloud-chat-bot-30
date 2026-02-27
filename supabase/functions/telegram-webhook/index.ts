@@ -2359,7 +2359,7 @@ serve(async (req) => {
     let shopConfig = shopConfigData as
       | (ShopConfig & { shop_expire_at?: string | null; shop_trial_started_at?: string | null })
       | null;
-    const customCommands = shopConfig?.custom_commands || { shop: [], buy: [], order: [] };
+    const customCommands = shopConfig?.custom_commands || { shop: [], buy: [], order: [], balance: [], recharge: [] };
 
     // 获取TG商城的用户语言偏好
     let shopUserLanguagePreferences: Record<string, string> = shopConfig?.user_language_preferences || {};
@@ -2427,7 +2427,7 @@ serve(async (req) => {
     };
 
     // ========== /balance 余额查询 ==========
-    const isBalanceCommand = text.toLowerCase() === "/balance" || text === "查询余额" || text === "余额";
+    const isBalanceCommand = text.toLowerCase() === "/balance" || text === "查询余额" || text === "余额" || fuzzyMatchChinese(text, customCommands.balance || []);
     if (!keyboardHandled && isBalanceCommand && shopEnabled && shopConfig) {
       const { data: userBal } = await supabase
         .from('shop_user_balances')
@@ -2453,7 +2453,7 @@ serve(async (req) => {
     }
 
     // ========== /recharge 充值 ==========
-    const isRechargeCommand = text.toLowerCase() === "/recharge" || text === "充值" || text === "充值余额";
+    const isRechargeCommand = text.toLowerCase() === "/recharge" || text === "充值" || text === "充值余额" || fuzzyMatchChinese(text, customCommands.recharge || []);
     if (!keyboardHandled && isRechargeCommand && shopEnabled && shopConfig) {
       // 获取 type=recharge 的商品
       const { data: rechargeProducts } = await supabase
