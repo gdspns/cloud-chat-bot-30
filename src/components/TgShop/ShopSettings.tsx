@@ -586,6 +586,105 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
                   ))}
                 </div>
               )}
+            {/* /balance 命令 */}
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <code className="text-sm font-bold text-primary">/balance</code>
+                  <span className="text-xs text-muted-foreground">{language === 'zh' ? '查询余额' : 'Check Balance'}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const newCommands = { ...localConfig.customCommands };
+                    newCommands.balance = [...(newCommands.balance || []), ''];
+                    handleChange('customCommands', newCommands);
+                  }}
+                  className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                >
+                  <Plus size={12}/> {t('tgshop.settings.addAlias')}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">{language === 'zh' ? '用户发送此命令查询账户余额' : 'User sends this command to check account balance'}</p>
+              {localConfig.customCommands?.balance?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {localConfig.customCommands.balance.map((cmd, idx) => (
+                    <div key={idx} className="flex items-center gap-1 bg-background px-2 py-1 rounded border">
+                      <input
+                        type="text"
+                        value={cmd}
+                        onChange={(e) => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.balance[idx] = e.target.value;
+                          handleChange('customCommands', newCommands);
+                        }}
+                        placeholder={language === 'zh' ? '例如: 余额' : 'e.g. balance'}
+                        className="w-16 text-xs bg-transparent outline-none"
+                      />
+                      <button
+                        onClick={() => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.balance = newCommands.balance.filter((_, i) => i !== idx);
+                          handleChange('customCommands', newCommands);
+                        }}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X size={12}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* /recharge 命令 */}
+            <div className="p-3 bg-muted rounded-lg border">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <code className="text-sm font-bold text-primary">/recharge</code>
+                  <span className="text-xs text-muted-foreground">{language === 'zh' ? '充值余额' : 'Recharge Balance'}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const newCommands = { ...localConfig.customCommands };
+                    newCommands.recharge = [...(newCommands.recharge || []), ''];
+                    handleChange('customCommands', newCommands);
+                  }}
+                  className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+                >
+                  <Plus size={12}/> {t('tgshop.settings.addAlias')}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">{language === 'zh' ? '用户发送此命令查看充值商品列表' : 'User sends this command to view recharge products'}</p>
+              {localConfig.customCommands?.recharge?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {localConfig.customCommands.recharge.map((cmd, idx) => (
+                    <div key={idx} className="flex items-center gap-1 bg-background px-2 py-1 rounded border">
+                      <input
+                        type="text"
+                        value={cmd}
+                        onChange={(e) => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.recharge[idx] = e.target.value;
+                          handleChange('customCommands', newCommands);
+                        }}
+                        placeholder={language === 'zh' ? '例如: 充值' : 'e.g. recharge'}
+                        className="w-16 text-xs bg-transparent outline-none"
+                      />
+                      <button
+                        onClick={() => {
+                          const newCommands = { ...localConfig.customCommands };
+                          newCommands.recharge = newCommands.recharge.filter((_, i) => i !== idx);
+                          handleChange('customCommands', newCommands);
+                        }}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X size={12}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             </div>
           </div>
           
