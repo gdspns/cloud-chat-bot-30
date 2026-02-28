@@ -661,12 +661,13 @@ async function createOrderForProduct(
 
   const itemsLabel = t("order_items", lang);
   const displayProductName = await localizeText(product.name, lang);
+  const isRechargeProduct = product.type === 'recharge';
+  const stockLine = isRechargeProduct ? '' : `\n${t("order_stock", lang)}: ${product.stock_content.length} ${itemsLabel}`;
   const message = `${t("order_created", lang)}
 
 ${t("order_product", lang)}: ${displayProductName}
 ${t("order_amount", lang)}: ${amountDisplay}
-${t("order_no", lang)}: \`${orderNo}\`
-${t("order_stock", lang)}: ${product.stock_content.length} ${itemsLabel}
+${t("order_no", lang)}: \`${orderNo}\`${stockLine}
 
 ────────────────
 ${t("order_select_payment", lang)}
