@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BookOpen, ChevronDown, ChevronUp, X, Loader2, RefreshCw } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, X, Loader2, RefreshCw, Bot, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ interface Article {
 export const ConfigGuide: React.FC = () => {
   const { t, language } = useLanguage();
   const [articles, setArticles] = useState<Article[]>([]);
+  const [demoBotUrl, setDemoBotUrl] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>(t('guide.all'));
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -42,7 +43,9 @@ export const ConfigGuide: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setArticles(data || []);
+      const systemEntry = (data || []).find(a => a.title === '__SYSTEM_DEMO_BOT_URL__');
+      if (systemEntry) setDemoBotUrl(systemEntry.content);
+      setArticles((data || []).filter(a => a.category !== '__SYSTEM__'));
     } catch (error) {
       console.error('加载文章失败:', error);
     } finally {
@@ -120,6 +123,21 @@ export const ConfigGuide: React.FC = () => {
                 </Button>
               ))}
             </div>
+
+            {/* 示范机器人按钮 */}
+            {demoBotUrl && (
+              <div className="flex justify-center mb-6">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => window.open(demoBotUrl, '_blank')}
+                >
+                  <Bot className="h-4 w-4" />
+                  {language === 'zh' ? '示范机器人' : 'Demo Bot'}
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
 
             {/* Article list */}
             <div className="space-y-4">

@@ -88,6 +88,9 @@ export const Admin = () => {
   
   // 激活码生成相关
   const [showCodeGenerator, setShowCodeGenerator] = useState(false);
+  const [showDemoBotDialog, setShowDemoBotDialog] = useState(false);
+  const [demoBotUrl, setDemoBotUrl] = useState("");
+  const [isSavingDemoBot, setIsSavingDemoBot] = useState(false);
   const [showCodeList, setShowCodeList] = useState(false);
   const [codeFilterFeature, setCodeFilterFeature] = useState<string>('all');
   const [codeFilterStatus, setCodeFilterStatus] = useState<string>('all');
@@ -1305,6 +1308,16 @@ export const Admin = () => {
               <Key className="h-4 w-4 mr-2" />
               生成激活码
             </Button>
+            <Button variant="outline" onClick={() => {
+              // 加载现有的示范机器人链接
+              supabase.from('articles').select('content').eq('title', '__SYSTEM_DEMO_BOT_URL__').maybeSingle().then(({ data }) => {
+                if (data) setDemoBotUrl(data.content);
+              });
+              setShowDemoBotDialog(true);
+            }}>
+              <Bot className="h-4 w-4 mr-2" />
+              示范机器人
+            </Button>
             <Button variant="outline" onClick={handleLogout}>
               退出登录
             </Button>
@@ -2102,6 +2115,60 @@ export const Admin = () => {
                   </ScrollArea>
                 </div>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* 示范机器人链接对话框 */}
+        <Dialog open={showDemoBotDialog} onOpenChange={setShowDemoBotDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>设置示范机器人</DialogTitle>
+              <DialogDescription>
+                设置示范机器人的链接，用户可在菜单键盘的配置说明页面点击跳转
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>机器人链接</Label>
+                <Input
+                  placeholder="例如: https://t.me/your_demo_bot"
+                  value={demoBotUrl}
+                  onChange={(e) => setDemoBotUrl(e.target.value)}
+                />
+              </div>
+              <Button
+                className="w-full"
+                disabled={isSavingDemoBot}
+                onClick={async () => {
+                  setIsSavingDemoBot(true);
+                  try {
+                    const { data: existing } = await supabase
+                      .from('articles')
+                      .select('id')
+                      .eq('title', '__SYSTEM_DEMO_BOT_URL__')
+                      .maybeSingle();
+                    
+                    if (existing) {
+                      await supabase.from('articles').update({ content: demoBotUrl }).eq('id', existing.id);
+                    } else {
+                      await supabase.from('articles').insert({
+                        title: '__SYSTEM_DEMO_BOT_URL__',
+                        content: demoBotUrl,
+                        category: '__SYSTEM__'
+                      });
+                    }
+                    toast({ title: "保存成功", description: "示范机器人链接已更新" });
+                    setShowDemoBotDialog(false);
+                  } catch (err) {
+                    toast({ title: "保存失败", variant: "destructive" });
+                  } finally {
+                    setIsSavingDemoBot(false);
+                  }
+                }}
+              >
+                {isSavingDemoBot ? "保存中..." : "保存"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
