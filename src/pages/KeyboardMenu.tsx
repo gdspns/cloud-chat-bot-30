@@ -496,6 +496,27 @@ function SidebarItem({ icon, label, active, onClick, notification }: any) {
   );
 }
 
+// --- Demo Bot Button ---
+function DemoBotButton() {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.from('articles').select('content').eq('title', '__SYSTEM_DEMO_BOT_URL__').maybeSingle().then(({ data }) => {
+      if (data?.content) setUrl(data.content);
+    });
+  }, []);
+  if (!url) return null;
+  return (
+    <button
+      onClick={() => window.open(url, '_blank')}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted"
+    >
+      <Bot size={18} />
+      <span>示范机器人</span>
+      <ExternalLink size={14} className="ml-auto opacity-50" />
+    </button>
+  );
+}
+
 // --- Main Workspace ---
 function Workspace({
   isConnected,
@@ -1508,6 +1529,8 @@ function Workspace({
             active={activeTab === "guide"}
             onClick={() => { setActiveTab("guide"); setMobileSidebarOpen(false); }}
           />
+          {/* 示范机器人按钮 */}
+          <DemoBotButton />
         </nav>
 
         <div className="p-4 border-t space-y-2">
