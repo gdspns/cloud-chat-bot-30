@@ -45,10 +45,8 @@ export const OrderCenter = () => {
   const { toast } = useToast();
   const { t } = useLanguage();
   const [orderFilter, setOrderFilter] = useState('all');
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('app_orders_v41');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   
   // 查单功能
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,8 +54,40 @@ export const OrderCenter = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // 保存订单到 localStorage
-  useEffect(() => { localStorage.setItem('app_orders_v41', JSON.stringify(orders)); }, [orders]);
+  // 从数据库加载所有订单
+  const loadOrders = useCallback(async () => {
+    setIsLoadingOrders(true);
+    try {
+      const { data, error } = await supabase
+        .from('store_orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(500);
+      
+      if (error) throw error;
+      
+      const results: Order[] = (data || []).map(o => ({
+        orderNo: o.order_no,
+        botId: o.bot_id || '',
+        contact: o.contact || '',
+        productName: o.product_name,
+        amount: `${o.amount} ${o.currency}`,
+        paymentMethod: o.payment_method,
+        code: o.delivered_code || '',
+        type: o.bot_id ? 'auto' : 'card',
+        time: new Date(o.created_at).toLocaleString(),
+        status: o.status as 'pending' | 'paid' | 'expired'
+      }));
+      
+      setOrders(results);
+    } catch (error: any) {
+      console.error('加载订单失败:', error);
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  }, []);
+
+  useEffect(() => { loadOrders(); }, [loadOrders]);
 
   // Search orders from database
   const handleSearchOrders = useCallback(async () => {
@@ -201,22 +231,28 @@ export const OrderCenter = () => {
         )}
       </Card>
 
-      {/* Local order list */}
+      {/* Database order list */}
       <Card className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h3 className="font-bold text-lg flex items-center gap-3">
             <ClipboardList size={20} /> {t('orderCenter.localOrders')}
           </h3>
-          <div className="flex bg-muted p-1 rounded-lg">
-            {['all', 'pending', 'paid', 'expired'].map(status => (
-              <button 
-                key={status} 
-                onClick={() => setOrderFilter(status)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${orderFilter === status ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                {status === 'all' ? t('common.all') : (status === 'pending' ? t('orderCenter.statusPending') : (status === 'paid' ? t('orderCenter.statusPaid') : t('orderCenter.statusExpired')))}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={loadOrders} disabled={isLoadingOrders}>
+              {isLoadingOrders ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+              {t('tgshop.order.refresh')}
+            </Button>
+            <div className="flex bg-muted p-1 rounded-lg">
+              {['all', 'pending', 'paid', 'expired'].map(status => (
+                <button 
+                  key={status} 
+                  onClick={() => setOrderFilter(status)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${orderFilter === status ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  {status === 'all' ? t('common.all') : (status === 'pending' ? t('orderCenter.statusPending') : (status === 'paid' ? t('orderCenter.statusPaid') : t('orderCenter.statusExpired')))}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="overflow-x-auto">
