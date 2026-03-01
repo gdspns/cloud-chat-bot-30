@@ -3566,10 +3566,7 @@ function UsersPanel({
   };
 
   // 合并数据库用户和本地用户
-  const allUsers = dbUsers.filter((u: any) => {
-    if (adminUserId && u.telegram_user_id?.toString() === adminUserId.toString()) return false;
-    return true;
-  });
+  const allUsers = [...dbUsers];
 
   return (
     <div className="space-y-6">

@@ -2252,17 +2252,14 @@ serve(async (req) => {
       }
     }
 
-    // Skip messages from personal user that are not replies (仅当双向聊天可用时)
-    if (bidirectionalChatEnabled && personalUserId > 0 && chatId === personalUserId) {
-      return new Response(JSON.stringify({ ok: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // 管理员自己发送的非回复消息：不再跳过，允许继续处理菜单键盘、商城、关键词等功能
+    // 转发逻辑在底部已通过 chatId !== activityRecipient 条件自动跳过
+    const isAdminUser = bidirectionalChatEnabled && personalUserId > 0 && chatId === personalUserId;
 
-    // 存储消息到数据库 (仅当双向聊天可用时)
+    // 存储消息到数据库 (仅当双向聊天可用时，且不是管理员自己的消息)
     const userName = fromUser.first_name + (fromUser.last_name ? " " + fromUser.last_name : "");
 
-    if (bidirectionalChatEnabled && activation) {
+    if (bidirectionalChatEnabled && activation && !isAdminUser) {
       await supabase.from("messages").insert({
         bot_activation_id: activation.id,
         telegram_chat_id: chatId,
