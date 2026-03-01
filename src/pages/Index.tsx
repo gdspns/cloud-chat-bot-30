@@ -768,6 +768,8 @@ const Index = () => {
                 <li>{t('index.feature4')}</li>
                 <li>{t('index.feature5')}</li>
                 <li>{t('index.feature6')}</li>
+                <li>{t('index.feature7')}</li>
+                <li>{t('index.feature8')}</li>
               </ul>
             </div>
           </div>

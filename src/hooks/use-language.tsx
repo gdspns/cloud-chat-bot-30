@@ -496,15 +496,17 @@ const translations: Record<Language, Record<string, string>> = {
     'console.telegramAppDesc': '收到转发消息后，直接使用 Telegram 的"回复"功能（长按消息→回复）即可精准回复对应用户。机器人7x24小时在线，即使关闭此网页也能正常工作。',
     
     // Index Page Footer
-    'index.aboutTitle': '关于机器人-激活授权联系QQ：3075554556',
-    'index.aboutDesc': '我们的TG机器人管理平台让您能够轻松管理与用户的对话。支持自动问候、实时消息转发、多机器人同时管理等功能。无论您是个人用户还是企业，都能找到适合您的解决方案。账号就算被限制只要能创建机器人即可用机器人来实现双向聊天充当客服！网页端不用魔法上网也可以在线接收消息跟回复消息！',
-    'index.featuresTitle': '功能特点',
-    'index.feature1': '✓ 20条免费试用消息',
-    'index.feature2': '✓ 实时消息通知提醒',
-    'index.feature3': '✓ 多机器人统一管理',
-    'index.feature4': '✓ 简洁易用的操作界面',
-    'index.feature5': '✓ 支持自定义问候语',
-    'index.feature6': '✓ 支持图片收发',
+    'index.aboutTitle': '关于平台 — 激活授权联系QQ：3075554556',
+    'index.aboutDesc': '一站式 Telegram 机器人管理平台，集成双向聊天、菜单键盘、TG商城和自助商城四大核心模块。即使账号受限，只要能创建机器人即可实现双向客服沟通；网页端无需翻墙，随时随地在线收发消息。适用于个人客服、社群运营、自动化销售等多种场景。',
+    'index.featuresTitle': '核心功能',
+    'index.feature1': '💬 双向聊天 — 网页端实时收发消息，支持图片、声音提醒、多机器人管理',
+    'index.feature2': '⌨️ 菜单键盘 — 自定义底部按钮菜单、关键词自动回复、多级消息流程',
+    'index.feature3': '🛒 TG商城 — Telegram内置商城，支持USDT/TRX/支付宝/微信多种支付方式',
+    'index.feature4': '🏪 自助商城 — 独立网页商城，卡密自动发货，无需Telegram即可购买',
+    'index.feature5': '🔔 实时通知 — 新消息声音提醒，未读消息标记，不错过任何客户咨询',
+    'index.feature6': '🎁 免费试用 — 注册即送20条试用消息，零成本体验全部功能',
+    'index.feature7': '🌐 免翻墙 — 网页端直接使用，无需科学上网，全球可访问',
+    'index.feature8': '📊 订单管理 — 完整的订单跟踪、用户余额管理、数据导出功能',
     
     // Activate Page
     'activate.title': '激活机器人服务',
@@ -1474,15 +1476,17 @@ const translations: Record<Language, Record<string, string>> = {
     'console.telegramAppDesc': 'After receiving forwarded messages, use Telegram\'s "Reply" feature (long press message → Reply) to reply to specific users. The bot is online 24/7, works even when this page is closed.',
     
     // Index Page Footer
-    'index.aboutTitle': 'About Bot - Contact QQ: 3075554556 for Activation',
-    'index.aboutDesc': 'Our TG bot management platform lets you easily manage conversations with users. Supports auto greetings, real-time message forwarding, multi-bot management, and more. Whether personal or business use, we have the solution for you. Even if your account is restricted, you can use bots for two-way chat as customer service! Web client works without VPN!',
-    'index.featuresTitle': 'Features',
-    'index.feature1': '✓ 20 free trial messages',
-    'index.feature2': '✓ Real-time message notifications',
-    'index.feature3': '✓ Multi-bot unified management',
-    'index.feature4': '✓ Simple and intuitive interface',
-    'index.feature5': '✓ Custom welcome messages',
-    'index.feature6': '✓ Image sending/receiving support',
+    'index.aboutTitle': 'About Platform — Contact QQ: 3075554556 for Activation',
+    'index.aboutDesc': 'An all-in-one Telegram bot management platform integrating four core modules: Bidirectional Chat, Menu Keyboard, TG Shop, and Self-service Store. Even with account restrictions, create a bot to enable two-way customer service. The web client works without VPN — manage messages anytime, anywhere. Perfect for customer support, community management, and automated sales.',
+    'index.featuresTitle': 'Core Features',
+    'index.feature1': '💬 Bidirectional Chat — Real-time messaging via web, supports images, sound alerts & multi-bot management',
+    'index.feature2': '⌨️ Menu Keyboard — Custom bottom button menus, keyword auto-reply & multi-step message flows',
+    'index.feature3': '🛒 TG Shop — In-Telegram store with USDT/TRX/Alipay/WeChat payment support',
+    'index.feature4': '🏪 Self-service Store — Standalone web store with auto card-key delivery, no Telegram needed',
+    'index.feature5': '🔔 Real-time Alerts — Sound notifications, unread badges, never miss a customer inquiry',
+    'index.feature6': '🎁 Free Trial — 20 free messages on signup, experience all features at zero cost',
+    'index.feature7': '🌐 No VPN Required — Direct web access, globally available',
+    'index.feature8': '📊 Order Management — Full order tracking, user balance management & data export',
     
     // Activate Page
     'activate.title': 'Activate Bot Service',
