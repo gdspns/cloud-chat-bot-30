@@ -1676,6 +1676,7 @@ function Workspace({
               setTargetChatId={setTargetChatId}
               handlePushMenu={handlePushMenu}
               botToken={botProfile?.token}
+              adminUserId={userIdInput}
             />
           )}
           {activeTab === "shop" && (
@@ -3492,6 +3493,7 @@ function UsersPanel({
   setTargetChatId,
   handlePushMenu,
   botToken,
+  adminUserId,
 }: any) {
   const { t } = useLanguage();
   const [dbUsers, setDbUsers] = useState<any[]>([]);
@@ -3564,7 +3566,10 @@ function UsersPanel({
   };
 
   // 合并数据库用户和本地用户
-  const allUsers = [...dbUsers];
+  const allUsers = dbUsers.filter((u: any) => {
+    if (adminUserId && u.telegram_user_id?.toString() === adminUserId.toString()) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
