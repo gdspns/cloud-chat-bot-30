@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import type { BotActivation, Message, ChatItem } from "@/types/bot";
 
 const Index = () => {
@@ -749,37 +750,47 @@ const Index = () => {
         />
       </div>
 
-      {/* Site description */}
-      <div className="border-t bg-gradient-to-b from-muted/40 to-background">
+      {/* Site description - SEO optimized */}
+      <section className="border-t bg-gradient-to-b from-muted/40 to-background" aria-label="平台介绍">
         <div className="container mx-auto px-4 py-12">
           {/* About section */}
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <header className="text-center mb-10">
+            <h1 className="text-3xl font-bold mb-3 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               {t('index.aboutTitle')}
-            </h2>
+            </h1>
             <p className="text-muted-foreground leading-relaxed max-w-2xl mx-auto text-sm">
               {t('index.aboutDesc')}
             </p>
-          </div>
+          </header>
 
           {/* Features title */}
-          <h3 className="text-xl font-semibold text-center mb-6">{t('index.featuresTitle')}</h3>
+          <h2 className="text-xl font-semibold text-center mb-6">{t('index.featuresTitle')}</h2>
 
-          {/* Features grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div
-                key={i}
-                className="group rounded-xl border bg-card p-4 transition-all hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5"
-              >
-                <p className="text-sm text-card-foreground leading-relaxed">
-                  {t(`index.feature${i}` as any)}
-                </p>
-              </div>
-            ))}
+          {/* Features accordion grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl mx-auto">
+            <Accordion type="multiple" className="contents">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <AccordionItem
+                  key={i}
+                  value={`feature-${i}`}
+                  className="rounded-xl border bg-card transition-all hover:shadow-md hover:border-primary/30 data-[state=open]:shadow-md data-[state=open]:border-primary/30"
+                >
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                    <span className="text-sm font-medium text-card-foreground text-left leading-relaxed">
+                      {t(`index.feature${i}` as any)}
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {t(`index.feature${i}Detail` as any)}
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </div>
         </div>
-      </div>
+      </section>
 
       <AddBotDialog
         open={showAddBot}
