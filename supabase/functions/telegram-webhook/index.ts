@@ -628,7 +628,7 @@ async function createOrderForProduct(
     ]);
   }
 
-  // 余额支付选项 (仅对非充值商品显示)
+  // 余额支付选项 (仅对非充值商品显示，无论余额多少都显示)
   if (product.type !== 'recharge') {
     // 查询用户余额
     const { data: userBalance } = await supabase
@@ -638,12 +638,11 @@ async function createOrderForProduct(
       .eq('telegram_user_id', chatId)
       .maybeSingle();
 
-    if (userBalance && parseFloat(userBalance.balance) > 0) {
-      const balanceDisplay = parseFloat(userBalance.balance).toFixed(2);
-      paymentButtons.push([
-        { text: `${t("balance_pay", lang)} (${balanceDisplay} ${userBalance.currency})`, callback_data: `pay_balance_${orderNo}` },
-      ]);
-    }
+    const balanceDisplay = userBalance ? parseFloat(userBalance.balance).toFixed(2) : '0.00';
+    const balanceCurrency = userBalance?.currency || product.currency;
+    paymentButtons.push([
+      { text: `${t("balance_pay", lang)} (${balanceDisplay} ${balanceCurrency})`, callback_data: `pay_balance_${orderNo}` },
+    ]);
   }
 
   // 取消按钮
