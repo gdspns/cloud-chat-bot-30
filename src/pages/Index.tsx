@@ -750,28 +750,33 @@ const Index = () => {
       </div>
 
       {/* Site description */}
-      <div className="border-t bg-muted/30">
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <h2 className="text-2xl font-bold mb-4">{t('index.aboutTitle')}</h2>
-              <p className="text-muted-foreground leading-relaxed">
-                {t('index.aboutDesc')}
-              </p>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold mb-4">{t('index.featuresTitle')}</h2>
-              <ul className="space-y-2 text-muted-foreground">
-                <li>{t('index.feature1')}</li>
-                <li>{t('index.feature2')}</li>
-                <li>{t('index.feature3')}</li>
-                <li>{t('index.feature4')}</li>
-                <li>{t('index.feature5')}</li>
-                <li>{t('index.feature6')}</li>
-                <li>{t('index.feature7')}</li>
-                <li>{t('index.feature8')}</li>
-              </ul>
-            </div>
+      <div className="border-t bg-gradient-to-b from-muted/40 to-background">
+        <div className="container mx-auto px-4 py-12">
+          {/* About section */}
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              {t('index.aboutTitle')}
+            </h2>
+            <p className="text-muted-foreground leading-relaxed max-w-2xl mx-auto text-sm">
+              {t('index.aboutDesc')}
+            </p>
+          </div>
+
+          {/* Features title */}
+          <h3 className="text-xl font-semibold text-center mb-6">{t('index.featuresTitle')}</h3>
+
+          {/* Features grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div
+                key={i}
+                className="group rounded-xl border bg-card p-4 transition-all hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5"
+              >
+                <p className="text-sm text-card-foreground leading-relaxed">
+                  {t(`index.feature${i}` as any)}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
