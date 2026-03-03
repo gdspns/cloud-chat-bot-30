@@ -23,6 +23,18 @@ interface ExportData {
   activation_codes: any[];
   bot_trial_records: any[];
   disabled_users: any[];
+  keyboard_configs: any[];
+  store_products: any[];
+  store_card_keys: any[];
+  store_orders: any[];
+  shop_configs: any[];
+  shop_products: any[];
+  shop_orders: any[];
+  shop_user_balances: any[];
+  shop_balance_transactions: any[];
+  bot_users: any[];
+  articles: any[];
+  user_roles: any[];
 }
 
 export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExportImportProps) => {
@@ -96,53 +108,36 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
 
   // 获取所有数据
   const fetchAllData = async (): Promise<ExportData> => {
-    // 获取机器人数据
-    const { data: bots, error: botsError } = await supabase
-      .from('bot_activations')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (botsError) throw botsError;
+    const fetchTable = async (table: string) => {
+      const { data, error } = await supabase
+        .from(table as any)
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    };
 
-    // 获取消息数据
-    const { data: messages, error: messagesError } = await supabase
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (messagesError) throw messagesError;
-
-    // 获取激活码数据
-    const { data: codes, error: codesError } = await supabase
-      .from('activation_codes')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (codesError) throw codesError;
-
-    // 获取试用记录
-    const { data: trialRecords, error: trialError } = await supabase
-      .from('bot_trial_records')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (trialError) throw trialError;
-
-    // 获取禁用用户
-    const { data: disabledUsers, error: disabledError } = await supabase
-      .from('disabled_users')
-      .select('*');
-    
-    if (disabledError) throw disabledError;
+    const [
+      bot_activations, messages, activation_codes, bot_trial_records, disabled_users,
+      keyboard_configs, store_products, store_card_keys, store_orders,
+      shop_configs, shop_products, shop_orders, shop_user_balances, shop_balance_transactions,
+      bot_users, articles, user_roles
+    ] = await Promise.all([
+      fetchTable('bot_activations'), fetchTable('messages'), fetchTable('activation_codes'),
+      fetchTable('bot_trial_records'), fetchTable('disabled_users'),
+      fetchTable('keyboard_configs'), fetchTable('store_products'), fetchTable('store_card_keys'),
+      fetchTable('store_orders'), fetchTable('shop_configs'), fetchTable('shop_products'),
+      fetchTable('shop_orders'), fetchTable('shop_user_balances'), fetchTable('shop_balance_transactions'),
+      fetchTable('bot_users'), fetchTable('articles'), fetchTable('user_roles'),
+    ]);
 
     return {
       exportDate: new Date().toISOString(),
-      version: '1.0',
-      bot_activations: bots || [],
-      messages: messages || [],
-      activation_codes: codes || [],
-      bot_trial_records: trialRecords || [],
-      disabled_users: disabledUsers || [],
+      version: '2.0',
+      bot_activations, messages, activation_codes, bot_trial_records, disabled_users,
+      keyboard_configs, store_products, store_card_keys, store_orders,
+      shop_configs, shop_products, shop_orders, shop_user_balances, shop_balance_transactions,
+      bot_users, articles, user_roles,
     };
   };
 
@@ -225,62 +220,44 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
 
     setIsImporting(true);
     try {
-      // 导入激活码（先导入，因为机器人可能关联激活码）
-      if (importPreview.activation_codes.length > 0) {
-        for (const code of importPreview.activation_codes) {
-          const { error } = await supabase
-            .from('activation_codes')
-            .upsert(code, { onConflict: 'id' });
-          if (error) console.error('导入激活码失败:', error);
-        }
-      }
-
-      // 导入试用记录
-      if (importPreview.bot_trial_records?.length > 0) {
-        for (const record of importPreview.bot_trial_records) {
-          const { error } = await supabase
-            .from('bot_trial_records')
-            .upsert(record, { onConflict: 'id' });
-          if (error) console.error('导入试用记录失败:', error);
-        }
-      }
-
-      // 导入机器人数据
-      if (importPreview.bot_activations.length > 0) {
-        for (const bot of importPreview.bot_activations) {
-          const { error } = await supabase
-            .from('bot_activations')
-            .upsert(bot, { onConflict: 'id' });
-          if (error) console.error('导入机器人失败:', error);
-        }
-      }
-
-      // 导入消息数据
-      if (importPreview.messages.length > 0) {
-        // 批量插入消息（分批处理）
+      const upsertTable = async (table: string, data: any[]) => {
+        if (!data || data.length === 0) return;
         const batchSize = 100;
-        for (let i = 0; i < importPreview.messages.length; i += batchSize) {
-          const batch = importPreview.messages.slice(i, i + batchSize);
+        for (let i = 0; i < data.length; i += batchSize) {
+          const batch = data.slice(i, i + batchSize);
           const { error } = await supabase
-            .from('messages')
-            .upsert(batch, { onConflict: 'id' });
-          if (error) console.error('导入消息失败:', error);
+            .from(table as any)
+            .upsert(batch as any, { onConflict: 'id' });
+          if (error) console.error(`导入 ${table} 失败:`, error);
         }
-      }
+      };
 
-      // 导入禁用用户
-      if (importPreview.disabled_users?.length > 0) {
-        for (const user of importPreview.disabled_users) {
-          const { error } = await supabase
-            .from('disabled_users')
-            .upsert(user, { onConflict: 'id' });
-          if (error) console.error('导入禁用用户失败:', error);
-        }
-      }
+      // 按依赖顺序导入
+      await upsertTable('activation_codes', importPreview.activation_codes);
+      await upsertTable('user_roles', importPreview.user_roles);
+      await upsertTable('bot_trial_records', importPreview.bot_trial_records);
+      await upsertTable('disabled_users', importPreview.disabled_users);
+      await upsertTable('bot_activations', importPreview.bot_activations);
+      await upsertTable('bot_users', importPreview.bot_users);
+      await upsertTable('messages', importPreview.messages);
+      await upsertTable('keyboard_configs', importPreview.keyboard_configs);
+      await upsertTable('articles', importPreview.articles);
+      await upsertTable('store_products', importPreview.store_products);
+      await upsertTable('store_card_keys', importPreview.store_card_keys);
+      await upsertTable('store_orders', importPreview.store_orders);
+      await upsertTable('shop_configs', importPreview.shop_configs);
+      await upsertTable('shop_products', importPreview.shop_products);
+      await upsertTable('shop_orders', importPreview.shop_orders);
+      await upsertTable('shop_user_balances', importPreview.shop_user_balances);
+      await upsertTable('shop_balance_transactions', importPreview.shop_balance_transactions);
+
+      const totalCount = Object.entries(importPreview)
+        .filter(([k]) => !['exportDate', 'version'].includes(k))
+        .reduce((sum, [, v]) => sum + (Array.isArray(v) ? v.length : 0), 0);
 
       toast({
         title: "导入成功",
-        description: `已导入 ${importPreview.bot_activations.length} 个机器人, ${importPreview.messages.length} 条消息, ${importPreview.activation_codes.length} 个激活码`,
+        description: `已导入 ${totalCount} 条数据记录`,
       });
 
       setImportPreview(null);
@@ -362,6 +339,12 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
                 <li>• 激活码：所有生成的激活码及使用状态</li>
                 <li>• 试用记录：机器人试用历史</li>
                 <li>• 禁用用户：被禁用的用户列表</li>
+                <li>• 菜单键盘配置：指令、菜单、自动回复规则</li>
+                <li>• 商品管理：商品、卡密库存、网站订单</li>
+                <li>• TG商城：商品、订单、配置、用户余额</li>
+                <li>• 机器人用户：所有机器人的用户记录</li>
+                <li>• 文章管理：配置说明文章</li>
+                <li>• 用户角色：管理员权限分配</li>
               </ul>
             </Card>
           </TabsContent>
@@ -414,7 +397,7 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
                   </div>
                 )}
 
-                <ScrollArea className="h-[200px]">
+                <ScrollArea className="h-[300px]">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>导出日期：</span>
@@ -424,26 +407,30 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
                       <span>版本：</span>
                       <span>{importPreview.version}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span>机器人数量：</span>
-                      <span>{importPreview.bot_activations?.length || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>消息数量：</span>
-                      <span>{importPreview.messages?.length || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>激活码数量：</span>
-                      <span>{importPreview.activation_codes?.length || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>试用记录数量：</span>
-                      <span>{importPreview.bot_trial_records?.length || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>禁用用户数量：</span>
-                      <span>{importPreview.disabled_users?.length || 0}</span>
-                    </div>
+                    {[
+                      ['机器人', 'bot_activations'],
+                      ['消息', 'messages'],
+                      ['激活码', 'activation_codes'],
+                      ['试用记录', 'bot_trial_records'],
+                      ['禁用用户', 'disabled_users'],
+                      ['菜单键盘配置', 'keyboard_configs'],
+                      ['网站商品', 'store_products'],
+                      ['卡密库存', 'store_card_keys'],
+                      ['网站订单', 'store_orders'],
+                      ['TG商城配置', 'shop_configs'],
+                      ['TG商城商品', 'shop_products'],
+                      ['TG商城订单', 'shop_orders'],
+                      ['用户余额', 'shop_user_balances'],
+                      ['余额流水', 'shop_balance_transactions'],
+                      ['机器人用户', 'bot_users'],
+                      ['文章', 'articles'],
+                      ['用户角色', 'user_roles'],
+                    ].map(([label, key]) => (
+                      <div key={key} className="flex justify-between text-sm">
+                        <span>{label}：</span>
+                        <span>{(importPreview as any)[key]?.length || 0}</span>
+                      </div>
+                    ))}
                   </div>
                 </ScrollArea>
 
