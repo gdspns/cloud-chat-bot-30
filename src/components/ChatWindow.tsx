@@ -354,7 +354,7 @@ export const ChatWindow = ({
                   {message.is_admin_reply && ` (${t('chat.admin')})`}
                 </span>
                 <span className="text-xs opacity-70 ml-2">
-                  {new Date(message.created_at).toLocaleTimeString('zh-CN')}
+                  {new Date(message.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </span>
               </div>
               {renderMessageContent(message.content)}
