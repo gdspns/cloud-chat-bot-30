@@ -141,7 +141,7 @@ export const ProductManagement = () => {
 
   const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [saveResultMessage, setSaveResultMessage] = useState('');
-  const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [filterTag, setFilterTag] = useState<string[]>([]);
   const [filterType, setFilterType] = useState<string | null>(null);
 
   // 规范化 tags - mall 和 shop 视为等价，统一为 'shop'
@@ -429,16 +429,19 @@ export const ProductManagement = () => {
         {/* 主分类标签 */}
         <div className="flex gap-2 flex-wrap mb-3">
           <button
-            onClick={() => { setFilterTag(null); setFilterType(null); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${!filterTag ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}
+            onClick={() => { setFilterTag([]); setFilterType(null); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${filterTag.length === 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}
           >
             全部
           </button>
           {CATEGORY_TAGS.map(tag => (
             <button
               key={tag.id}
-              onClick={() => { setFilterTag(prev => prev === tag.id ? null : tag.id); setFilterType(null); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${filterTag === tag.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}
+              onClick={() => {
+                setFilterTag(prev => prev.includes(tag.id) ? prev.filter(t => t !== tag.id) : [...prev, tag.id]);
+                setFilterType(null);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${filterTag.includes(tag.id) ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}
             >
               {tag.label}
             </button>
@@ -460,12 +463,13 @@ export const ProductManagement = () => {
 
         {(() => {
           const filtered = products.filter(p => {
-            if (filterTag) {
+            if (filterTag.length > 0) {
               const tags = (p.tags || []);
-              // 精确匹配：商品的分类标签必须只包含选中的主分类
               const categoryTagIds = CATEGORY_TAGS.map(t => t.id);
               const productCategoryTags = tags.filter(t => categoryTagIds.includes(t));
-              if (productCategoryTags.length !== 1 || productCategoryTags[0] !== filterTag) return false;
+              // 精确匹配：商品分类标签必须与选中的标签组合完全一致
+              if (productCategoryTags.length !== filterTag.length) return false;
+              if (!filterTag.every(ft => productCategoryTags.includes(ft))) return false;
             }
             if (filterType && p.type !== filterType) return false;
             return true;
