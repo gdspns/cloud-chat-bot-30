@@ -460,7 +460,13 @@ export const ProductManagement = () => {
 
         {(() => {
           const filtered = products.filter(p => {
-            if (filterTag && !(p.tags || []).includes(filterTag)) return false;
+            if (filterTag) {
+              const tags = (p.tags || []);
+              // 精确匹配：商品的分类标签必须只包含选中的主分类
+              const categoryTagIds = CATEGORY_TAGS.map(t => t.id);
+              const productCategoryTags = tags.filter(t => categoryTagIds.includes(t));
+              if (productCategoryTags.length !== 1 || productCategoryTags[0] !== filterTag) return false;
+            }
             if (filterType && p.type !== filterType) return false;
             return true;
           });
