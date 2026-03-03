@@ -141,6 +141,8 @@ export const ProductManagement = () => {
 
   const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [saveResultMessage, setSaveResultMessage] = useState('');
+  const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<string | null>(null);
 
   // 规范化 tags - mall 和 shop 视为等价，统一为 'shop'
   const normalizeTags = (tags: string[]): string[] => {
@@ -423,46 +425,89 @@ export const ProductManagement = () => {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </Button>
         </div>
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="animate-spin" size={32} />
-          </div>
-        ) : products.length === 0 ? (
-          <div className="text-center text-muted-foreground py-12">暂无商品，请先发布</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {products.map(p => {
-              const stock = getStockCount(p);
-              return (
-                <Card key={p.id} className={`p-4 flex justify-between items-start ${editingId === p.id ? 'ring-2 ring-primary' : ''}`}>
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-base flex items-center gap-2">
-                      {p.name}
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${p.type === 'auto' ? 'bg-blue-500/20 text-blue-500' : 'bg-purple-500/20 text-purple-500'}`}>
-                        {p.type === 'auto' ? '直充' : '卡密'}
-                      </span>
-                    </h4>
-                    <div className="flex gap-1 flex-wrap">
-                      {(p.tags || []).map(tag => (
-                        <span key={tag} className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                          {CATEGORY_TAGS.find(t => t.id === tag)?.label || tag}
+
+        {/* 主分类标签 */}
+        <div className="flex gap-2 flex-wrap mb-3">
+          <button
+            onClick={() => { setFilterTag(null); setFilterType(null); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${!filterTag ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}
+          >
+            全部
+          </button>
+          {CATEGORY_TAGS.map(tag => (
+            <button
+              key={tag.id}
+              onClick={() => { setFilterTag(prev => prev === tag.id ? null : tag.id); setFilterType(null); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${filterTag === tag.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}
+            >
+              {tag.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 子分类标签 */}
+        <div className="flex gap-2 flex-wrap mb-4">
+          {[{ id: 'card', label: '卡密商品' }, { id: 'auto', label: '直充商品' }].map(sub => (
+            <button
+              key={sub.id}
+              onClick={() => setFilterType(prev => prev === sub.id ? null : sub.id)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${filterType === sub.id ? 'bg-accent text-accent-foreground border-primary/50' : 'bg-muted/50 text-muted-foreground border-border'}`}
+            >
+              {sub.label}
+            </button>
+          ))}
+        </div>
+
+        {(() => {
+          const filtered = products.filter(p => {
+            if (filterTag && !(p.tags || []).includes(filterTag)) return false;
+            if (filterType && p.type !== filterType) return false;
+            return true;
+          });
+
+          return loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="animate-spin" size={32} />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center text-muted-foreground py-12">
+              {products.length === 0 ? '暂无商品，请先发布' : '该分类下暂无商品'}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filtered.map(p => {
+                const stock = getStockCount(p);
+                return (
+                  <Card key={p.id} className={`p-4 flex justify-between items-start ${editingId === p.id ? 'ring-2 ring-primary' : ''}`}>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-base flex items-center gap-2">
+                        {p.name}
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${p.type === 'auto' ? 'bg-blue-500/20 text-blue-500' : 'bg-purple-500/20 text-purple-500'}`}>
+                          {p.type === 'auto' ? '直充' : '卡密'}
                         </span>
-                      ))}
+                      </h4>
+                      <div className="flex gap-1 flex-wrap">
+                        {(p.tags || []).map(tag => (
+                          <span key={tag} className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                            {CATEGORY_TAGS.find(t => t.id === tag)?.label || tag}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{p.duration}天 | ¥{p.price}</p>
+                      <p className={`text-xs font-bold ${stock > 0 ? 'text-green-500' : 'text-destructive'}`}>
+                        库存: {stock}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{p.duration}天 | ¥{p.price}</p>
-                    <p className={`text-xs font-bold ${stock > 0 ? 'text-green-500' : 'text-destructive'}`}>
-                      库存: {stock}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => handleEditClick(p)}><Edit3 size={16} /></Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDeleteProduct(p.id)} className="text-destructive hover:text-destructive"><Trash2 size={16} /></Button>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => handleEditClick(p)}><Edit3 size={16} /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDeleteProduct(p.id)} className="text-destructive hover:text-destructive"><Trash2 size={16} /></Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          );
+        })()}
       </Card>
     </div>
   );
