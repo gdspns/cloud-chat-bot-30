@@ -109,11 +109,11 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
 
   // 获取所有数据
   const fetchAllData = async (): Promise<ExportData> => {
-    const fetchTable = async (table: string) => {
+    const fetchTable = async (table: string, orderCol: string = 'created_at') => {
       const { data, error } = await supabase
         .from(table as any)
         .select('*')
-        .order('created_at', { ascending: false });
+        .order(orderCol, { ascending: false });
       if (error) throw error;
       return data || [];
     };
@@ -125,11 +125,11 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
       bot_users, articles, user_roles, cron_job_logs
     ] = await Promise.all([
       fetchTable('bot_activations'), fetchTable('messages'), fetchTable('activation_codes'),
-      fetchTable('bot_trial_records'), fetchTable('disabled_users'),
+      fetchTable('bot_trial_records'), fetchTable('disabled_users', 'disabled_at'),
       fetchTable('keyboard_configs'), fetchTable('store_products'), fetchTable('store_card_keys'),
       fetchTable('store_orders'), fetchTable('shop_configs'), fetchTable('shop_products'),
       fetchTable('shop_orders'), fetchTable('shop_user_balances'), fetchTable('shop_balance_transactions'),
-      fetchTable('bot_users'), fetchTable('articles'), fetchTable('user_roles'), fetchTable('cron_job_logs'),
+      fetchTable('bot_users'), fetchTable('articles'), fetchTable('user_roles'), fetchTable('cron_job_logs', 'started_at'),
     ]);
 
     return {
