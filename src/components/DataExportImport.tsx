@@ -35,6 +35,7 @@ interface ExportData {
   bot_users: any[];
   articles: any[];
   user_roles: any[];
+  cron_job_logs: any[];
 }
 
 export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExportImportProps) => {
@@ -121,14 +122,14 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
       bot_activations, messages, activation_codes, bot_trial_records, disabled_users,
       keyboard_configs, store_products, store_card_keys, store_orders,
       shop_configs, shop_products, shop_orders, shop_user_balances, shop_balance_transactions,
-      bot_users, articles, user_roles
+      bot_users, articles, user_roles, cron_job_logs
     ] = await Promise.all([
       fetchTable('bot_activations'), fetchTable('messages'), fetchTable('activation_codes'),
       fetchTable('bot_trial_records'), fetchTable('disabled_users'),
       fetchTable('keyboard_configs'), fetchTable('store_products'), fetchTable('store_card_keys'),
       fetchTable('store_orders'), fetchTable('shop_configs'), fetchTable('shop_products'),
       fetchTable('shop_orders'), fetchTable('shop_user_balances'), fetchTable('shop_balance_transactions'),
-      fetchTable('bot_users'), fetchTable('articles'), fetchTable('user_roles'),
+      fetchTable('bot_users'), fetchTable('articles'), fetchTable('user_roles'), fetchTable('cron_job_logs'),
     ]);
 
     return {
@@ -137,7 +138,7 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
       bot_activations, messages, activation_codes, bot_trial_records, disabled_users,
       keyboard_configs, store_products, store_card_keys, store_orders,
       shop_configs, shop_products, shop_orders, shop_user_balances, shop_balance_transactions,
-      bot_users, articles, user_roles,
+      bot_users, articles, user_roles, cron_job_logs,
     };
   };
 
@@ -250,6 +251,7 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
       await upsertTable('shop_orders', importPreview.shop_orders);
       await upsertTable('shop_user_balances', importPreview.shop_user_balances);
       await upsertTable('shop_balance_transactions', importPreview.shop_balance_transactions);
+      await upsertTable('cron_job_logs', importPreview.cron_job_logs);
 
       const totalCount = Object.entries(importPreview)
         .filter(([k]) => !['exportDate', 'version'].includes(k))
@@ -345,6 +347,7 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
                 <li>• 机器人用户：所有机器人的用户记录</li>
                 <li>• 文章管理：配置说明文章</li>
                 <li>• 用户角色：管理员权限分配</li>
+                <li>• 定时任务日志：系统定时任务执行记录</li>
               </ul>
             </Card>
           </TabsContent>
@@ -425,6 +428,7 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
                       ['机器人用户', 'bot_users'],
                       ['文章', 'articles'],
                       ['用户角色', 'user_roles'],
+                      ['定时任务日志', 'cron_job_logs'],
                     ].map(([label, key]) => (
                       <div key={key} className="flex justify-between text-sm">
                         <span>{label}：</span>
