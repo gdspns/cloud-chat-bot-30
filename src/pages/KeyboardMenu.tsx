@@ -157,6 +157,9 @@ interface AppConfig {
   // TG商城配置
   shopConfig?: any;
   shopProducts?: any[];
+  shopOrders?: any[];
+  shopUserBalances?: any[];
+  shopBalanceTransactions?: any[];
   // 文章/配置说明
   articles?: any[];
 }
@@ -1208,16 +1211,22 @@ function Workspace({
       knownUsers,
     };
 
-    // 从数据库获取TG商城配置和商品
+    // 从数据库获取TG商城配置、商品、订单、余额、流水
     if (tokenInput) {
       try {
-        const [shopConfigRes, shopProductsRes, articlesRes] = await Promise.all([
+        const [shopConfigRes, shopProductsRes, shopOrdersRes, shopUserBalancesRes, shopBalanceTxRes, articlesRes] = await Promise.all([
           supabase.from('shop_configs').select('*').eq('bot_token', tokenInput).maybeSingle(),
           supabase.from('shop_products').select('*').eq('bot_token', tokenInput),
+          supabase.from('shop_orders').select('*').eq('bot_token', tokenInput),
+          supabase.from('shop_user_balances').select('*').eq('bot_token', tokenInput),
+          supabase.from('shop_balance_transactions').select('*').eq('bot_token', tokenInput),
           supabase.from('articles').select('*'),
         ]);
         if (shopConfigRes.data) config.shopConfig = shopConfigRes.data;
         if (shopProductsRes.data) config.shopProducts = shopProductsRes.data;
+        if (shopOrdersRes.data) config.shopOrders = shopOrdersRes.data;
+        if (shopUserBalancesRes.data) config.shopUserBalances = shopUserBalancesRes.data;
+        if (shopBalanceTxRes.data) config.shopBalanceTransactions = shopBalanceTxRes.data;
         if (articlesRes.data) config.articles = articlesRes.data;
       } catch (e) {
         console.error('Export additional data failed:', e);
@@ -1278,6 +1287,33 @@ function Workspace({
                 { onConflict: 'id' }
               );
             }
+          }
+        }
+        // 导入TG商城订单
+        if (botToken && config.shopOrders && config.shopOrders.length > 0) {
+          for (const order of config.shopOrders) {
+            await supabase.from('shop_orders').upsert(
+              { ...order, bot_token: botToken },
+              { onConflict: 'id' }
+            );
+          }
+        }
+        // 导入TG商城用户余额
+        if (botToken && config.shopUserBalances && config.shopUserBalances.length > 0) {
+          for (const balance of config.shopUserBalances) {
+            await supabase.from('shop_user_balances').upsert(
+              { ...balance, bot_token: botToken },
+              { onConflict: 'id' }
+            );
+          }
+        }
+        // 导入TG商城余额流水
+        if (botToken && config.shopBalanceTransactions && config.shopBalanceTransactions.length > 0) {
+          for (const tx of config.shopBalanceTransactions) {
+            await supabase.from('shop_balance_transactions').upsert(
+              { ...tx, bot_token: botToken },
+              { onConflict: 'id' }
+            );
           }
         }
         // 导入文章/配置说明
