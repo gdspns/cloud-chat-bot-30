@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can delete shop user balances" ON public.shop_user_balances FOR DELETE USING (true);
