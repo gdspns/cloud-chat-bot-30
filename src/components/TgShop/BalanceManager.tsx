@@ -114,11 +114,14 @@ export function BalanceManager({ botToken, showToast, readOnly = false }: Balanc
           .update({ balance: newBalance, updated_at: new Date().toISOString() } as any)
           .eq("id", user.id);
       } else {
+        const botUser = botUsers.find((bu) => bu.telegram_user_id === selectedUserId);
         await supabase.from("shop_user_balances" as any).insert({
           bot_token: botToken,
           telegram_user_id: selectedUserId,
           balance: newBalance,
           currency: "USDT",
+          telegram_username: botUser?.username || null,
+          first_name: botUser?.first_name || null,
         } as any);
       }
 
