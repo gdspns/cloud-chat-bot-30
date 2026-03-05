@@ -30,9 +30,16 @@ interface BalanceManagerProps {
   readOnly?: boolean;
 }
 
+interface BotUser {
+  telegram_user_id: number;
+  username: string | null;
+  first_name: string;
+}
+
 export function BalanceManager({ botToken, showToast, readOnly = false }: BalanceManagerProps) {
   const { language } = useLanguage();
   const [users, setUsers] = useState<UserBalance[]>([]);
+  const [botUsers, setBotUsers] = useState<BotUser[]>([]);
   const [transactions, setTransactions] = useState<BalanceTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -47,7 +54,7 @@ export function BalanceManager({ botToken, showToast, readOnly = false }: Balanc
     if (!botToken) return;
     setIsLoading(true);
     try {
-      const [balancesRes, txRes] = await Promise.all([
+      const [balancesRes, txRes, botUsersRes] = await Promise.all([
         supabase
           .from("shop_user_balances" as any)
           .select("*")
@@ -59,10 +66,15 @@ export function BalanceManager({ botToken, showToast, readOnly = false }: Balanc
           .eq("bot_token", botToken)
           .order("created_at", { ascending: false })
           .limit(100),
+        supabase
+          .from("bot_users")
+          .select("telegram_user_id, username, first_name")
+          .eq("bot_token", botToken),
       ]);
 
       if (balancesRes.data) setUsers(balancesRes.data as any[]);
       if (txRes.data) setTransactions(txRes.data as any[]);
+      if (botUsersRes.data) setBotUsers(botUsersRes.data as BotUser[]);
     } catch (e) {
       console.error("Failed to load balance data:", e);
     } finally {
@@ -135,7 +147,25 @@ export function BalanceManager({ botToken, showToast, readOnly = false }: Balanc
     }
   };
 
-  const filteredUsers = users.filter((u) => {
+  // Merge bot_users that don't have a balance record (shown only when searching)
+  const mergedUsers: UserBalance[] = (() => {
+    if (!searchTerm) return users;
+    const balanceUserIds = new Set(users.map((u) => u.telegram_user_id));
+    const extraUsers: UserBalance[] = botUsers
+      .filter((bu) => !balanceUserIds.has(bu.telegram_user_id))
+      .map((bu) => ({
+        id: `bot-user-${bu.telegram_user_id}`,
+        telegram_user_id: bu.telegram_user_id,
+        telegram_username: bu.username,
+        first_name: bu.first_name,
+        balance: 0,
+        currency: "USDT",
+        updated_at: "",
+      }));
+    return [...users, ...extraUsers];
+  })();
+
+  const filteredUsers = mergedUsers.filter((u) => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
