@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Wallet, RefreshCw, Plus, Minus, Search, ArrowUpDown } from "lucide-react";
+import { Wallet, RefreshCw, Plus, Minus, Search, ArrowUpDown, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -49,6 +49,7 @@ export function BalanceManager({ botToken, showToast, readOnly = false }: Balanc
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [adjustType, setAdjustType] = useState<"add" | "deduct">("add");
   const [showAdjustDialog, setShowAdjustDialog] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!botToken) return;
@@ -147,6 +148,24 @@ export function BalanceManager({ botToken, showToast, readOnly = false }: Balanc
       showToast("error", language === "zh" ? "调账失败" : "Failed to adjust balance");
     } finally {
       setIsAdjusting(false);
+    }
+  };
+
+  const handleDeleteUser = async (user: UserBalance) => {
+    if (!botToken || user.id.startsWith("bot-user-")) return;
+    setDeletingUserId(user.id);
+    try {
+      await supabase
+        .from("shop_user_balances" as any)
+        .delete()
+        .eq("id", user.id);
+      showToast("success", language === "zh" ? "已删除用户余额记录" : "User balance deleted");
+      loadData();
+    } catch (e) {
+      console.error("Delete user balance error:", e);
+      showToast("error", language === "zh" ? "删除失败" : "Failed to delete");
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -258,20 +277,36 @@ export function BalanceManager({ botToken, showToast, readOnly = false }: Balanc
                     {u.telegram_username ? `@${u.telegram_username}` : ""} · ID: {u.telegram_user_id}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex flex-col items-end gap-0.5">
                   <div className="font-bold text-primary text-sm">{Number(u.balance).toFixed(2)} {u.currency}</div>
                   {!readOnly && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedUserId(u.telegram_user_id);
-                        setShowAdjustDialog(true);
-                      }}
-                      className="text-[10px] text-muted-foreground hover:text-primary mt-0.5"
-                    >
-                      <ArrowUpDown size={12} className="inline mr-0.5" />
-                      {language === "zh" ? "调账" : "Adjust"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedUserId(u.telegram_user_id);
+                          setShowAdjustDialog(true);
+                        }}
+                        className="text-[10px] text-muted-foreground hover:text-primary"
+                      >
+                        <ArrowUpDown size={12} className="inline mr-0.5" />
+                        {language === "zh" ? "调账" : "Adjust"}
+                      </button>
+                      {!u.id.startsWith("bot-user-") && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(language === "zh" ? "确定删除该用户余额记录？" : "Delete this user balance?")) {
+                              handleDeleteUser(u);
+                            }
+                          }}
+                          disabled={deletingUserId === u.id}
+                          className="text-[10px] text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 size={12} className="inline" />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
