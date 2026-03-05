@@ -1183,10 +1183,11 @@ ${t("shop_buy_tip", lang)}`;
     return categoryBuckets[a].displayName.localeCompare(categoryBuckets[b].displayName);
   });
 
-  const inlineButtons: any[][] = sortedKeys.map((key) => {
+  // Use index-based callback_data to avoid Telegram's 64-byte limit
+  const inlineButtons: any[][] = sortedKeys.map((key, index) => {
     const count = categoryBuckets[key].products.length;
     const name = categoryBuckets[key].displayName;
-    return [{ text: `📂 ${name} (${count}${itemsLabel})`, callback_data: `shop_cat_${encodeURIComponent(key)}` }];
+    return [{ text: `📂 ${name} (${count}${itemsLabel})`, callback_data: `shop_cat_${index}` }];
   });
 
   const message = `${t("shop_categories_title", lang)}
@@ -1196,7 +1197,7 @@ ${t("shop_total_products", lang, { count: (products as any[]).length, cats: keys
 ────────────────
 ${t("shop_click_category", lang)}`;
 
-  return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons } };
+  return { handled: true, message, inlineKeyboard: { inline_keyboard: inlineButtons }, _categoryKeys: sortedKeys };
 }
 
 function formatChinaTime(dateStr: string): string {
@@ -1946,7 +1947,13 @@ serve(async (req) => {
 
         let expandedCategory: string | undefined;
         if (callbackData.startsWith("shop_cat_")) {
-          expandedCategory = decodeURIComponent(callbackData.replace("shop_cat_", ""));
+          const catIndex = parseInt(callbackData.replace("shop_cat_", ""), 10);
+          // First, get the category list to resolve index to key
+          const preResult = await handleShopCommand(supabase, botToken, undefined, "zh");
+          const categoryKeys = (preResult as any)._categoryKeys || [];
+          if (!isNaN(catIndex) && catIndex >= 0 && catIndex < categoryKeys.length) {
+            expandedCategory = categoryKeys[catIndex];
+          }
         }
 
         // 获取用户语言偏好
