@@ -1835,6 +1835,7 @@ export const Admin = () => {
                   <div className="space-y-2">
                     {getUniqueChats().map(chat => {
                       const bot = activations.find(a => a.id === chat.botId);
+                      const botLabel = bot ? bot.bot_token.split(':')[0] : '未知';
                       return (
                         <div
                           key={`${chat.botId}-${chat.chatId}`}
@@ -1848,12 +1849,17 @@ export const Admin = () => {
                             setSelectedChatId(chat.chatId);
                           }}
                         >
-                          <div className="font-medium">{chat.userName}</div>
-                          <div className="text-xs text-muted-foreground truncate">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium truncate">{chat.userName}</div>
+                            <Badge variant="outline" className="text-[10px] shrink-0 ml-2">
+                              🤖 {botLabel}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate mt-0.5">
                             {chat.lastMessage.content}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            机器人: {bot?.bot_token.substring(0, 10)}...
+                          <div className="text-[10px] text-muted-foreground mt-1">
+                            {new Date(chat.lastMessage.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
                       );
