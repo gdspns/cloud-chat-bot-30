@@ -20,6 +20,7 @@ import BatchKeyImport from "@/components/BatchKeyImport";
 import { OrderCenter } from "@/components/OrderCenter";
 import { GatewayConfig } from "@/components/GatewayConfig";
 import { BotShopProducts } from "@/components/BotShopProducts";
+import { BotShopOrders } from "@/components/BotShopOrders";
 
 interface BotActivation {
   id: string;
@@ -1981,9 +1982,22 @@ export const Admin = () => {
 
           {/* 机器人商品 */}
           <TabsContent value="botproducts" className="space-y-4">
-            <Card className="p-6">
-              <BotShopProducts />
-            </Card>
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="overview">商品总览</TabsTrigger>
+                <TabsTrigger value="orders">商品订单</TabsTrigger>
+              </TabsList>
+              <TabsContent value="overview">
+                <Card className="p-6">
+                  <BotShopProducts />
+                </Card>
+              </TabsContent>
+              <TabsContent value="orders">
+                <Card className="p-6">
+                  <BotShopOrders />
+                </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
 
