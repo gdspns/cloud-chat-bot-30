@@ -3,11 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ShoppingCart, ChevronDown, ChevronUp, Copy, Bot, Search, Loader2, Download } from "lucide-react";
+import { RefreshCw, ShoppingCart, ChevronDown, ChevronUp, Copy, Bot, Search, Loader2, Download, Eye } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ShopOrder {
   id: string;
@@ -34,6 +35,7 @@ export function BotShopOrders() {
   const [expandedBots, setExpandedBots] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState<OrderFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewingContent, setViewingContent] = useState<{ orderNo: string; content: string } | null>(null);
   const { toast } = useToast();
 
   const loadOrders = useCallback(async () => {
@@ -293,10 +295,17 @@ export function BotShopOrders() {
                               <TableCell>
                                 {order.delivery_content ? (
                                   <div className="flex items-center gap-1">
-                                    <code className="text-[11px] bg-muted px-1.5 py-0.5 rounded max-w-[150px] truncate block">
+                                    <code className="text-[11px] bg-muted px-1.5 py-0.5 rounded max-w-[100px] truncate block">
                                       {order.delivery_content}
                                     </code>
-                                    <button onClick={() => copyText(order.delivery_content!)} className="p-0.5 rounded hover:bg-muted shrink-0">
+                                    <button
+                                      onClick={() => setViewingContent({ orderNo: order.order_no, content: order.delivery_content! })}
+                                      className="p-0.5 rounded hover:bg-muted shrink-0"
+                                      title="查看完整内容"
+                                    >
+                                      <Eye className="h-3 w-3 text-muted-foreground" />
+                                    </button>
+                                    <button onClick={() => copyText(order.delivery_content!)} className="p-0.5 rounded hover:bg-muted shrink-0" title="复制">
                                       <Copy className="h-3 w-3 text-muted-foreground" />
                                     </button>
                                   </div>
@@ -319,6 +328,33 @@ export function BotShopOrders() {
           })}
         </div>
       )}
+
+      {/* Delivery Content Dialog */}
+      <Dialog open={!!viewingContent} onOpenChange={() => setViewingContent(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>发货内容 - {viewingContent?.orderNo}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <ScrollArea className="max-h-[400px]">
+              <pre className="text-sm bg-muted p-4 rounded-lg whitespace-pre-wrap break-all font-mono">
+                {viewingContent?.content}
+              </pre>
+            </ScrollArea>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                if (viewingContent?.content) copyText(viewingContent.content);
+              }}
+            >
+              <Copy className="h-4 w-4 mr-1" />
+              复制发货内容
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
