@@ -918,7 +918,7 @@ export const StorePage = () => {
 
                   {isCrypto && (
                     <div className="flex items-center justify-center gap-2 bg-white/60 py-2 rounded-lg border border-blue-200">
-                      <span className="text-sm font-mono font-bold text-foreground break-all">{config.usdtAddress}</span>
+                      <span className="text-sm font-mono font-bold text-foreground dark:text-white break-all">{config.usdtAddress}</span>
                       <button onClick={() => copyToClipboard(config.usdtAddress, t('store.addressCopied'))} className="text-blue-600 hover:text-blue-800">
                         <Copy size={12} />
                       </button>
