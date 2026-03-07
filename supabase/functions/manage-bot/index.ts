@@ -427,6 +427,8 @@ serve(async (req) => {
             trial_limit: 20,
             trial_messages_used: trialMessagesUsed,
             user_id: userId || null,
+            web_enabled: true,
+            app_enabled: true,
           })
           .select()
           .single();
