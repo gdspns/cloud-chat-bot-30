@@ -1006,6 +1006,7 @@ ${t("payment_auto_cancel", lang)}
 ${t("payment_auto_deliver", lang)}`,
             orderId: order.id,
             paymentMethod,
+            cryptoQrUrl,
             h5PayUrl: paymentData.h5_url,
           };
         }
