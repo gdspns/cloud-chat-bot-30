@@ -213,10 +213,8 @@ serve(async (req) => {
             greeting_message: greetingMessage || '你好！👋 有什么可以帮助你的吗？',
             activation_code: activationCode,
             expire_at: expireAt,
-            is_active: true,
+            is_active: false,
             is_authorized: false,
-            web_enabled: true,
-            app_enabled: true,
           })
           .select()
           .single();
@@ -228,23 +226,6 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-
-        // 自动设置webhook，机器人立即可用
-        const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
-        await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: webhookUrl }),
-        });
-
-        // 创建试用记录
-        await supabase
-          .from('bot_trial_records')
-          .upsert({
-            bot_token: botToken,
-            messages_used: 0,
-            is_blocked: false,
-          }, { onConflict: 'bot_token' });
 
         return new Response(JSON.stringify({ ok: true, data }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -279,17 +260,11 @@ serve(async (req) => {
             updatePayload.user_id = userId;
           }
           
-          // 自动启动：确保 is_active、web_enabled、app_enabled 为 true
-          // 注意：is_authorized 保持原值，试用机器人不应设为 true（否则会显示"永久"）
+          // 如果试用期机器人 is_active 为 false，且试用次数未用完，自动恢复为活跃状态
+          const trialExceeded = !existing.is_authorized && existing.trial_messages_used >= existing.trial_limit;
           const isExpired = existing.expire_at && new Date(existing.expire_at) < new Date();
-          if (!existing.is_active && !isExpired) {
+          if (!existing.is_active && !trialExceeded && !isExpired) {
             updatePayload.is_active = true;
-          }
-          if (!existing.web_enabled) {
-            updatePayload.web_enabled = true;
-          }
-          if (!existing.app_enabled) {
-            updatePayload.app_enabled = true;
           }
           
           // 更新个人用户ID和欢迎语（如果提供了新值）
@@ -309,27 +284,22 @@ serve(async (req) => {
               .single();
             
             if (!updateError && updatedBot) {
-              // 始终确保webhook已设置
-              const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
-              await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: webhookUrl }),
-              });
+              // 如果恢复了活跃状态，重新设置webhook
+              if (updatePayload.is_active) {
+                const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
+                await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ url: webhookUrl }),
+                });
+              }
               return new Response(JSON.stringify({ ok: true, data: updatedBot, existed: true, claimed: !!updatePayload.user_id }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               });
             }
           }
           
-          // 已存在且无需更新，也确保webhook已设置
-          const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
-          await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: webhookUrl }),
-          });
-          
+          // 已存在且无需更新，返回现有数据
           return new Response(JSON.stringify({ ok: true, data: existing, existed: true }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
@@ -427,8 +397,6 @@ serve(async (req) => {
             trial_limit: 20,
             trial_messages_used: trialMessagesUsed,
             user_id: userId || null,
-            web_enabled: true,
-            app_enabled: true,
           })
           .select()
           .single();
