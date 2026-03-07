@@ -213,8 +213,10 @@ serve(async (req) => {
             greeting_message: greetingMessage || '你好！👋 有什么可以帮助你的吗？',
             activation_code: activationCode,
             expire_at: expireAt,
-            is_active: false,
+            is_active: true,
             is_authorized: false,
+            web_enabled: true,
+            app_enabled: true,
           })
           .select()
           .single();
@@ -226,6 +228,23 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+
+        // 自动设置webhook，机器人立即可用
+        const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
+        await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: webhookUrl }),
+        });
+
+        // 创建试用记录
+        await supabase
+          .from('bot_trial_records')
+          .upsert({
+            bot_token: botToken,
+            messages_used: 0,
+            is_blocked: false,
+          }, { onConflict: 'bot_token' });
 
         return new Response(JSON.stringify({ ok: true, data }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
