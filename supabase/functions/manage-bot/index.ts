@@ -279,13 +279,11 @@ serve(async (req) => {
             updatePayload.user_id = userId;
           }
           
-          // 自动启动授权：确保 is_active、is_authorized、web_enabled、app_enabled 为 true
+          // 自动启动：确保 is_active、web_enabled、app_enabled 为 true
+          // 注意：is_authorized 保持原值，试用机器人不应设为 true（否则会显示"永久"）
           const isExpired = existing.expire_at && new Date(existing.expire_at) < new Date();
           if (!existing.is_active && !isExpired) {
             updatePayload.is_active = true;
-          }
-          if (!existing.is_authorized) {
-            updatePayload.is_authorized = true;
           }
           if (!existing.web_enabled) {
             updatePayload.web_enabled = true;
@@ -425,7 +423,7 @@ serve(async (req) => {
             greeting_message: greetingMessage || '你好！👋 有什么可以帮助你的吗？',
             activation_code: activationCode,
             is_active: true,
-            is_authorized: true,
+            is_authorized: false,
             trial_limit: 20,
             trial_messages_used: trialMessagesUsed,
             user_id: userId || null,
