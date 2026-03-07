@@ -170,9 +170,12 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
   balance_recharge_hint: { zh: "\n\n💡 发送 /recharge 进行充值", en: "\n\n💡 Send /recharge to top up" },
   recharge_title: { zh: "💰 **充值中心**", en: "💰 **Recharge Center**" },
   recharge_no_products: { zh: "暂无充值商品，请联系管理员配置", en: "No recharge products available. Contact admin." },
-  recharge_select: { zh: "💡 点击下方充值金额进行充值", en: "💡 Click amount below to recharge" },
+  recharge_select: { zh: "💡 点击上方充值金额进行充值", en: "💡 Click amount below to recharge" },
   balance_pay: { zh: "💰 余额支付", en: "💰 Balance Pay" },
-  balance_insufficient: { zh: "❌ 余额不足！当前余额: {balance} {currency}\n需要: {amount} {currency}\n\n💡 发送 /recharge 充值", en: "❌ Insufficient balance! Current: {balance} {currency}\nRequired: {amount} {currency}\n\n💡 Send /recharge to top up" },
+  balance_insufficient: {
+    zh: "❌ 余额不足！当前余额: {balance} {currency}\n需要: {amount} {currency}\n\n💡 发送 /recharge 充值",
+    en: "❌ Insufficient balance! Current: {balance} {currency}\nRequired: {amount} {currency}\n\n💡 Send /recharge to top up",
+  },
   balance_pay_success: { zh: "✅ **余额支付成功！**", en: "✅ **Balance payment successful!**" },
 };
 
@@ -475,8 +478,12 @@ async function handleBuyCommand(
 
     const productLines = matchedProducts.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
-      const isRecharge = p.type === 'recharge';
-      const stockText = isRecharge ? `(${t("shop_recharge_product", lang)})` : stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
+      const isRecharge = p.type === "recharge";
+      const stockText = isRecharge
+        ? `(${t("shop_recharge_product", lang)})`
+        : stock > 0
+          ? `(${stockLabel}: ${stock})`
+          : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, "");
       const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
       return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
@@ -542,7 +549,7 @@ async function createOrderForProduct(
   }
 
   // 检查库存 (充值商品不需要库存)
-  if (product.type !== 'recharge' && (!product.stock_content || product.stock_content.length === 0)) {
+  if (product.type !== "recharge" && (!product.stock_content || product.stock_content.length === 0)) {
     const displayName = await localizeText(product.name, lang);
     return { handled: true, message: `❌ "${displayName}" ${t("error_no_stock", lang)}` };
   }
@@ -570,7 +577,7 @@ async function createOrderForProduct(
       telegram_chat_id: chatId,
       expires_at: expiresAt,
       status: "pending",
-      order_type: product.type === 'recharge' ? 'recharge' : 'purchase',
+      order_type: product.type === "recharge" ? "recharge" : "purchase",
     })
     .select()
     .single();
@@ -629,19 +636,22 @@ async function createOrderForProduct(
   }
 
   // 余额支付选项 (仅对非充值商品显示，无论余额多少都显示)
-  if (product.type !== 'recharge') {
+  if (product.type !== "recharge") {
     // 查询用户余额
     const { data: userBalance } = await supabase
-      .from('shop_user_balances')
-      .select('balance, currency')
-      .eq('bot_token', botToken)
-      .eq('telegram_user_id', chatId)
+      .from("shop_user_balances")
+      .select("balance, currency")
+      .eq("bot_token", botToken)
+      .eq("telegram_user_id", chatId)
       .maybeSingle();
 
-    const balanceDisplay = userBalance ? parseFloat(userBalance.balance).toFixed(2) : '0.00';
+    const balanceDisplay = userBalance ? parseFloat(userBalance.balance).toFixed(2) : "0.00";
     const balanceCurrency = userBalance?.currency || product.currency;
     paymentButtons.push([
-      { text: `${t("balance_pay", lang)} (${balanceDisplay} ${balanceCurrency})`, callback_data: `pay_balance_${orderNo}` },
+      {
+        text: `${t("balance_pay", lang)} (${balanceDisplay} ${balanceCurrency})`,
+        callback_data: `pay_balance_${orderNo}`,
+      },
     ]);
   }
 
@@ -660,8 +670,10 @@ async function createOrderForProduct(
 
   const itemsLabel = t("order_items", lang);
   const displayProductName = await localizeText(product.name, lang);
-  const isRechargeProduct = product.type === 'recharge';
-  const stockLine = isRechargeProduct ? '' : `\n${t("order_stock", lang)}: ${product.stock_content.length} ${itemsLabel}`;
+  const isRechargeProduct = product.type === "recharge";
+  const stockLine = isRechargeProduct
+    ? ""
+    : `\n${t("order_stock", lang)}: ${product.stock_content.length} ${itemsLabel}`;
   const message = `${t("order_created", lang)}
 
 ${t("order_product", lang)}: ${displayProductName}
@@ -742,10 +754,10 @@ async function handlePaymentMethodCallback(
   if (paymentMethod === "balance") {
     // 获取用户余额
     const { data: userBalance } = await supabase
-      .from('shop_user_balances')
-      .select('*')
-      .eq('bot_token', botToken)
-      .eq('telegram_user_id', chatId)
+      .from("shop_user_balances")
+      .select("*")
+      .eq("bot_token", botToken)
+      .eq("telegram_user_id", chatId)
       .maybeSingle();
 
     // 需要用商品原始币种的价格来扣余额
@@ -767,56 +779,51 @@ async function handlePaymentMethodCallback(
     // 扣除余额
     const newBalance = currentBalance - deductAmount;
     await supabase
-      .from('shop_user_balances')
+      .from("shop_user_balances")
       .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq('id', userBalance.id);
+      .eq("id", userBalance.id);
 
     // 记录消费流水
-    await supabase
-      .from('shop_balance_transactions')
-      .insert({
-        bot_token: botToken,
-        telegram_user_id: chatId,
-        type: 'purchase',
-        amount: -deductAmount,
-        balance_after: newBalance,
-        order_no: orderNo,
-        description: `购买 ${order.product_name}`,
-      });
+    await supabase.from("shop_balance_transactions").insert({
+      bot_token: botToken,
+      telegram_user_id: chatId,
+      type: "purchase",
+      amount: -deductAmount,
+      balance_after: newBalance,
+      order_no: orderNo,
+      description: `购买 ${order.product_name}`,
+    });
 
     // 获取商品库存并发货
-    let deliveryContent = '';
+    let deliveryContent = "";
     if (order.product_id) {
       const { data: product } = await supabase
-        .from('shop_products')
-        .select('stock_content')
-        .eq('id', order.product_id)
+        .from("shop_products")
+        .select("stock_content")
+        .eq("id", order.product_id)
         .single();
 
       if (product?.stock_content && product.stock_content.length > 0) {
         deliveryContent = product.stock_content[0];
         const remainingStock = product.stock_content.slice(1);
-        await supabase
-          .from('shop_products')
-          .update({ stock_content: remainingStock })
-          .eq('id', order.product_id);
+        await supabase.from("shop_products").update({ stock_content: remainingStock }).eq("id", order.product_id);
       } else {
-        deliveryContent = '库存不足，请联系管理员补货';
+        deliveryContent = "库存不足，请联系管理员补货";
       }
     }
 
     // 更新订单
     await supabase
-      .from('shop_orders')
+      .from("shop_orders")
       .update({
-        status: 'paid',
-        payment_method: 'balance',
+        status: "paid",
+        payment_method: "balance",
         amount: deductAmount,
         currency: deductCurrency,
         delivery_content: deliveryContent,
         delivered_at: new Date().toISOString(),
       })
-      .eq('order_no', orderNo);
+      .eq("order_no", orderNo);
 
     // 删除原消息
     await sendTelegramMessage(botToken, "deleteMessage", {
@@ -830,13 +837,13 @@ async function handlePaymentMethodCallback(
 ${t("order_product", lang)}: ${displayProductName}
 ${t("order_amount", lang)}: ${deductAmount} ${deductCurrency}
 ${t("order_no", lang)}: \`${orderNo}\`
-💳 ${lang === 'zh' ? '剩余余额' : 'Remaining balance'}: ${newBalance.toFixed(2)} ${deductCurrency}
+💳 ${lang === "zh" ? "剩余余额" : "Remaining balance"}: ${newBalance.toFixed(2)} ${deductCurrency}
 
 ────────────────
-📦 **${lang === 'zh' ? '您的卡密' : 'Your card/key'}：**
+📦 **${lang === "zh" ? "您的卡密" : "Your card/key"}：**
 \`${deliveryContent}\`
 ────────────────
-${lang === 'zh' ? '感谢您的惠顾！点击卡密可复制！' : 'Thank you! Click to copy!'}`;
+${lang === "zh" ? "感谢您的惠顾！点击卡密可复制！" : "Thank you! Click to copy!"}`;
 
     return { handled: true, message };
   }
@@ -1154,8 +1161,12 @@ async function handleShopCommand(
 
     const productLines = bucket.products.map((p: ShopProduct) => {
       const stock = p.stock_content?.length || 0;
-      const isRecharge = p.type === 'recharge';
-      const stockText = isRecharge ? `(${t("shop_recharge_product", lang)})` : stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
+      const isRecharge = p.type === "recharge";
+      const stockText = isRecharge
+        ? `(${t("shop_recharge_product", lang)})`
+        : stock > 0
+          ? `(${stockLabel}: ${stock})`
+          : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, "");
       const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
       const displayDesc = p.description
@@ -1444,9 +1455,7 @@ async function handleMenuNavigation(
         await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: chatId,
           text: language === "en" ? `📂 Switch to: ${displayName}` : `📂 切换菜单: ${targetPage.name}`,
-          reply_markup: keyboard
-            ? { keyboard, resize_keyboard: true, one_time_keyboard: false }
-            : undefined,
+          reply_markup: keyboard ? { keyboard, resize_keyboard: true, one_time_keyboard: false } : undefined,
         });
         console.log(`Menu navigation: ${currentPage.name} -> ${targetPage.name} (from current page)`);
         return { handled: true, targetPageId: targetPage.id };
@@ -1466,9 +1475,7 @@ async function handleMenuNavigation(
         await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: chatId,
           text: language === "en" ? `📂 Switch to: ${displayName}` : `📂 切换菜单: ${targetPage.name}`,
-          reply_markup: keyboard
-            ? { keyboard, resize_keyboard: true, one_time_keyboard: false }
-            : undefined,
+          reply_markup: keyboard ? { keyboard, resize_keyboard: true, one_time_keyboard: false } : undefined,
         });
         console.log(`Menu navigation: ${page.name} -> ${targetPage.name} (fallback scan)`);
         return { handled: true, targetPageId: targetPage.id };
@@ -2435,16 +2442,20 @@ serve(async (req) => {
     };
 
     // ========== /balance 余额查询 ==========
-    const isBalanceCommand = text.toLowerCase() === "/balance" || text === "查询余额" || text === "余额" || fuzzyMatchChinese(text, customCommands.balance || []);
+    const isBalanceCommand =
+      text.toLowerCase() === "/balance" ||
+      text === "查询余额" ||
+      text === "余额" ||
+      fuzzyMatchChinese(text, customCommands.balance || []);
     if (!keyboardHandled && isBalanceCommand && shopEnabled && shopConfig) {
       const { data: userBal } = await supabase
-        .from('shop_user_balances')
-        .select('balance, currency')
-        .eq('bot_token', botToken)
-        .eq('telegram_user_id', chatId)
+        .from("shop_user_balances")
+        .select("balance, currency")
+        .eq("bot_token", botToken)
+        .eq("telegram_user_id", chatId)
         .maybeSingle();
 
-      let balMsg = '';
+      let balMsg = "";
       if (userBal && parseFloat(userBal.balance) > 0) {
         balMsg = `${t("balance_title", shopUserLanguage)}**${parseFloat(userBal.balance).toFixed(2)} ${userBal.currency}**${t("balance_recharge_hint", shopUserLanguage)}`;
       } else {
@@ -2461,16 +2472,20 @@ serve(async (req) => {
     }
 
     // ========== /recharge 充值 ==========
-    const isRechargeCommand = text.toLowerCase() === "/recharge" || text === "充值" || text === "充值余额" || fuzzyMatchChinese(text, customCommands.recharge || []);
+    const isRechargeCommand =
+      text.toLowerCase() === "/recharge" ||
+      text === "充值" ||
+      text === "充值余额" ||
+      fuzzyMatchChinese(text, customCommands.recharge || []);
     if (!keyboardHandled && isRechargeCommand && shopEnabled && shopConfig) {
       // 获取 type=recharge 的商品
       const { data: rechargeProducts } = await supabase
-        .from('shop_products')
-        .select('*')
-        .eq('bot_token', botToken)
-        .eq('is_active', true)
-        .eq('type', 'recharge')
-        .order('price', { ascending: true });
+        .from("shop_products")
+        .select("*")
+        .eq("bot_token", botToken)
+        .eq("is_active", true)
+        .eq("type", "recharge")
+        .order("price", { ascending: true });
 
       if (!rechargeProducts || rechargeProducts.length === 0) {
         await sendTelegramMessage(botToken, "sendMessage", {
@@ -2481,13 +2496,13 @@ serve(async (req) => {
       } else {
         // 查询当前余额
         const { data: curBal } = await supabase
-          .from('shop_user_balances')
-          .select('balance, currency')
-          .eq('bot_token', botToken)
-          .eq('telegram_user_id', chatId)
+          .from("shop_user_balances")
+          .select("balance, currency")
+          .eq("bot_token", botToken)
+          .eq("telegram_user_id", chatId)
           .maybeSingle();
 
-        const currentBal = curBal ? parseFloat(curBal.balance).toFixed(2) : '0.00';
+        const currentBal = curBal ? parseFloat(curBal.balance).toFixed(2) : "0.00";
         const balCurrency = curBal?.currency || rechargeProducts[0].currency;
 
         const productLines = rechargeProducts.map((p: any) => {
@@ -2498,7 +2513,7 @@ serve(async (req) => {
 
         const msg = `${t("recharge_title", shopUserLanguage)}
 
-💳 ${shopUserLanguage === 'zh' ? '当前余额' : 'Current balance'}: **${currentBal} ${balCurrency}**
+💳 ${shopUserLanguage === "zh" ? "当前余额" : "Current balance"}: **${currentBal} ${balCurrency}**
 
 ${productLines.join("\n\n")}
 
@@ -2675,8 +2690,14 @@ ${t("recharge_select", shopUserLanguage)}`;
             // 精确匹配到一个商品，直接创建订单
             const product = kwMatched[0];
             const buyResult = await createOrderForProduct(
-              supabase, botToken, chatId, fromUser.username || null,
-              product.id, product, shopConfig as any, shopUserLanguage,
+              supabase,
+              botToken,
+              chatId,
+              fromUser.username || null,
+              product.id,
+              product,
+              shopConfig as any,
+              shopUserLanguage,
             );
             if (buyResult.handled && buyResult.message) {
               const msgResult = await sendTelegramMessage(botToken, "sendMessage", {
@@ -2705,8 +2726,12 @@ ${t("recharge_select", shopUserLanguage)}`;
 
             const productLines = kwMatched.map((p: ShopProduct) => {
               const stock = p.stock_content?.length || 0;
-              const isRecharge = p.type === 'recharge';
-              const stockText = isRecharge ? `(${t("shop_recharge_product", shopUserLanguage)})` : stock > 0 ? `(${stockLabel}: ${stock})` : `(${outOfStockLabel})`;
+              const isRecharge = p.type === "recharge";
+              const stockText = isRecharge
+                ? `(${t("shop_recharge_product", shopUserLanguage)})`
+                : stock > 0
+                  ? `(${stockLabel}: ${stock})`
+                  : `(${outOfStockLabel})`;
               const shortId = p.id.replace(/-/g, "");
               const displayName = shopUserLanguage === "en" ? nameMap[p.name] || p.name : p.name;
               return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
@@ -2968,17 +2993,44 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
           );
         } else if (forceMenuOnStart) {
           // 没有/start自动回复但配置了强制显示菜单
-          await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled, supabase, userLanguagePreferences);
+          await sendMainMenu(
+            botToken,
+            chatId,
+            menuPages,
+            undefined,
+            userLanguage,
+            bilingualEnabled,
+            supabase,
+            userLanguagePreferences,
+          );
           keyboardHandled = true;
         } else {
           // 没有配置/start自动回复，发送默认菜单
-          await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled, supabase, userLanguagePreferences);
+          await sendMainMenu(
+            botToken,
+            chatId,
+            menuPages,
+            undefined,
+            userLanguage,
+            bilingualEnabled,
+            supabase,
+            userLanguagePreferences,
+          );
           keyboardHandled = true;
         }
       } else if (hasKeyboardMenu) {
         // 只有菜单键盘，使用菜单键盘的自动回复或默认菜单
         if (forceMenuOnStart) {
-          await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled, supabase, userLanguagePreferences);
+          await sendMainMenu(
+            botToken,
+            chatId,
+            menuPages,
+            undefined,
+            userLanguage,
+            bilingualEnabled,
+            supabase,
+            userLanguagePreferences,
+          );
           keyboardHandled = true;
         } else {
           keyboardHandled = await handleAutoReply(
@@ -2991,7 +3043,16 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
             bilingualEnabled,
           );
           if (!keyboardHandled && menuPages.length > 0) {
-            await sendMainMenu(botToken, chatId, menuPages, undefined, userLanguage, bilingualEnabled, supabase, userLanguagePreferences);
+            await sendMainMenu(
+              botToken,
+              chatId,
+              menuPages,
+              undefined,
+              userLanguage,
+              bilingualEnabled,
+              supabase,
+              userLanguagePreferences,
+            );
             keyboardHandled = true;
           }
         }
@@ -3020,7 +3081,15 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
       // 先检查菜单导航
       if (menuPages.length > 0) {
         const currentPageId = getUserCurrentPage(chatId, userLanguagePreferences);
-        const navResult = await handleMenuNavigation(botToken, chatId, text, menuPages, userLanguage, bilingualEnabled, currentPageId);
+        const navResult = await handleMenuNavigation(
+          botToken,
+          chatId,
+          text,
+          menuPages,
+          userLanguage,
+          bilingualEnabled,
+          currentPageId,
+        );
         keyboardHandled = navResult.handled;
         if (navResult.handled && navResult.targetPageId) {
           // 保存用户当前所在的菜单页面
