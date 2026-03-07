@@ -64,6 +64,7 @@ import {
   Video,
   ShoppingCart,
   HelpCircle,
+  Timer,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { TgShopPanel, ConfigGuide } from "@/components/TgShop";
