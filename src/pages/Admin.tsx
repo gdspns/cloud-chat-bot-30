@@ -1849,17 +1849,17 @@ export const Admin = () => {
                             setSelectedChatId(chat.chatId);
                           }}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium truncate">{chat.userName}</div>
-                            <Badge variant="outline" className="text-[10px] shrink-0 ml-2">
-                              🤖 {botLabel}
-                            </Badge>
-                          </div>
+                          <div className="font-medium truncate">{chat.userName}</div>
                           <div className="text-xs text-muted-foreground truncate mt-0.5">
                             {chat.lastMessage.content}
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-1">
-                            {new Date(chat.lastMessage.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          <div className="flex items-center justify-between mt-1">
+                            <div className="text-[10px] text-muted-foreground">
+                              {new Date(chat.lastMessage.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                            <Badge variant="outline" className="text-[10px] shrink-0">
+                              🤖 {botLabel}
+                            </Badge>
                           </div>
                         </div>
                       );
