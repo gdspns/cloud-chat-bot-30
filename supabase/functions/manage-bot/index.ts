@@ -279,11 +279,13 @@ serve(async (req) => {
             updatePayload.user_id = userId;
           }
           
-          // 自动启动授权：确保 is_active、web_enabled、app_enabled 为 true
-          const trialExceeded = !existing.is_authorized && existing.trial_messages_used >= existing.trial_limit;
+          // 自动启动授权：确保 is_active、is_authorized、web_enabled、app_enabled 为 true
           const isExpired = existing.expire_at && new Date(existing.expire_at) < new Date();
-          if (!existing.is_active && !trialExceeded && !isExpired) {
+          if (!existing.is_active && !isExpired) {
             updatePayload.is_active = true;
+          }
+          if (!existing.is_authorized) {
+            updatePayload.is_authorized = true;
           }
           if (!existing.web_enabled) {
             updatePayload.web_enabled = true;
