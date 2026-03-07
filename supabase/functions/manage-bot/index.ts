@@ -279,11 +279,17 @@ serve(async (req) => {
             updatePayload.user_id = userId;
           }
           
-          // 如果试用期机器人 is_active 为 false，且试用次数未用完，自动恢复为活跃状态
+          // 自动启动授权：确保 is_active、web_enabled、app_enabled 为 true
           const trialExceeded = !existing.is_authorized && existing.trial_messages_used >= existing.trial_limit;
           const isExpired = existing.expire_at && new Date(existing.expire_at) < new Date();
           if (!existing.is_active && !trialExceeded && !isExpired) {
             updatePayload.is_active = true;
+          }
+          if (!existing.web_enabled) {
+            updatePayload.web_enabled = true;
+          }
+          if (!existing.app_enabled) {
+            updatePayload.app_enabled = true;
           }
           
           // 更新个人用户ID和欢迎语（如果提供了新值）
@@ -303,22 +309,27 @@ serve(async (req) => {
               .single();
             
             if (!updateError && updatedBot) {
-              // 如果恢复了活跃状态，重新设置webhook
-              if (updatePayload.is_active) {
-                const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
-                await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ url: webhookUrl }),
-                });
-              }
+              // 始终确保webhook已设置
+              const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
+              await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: webhookUrl }),
+              });
               return new Response(JSON.stringify({ ok: true, data: updatedBot, existed: true, claimed: !!updatePayload.user_id }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               });
             }
           }
           
-          // 已存在且无需更新，返回现有数据
+          // 已存在且无需更新，也确保webhook已设置
+          const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
+          await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: webhookUrl }),
+          });
+          
           return new Response(JSON.stringify({ ok: true, data: existing, existed: true }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
