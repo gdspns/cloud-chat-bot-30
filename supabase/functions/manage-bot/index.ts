@@ -425,7 +425,7 @@ serve(async (req) => {
             greeting_message: greetingMessage || '你好！👋 有什么可以帮助你的吗？',
             activation_code: activationCode,
             is_active: true,
-            is_authorized: false,
+            is_authorized: true,
             trial_limit: 20,
             trial_messages_used: trialMessagesUsed,
             user_id: userId || null,
