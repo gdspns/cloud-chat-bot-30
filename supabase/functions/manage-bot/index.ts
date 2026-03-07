@@ -252,22 +252,54 @@ serve(async (req) => {
           .maybeSingle();
 
         if (existing) {
+          // 构建需要更新的字段
+          const updatePayload: Record<string, any> = {};
+          
           // 如果已存在且 user_id 为空，但当前有用户登录，则更新 user_id
           if (!existing.user_id && userId) {
+            updatePayload.user_id = userId;
+          }
+          
+          // 如果试用期机器人 is_active 为 false，且试用次数未用完，自动恢复为活跃状态
+          const trialExceeded = !existing.is_authorized && existing.trial_messages_used >= existing.trial_limit;
+          const isExpired = existing.expire_at && new Date(existing.expire_at) < new Date();
+          if (!existing.is_active && !trialExceeded && !isExpired) {
+            updatePayload.is_active = true;
+          }
+          
+          // 更新个人用户ID和欢迎语（如果提供了新值）
+          if (personalUserId && personalUserId !== existing.personal_user_id) {
+            updatePayload.personal_user_id = personalUserId;
+          }
+          if (greetingMessage && greetingMessage !== existing.greeting_message) {
+            updatePayload.greeting_message = greetingMessage;
+          }
+          
+          if (Object.keys(updatePayload).length > 0) {
             const { data: updatedBot, error: updateError } = await supabase
               .from('bot_activations')
-              .update({ user_id: userId })
+              .update(updatePayload)
               .eq('id', existing.id)
               .select()
               .single();
             
             if (!updateError && updatedBot) {
-              return new Response(JSON.stringify({ ok: true, data: updatedBot, existed: true, claimed: true }), {
+              // 如果恢复了活跃状态，重新设置webhook
+              if (updatePayload.is_active) {
+                const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
+                await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ url: webhookUrl }),
+                });
+              }
+              return new Response(JSON.stringify({ ok: true, data: updatedBot, existed: true, claimed: !!updatePayload.user_id }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               });
             }
           }
-          // 已存在则返回现有数据
+          
+          // 已存在且无需更新，返回现有数据
           return new Response(JSON.stringify({ ok: true, data: existing, existed: true }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
