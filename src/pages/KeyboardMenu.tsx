@@ -1866,59 +1866,77 @@ function ActivationCodeBinder({
     }
   };
 
-  const getKeyboardStatus = () => {
-    if (!activationInfo) return { status: "unknown", text: "", color: "" };
+  // 实时倒计时
+  const [countdown, setCountdown] = useState('');
+  const [countdownExpired, setCountdownExpired] = useState(false);
+  const [countdownType, setCountdownType] = useState<'active' | 'trial' | 'expired' | 'none'>('none');
 
-    const now = new Date();
+  useEffect(() => {
+    if (!activationInfo) return;
 
-    // Check keyboard menu activation validity
-    if (activationInfo.keyboardExpireAt) {
-      const keyboardExpire = new Date(activationInfo.keyboardExpireAt);
-      if (keyboardExpire > now) {
-        const daysLeft = Math.ceil((keyboardExpire.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        return {
-          status: "active",
-          text: `${t('km.activation.valid')}: ${keyboardExpire.toLocaleDateString()} (${daysLeft}${t('km.activation.days')})`,
-          color: "text-green-600",
-        };
+    const calc = () => {
+      let end: Date | null = null;
+      let type: 'active' | 'trial' | 'expired' | 'none' = 'none';
+
+      // 优先检查激活有效期
+      if (activationInfo.keyboardExpireAt) {
+        const keyboardExpire = new Date(activationInfo.keyboardExpireAt);
+        if (keyboardExpire > new Date()) {
+          end = keyboardExpire;
+          type = 'active';
+        } else {
+          setCountdown('00:00:00');
+          setCountdownExpired(true);
+          setCountdownType('expired');
+          return;
+        }
+      } else if (activationInfo.keyboardTrialStartedAt) {
+        // 试用状态
+        const trialStart = new Date(activationInfo.keyboardTrialStartedAt);
+        const trialExpire = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
+        if (trialExpire > new Date()) {
+          end = trialExpire;
+          type = 'trial';
+        } else {
+          setCountdown('00:00:00');
+          setCountdownExpired(true);
+          setCountdownType('expired');
+          return;
+        }
       }
-    }
 
-    // Check trial status
-    if (activationInfo.keyboardTrialStartedAt) {
-      const trialStart = new Date(activationInfo.keyboardTrialStartedAt);
-      const trialExpire = new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
-      if (trialExpire > now) {
-        const totalMinutesLeft = Math.ceil((trialExpire.getTime() - now.getTime()) / (1000 * 60));
-        const hoursLeft = Math.floor(totalMinutesLeft / 60);
-        const minutesLeft = totalMinutesLeft % 60;
-        return {
-          status: "trial",
-          text: `${t('km.activation.trial')}: ${hoursLeft}${t('km.activation.hours')}${minutesLeft > 0 ? minutesLeft + t('km.activation.minutes') : ""}`,
-          color: "text-amber-600",
-        };
+      if (!end) {
+        setCountdown('');
+        setCountdownExpired(false);
+        setCountdownType('none');
+        return;
+      }
+
+      const diff = end.getTime() - Date.now();
+      if (diff <= 0) {
+        setCountdown('00:00:00');
+        setCountdownExpired(true);
+        setCountdownType('expired');
+        return;
+      }
+
+      setCountdownExpired(false);
+      setCountdownType(type);
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      if (h >= 24) {
+        const d = Math.floor(h / 24), rh = h % 24;
+        setCountdown(`${d}${t('km.activation.days')} ${String(rh).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
       } else {
-        return {
-          status: "expired",
-          text: t('km.activation.expired'),
-          color: "text-destructive",
-        };
+        setCountdown(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
       }
-    }
+    };
 
-    // Check for expired activation
-    if (activationInfo.keyboardExpireAt) {
-      return {
-        status: "expired",
-        text: t('km.activation.keyboardExpired'),
-        color: "text-destructive",
-      };
-    }
-
-    return { status: "none", text: t('km.activation.firstUse'), color: "text-muted-foreground" };
-  };
-
-  const keyboardStatus = getKeyboardStatus();
+    calc();
+    const timer = setInterval(calc, 1000);
+    return () => clearInterval(timer);
+  }, [activationInfo]);
 
   return (
     <div className="flex-1 flex flex-col gap-2">
@@ -1939,10 +1957,29 @@ function ActivationCodeBinder({
           {t('km.settings.bind')}
         </button>
       </div>
-      {/* 始终显示状态，不依赖 activationInfo */}
-      <div className="flex flex-col gap-0.5 text-[10px]">
-        <div className={keyboardStatus.color}>{keyboardStatus.text}</div>
-      </div>
+      {/* 实时倒计时状态 */}
+      {countdown || countdownType === 'none' ? (
+        <div className={`flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg border ${
+          countdownExpired
+            ? 'bg-destructive/10 border-destructive/30 text-destructive'
+            : countdownType === 'trial'
+              ? 'bg-orange-500/10 border-orange-500/30 text-orange-600'
+              : countdownType === 'active'
+                ? 'bg-green-500/10 border-green-500/30 text-green-600'
+                : 'bg-muted border-border text-muted-foreground'
+        }`}>
+          <Timer size={12} className={countdownExpired ? '' : 'animate-pulse'} />
+          {countdownExpired ? (
+            <span>❌ {t('km.activation.expired')} - {t('km.settings.enterCode')}</span>
+          ) : countdownType === 'trial' ? (
+            <span className="font-mono font-medium">⏳ {t('km.activation.trial')}: {countdown}</span>
+          ) : countdownType === 'active' ? (
+            <span className="font-mono font-medium">✅ {t('km.activation.valid')}: {countdown}</span>
+          ) : (
+            <span>💡 {t('km.activation.firstUse')}</span>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
