@@ -131,7 +131,7 @@ export const Admin = () => {
   const [keyboardConfigs, setKeyboardConfigs] = useState<Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null }>>({});
   
   // 商城配置缓存
-  const [shopConfigs, setShopConfigs] = useState<Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null }>>({});
+  const [shopConfigs, setShopConfigs] = useState<Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null; shop_saved_expire_at: string | null }>>({});
   
   // 用户列表展开相关
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
@@ -464,15 +464,16 @@ export const Admin = () => {
     try {
       const { data, error } = await supabase
         .from('shop_configs')
-        .select('bot_token, shop_expire_at, shop_trial_started_at');
+        .select('bot_token, shop_expire_at, shop_trial_started_at, shop_saved_expire_at');
       
       if (error) throw error;
       
-      const configMap: Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null }> = {};
+      const configMap: Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null; shop_saved_expire_at: string | null }> = {};
       for (const config of data || []) {
         configMap[config.bot_token] = {
           shop_expire_at: config.shop_expire_at,
           shop_trial_started_at: config.shop_trial_started_at,
+          shop_saved_expire_at: config.shop_saved_expire_at,
         };
       }
       setShopConfigs(configMap);
@@ -1121,7 +1122,7 @@ export const Admin = () => {
     const now = new Date();
     const expireAt = config.shop_expire_at ? new Date(config.shop_expire_at) : null;
     const trialStartedAt = config.shop_trial_started_at ? new Date(config.shop_trial_started_at) : null;
-    const savedExpireAt = (config as any).shop_saved_expire_at || null;
+    const savedExpireAt = config.shop_saved_expire_at || null;
     
     if (expireAt) {
       if (expireAt < now) {

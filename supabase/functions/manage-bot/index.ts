@@ -2536,7 +2536,7 @@ serve(async (req) => {
           .maybeSingle();
 
         if (enabled) {
-          // 启用：恢复原来的状态
+          // 启用：只修改过期时间字段，绝不影响其他配置和商品数据
           const savedExpire = shopConfig?.shop_saved_expire_at;
           
           if (savedExpire && new Date(savedExpire) > new Date()) {
@@ -2546,42 +2546,57 @@ serve(async (req) => {
               shop_saved_expire_at: null,
               updated_at: new Date().toISOString(),
             }).eq('bot_token', botToken);
-          } else {
-            // 没有保存的有效到期时间，检查试用状态
-            const trialStart = shopConfig?.shop_trial_started_at;
+          } else if (shopConfig) {
+            // 已有配置行，只清除过期标记，恢复到自然状态
+            const trialStart = shopConfig.shop_trial_started_at;
             const hasUsedTrial = trialStart && new Date(trialStart).getFullYear() > 2000;
             
             if (hasUsedTrial) {
-              // 试用已用过，恢复为试用过期状态（不自动授权，需要用户激活）
+              // 试用已用过，清除管理员设置的过期时间，恢复为试用过期状态
               await supabase.from('shop_configs').update({
                 shop_expire_at: null,
                 shop_saved_expire_at: null,
                 updated_at: new Date().toISOString(),
               }).eq('bot_token', botToken);
             } else {
-              // 从未试用过，开启24小时试用
-              await supabase.from('shop_configs').upsert(
-                {
-                  bot_token: botToken,
-                  shop_trial_started_at: new Date().toISOString(),
-                  shop_expire_at: null,
-                  shop_saved_expire_at: null,
-                  updated_at: new Date().toISOString(),
-                } as any,
-                { onConflict: 'bot_token' }
-              );
+              // 从未试用过，开启24小时试用（只更新试用字段）
+              await supabase.from('shop_configs').update({
+                shop_trial_started_at: new Date().toISOString(),
+                shop_expire_at: null,
+                shop_saved_expire_at: null,
+                updated_at: new Date().toISOString(),
+              }).eq('bot_token', botToken);
             }
+          } else {
+            // 完全没有配置行，创建一个新的（带试用）
+            await supabase.from('shop_configs').insert({
+              bot_token: botToken,
+              shop_trial_started_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            } as any);
           }
         } else {
-          // 禁用：保存当前有效期到 shop_saved_expire_at，然后标记为过期
+          // 禁用：只保存当前有效期并标记为过期，不触碰其他配置和商品数据
           if (shopConfig) {
             const currentExpire = shopConfig.shop_expire_at;
             const hasValidExpiry = currentExpire && new Date(currentExpire) > new Date();
             
+            // 试用中的也保存试用剩余时间
+            let savedExpireValue = null;
+            if (hasValidExpiry) {
+              savedExpireValue = currentExpire;
+            } else if (!currentExpire && shopConfig.shop_trial_started_at) {
+              // 试用中：计算试用到期时间并保存
+              const trialEnd = new Date(new Date(shopConfig.shop_trial_started_at).getTime() + 24 * 60 * 60 * 1000);
+              if (trialEnd > new Date()) {
+                savedExpireValue = trialEnd.toISOString();
+              }
+            }
+            
             await supabase
               .from('shop_configs')
               .update({
-                shop_saved_expire_at: hasValidExpiry ? currentExpire : null,
+                shop_saved_expire_at: savedExpireValue,
                 shop_expire_at: '2000-01-01T00:00:00.000Z',
                 updated_at: new Date().toISOString(),
               })
