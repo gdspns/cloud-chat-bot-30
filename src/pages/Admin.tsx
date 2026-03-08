@@ -464,15 +464,16 @@ export const Admin = () => {
     try {
       const { data, error } = await supabase
         .from('shop_configs')
-        .select('bot_token, shop_expire_at, shop_trial_started_at');
+        .select('bot_token, shop_expire_at, shop_trial_started_at, shop_saved_expire_at');
       
       if (error) throw error;
       
-      const configMap: Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null }> = {};
+      const configMap: Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null; shop_saved_expire_at: string | null }> = {};
       for (const config of data || []) {
         configMap[config.bot_token] = {
           shop_expire_at: config.shop_expire_at,
           shop_trial_started_at: config.shop_trial_started_at,
+          shop_saved_expire_at: config.shop_saved_expire_at,
         };
       }
       setShopConfigs(configMap);
