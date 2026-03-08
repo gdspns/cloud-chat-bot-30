@@ -2508,7 +2508,7 @@ serve(async (req) => {
         const productLines = rechargeProducts.map((p: any) => {
           const shortId = p.id.replace(/-/g, "");
           const displayName = p.name;
-          return `💰 **${displayName}** - ${p.price} ${p.currency}\n   /buy\\_${shortId}`;
+          return `💰 **${displayName}** - ${p.price} ${p.currency}\n   ${t("shop_click_to_buy", shopUserLanguage)}/buy\\_${shortId}`;
         });
 
         const msg = `${t("recharge_title", shopUserLanguage)}
