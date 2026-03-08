@@ -131,7 +131,7 @@ export const Admin = () => {
   const [keyboardConfigs, setKeyboardConfigs] = useState<Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null }>>({});
   
   // 商城配置缓存
-  const [shopConfigs, setShopConfigs] = useState<Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null }>>({});
+  const [shopConfigs, setShopConfigs] = useState<Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null; shop_saved_expire_at: string | null }>>({});
   
   // 用户列表展开相关
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
