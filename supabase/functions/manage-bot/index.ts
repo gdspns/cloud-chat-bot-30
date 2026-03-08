@@ -1343,23 +1343,8 @@ serve(async (req) => {
           .delete()
           .eq('bot_activation_id', botId);
 
-        // 删除该机器人的TG商城商品
-        await supabase
-          .from('shop_products')
-          .delete()
-          .eq('bot_token', bot.bot_token);
-
-        // 删除该机器人的TG商城订单
-        await supabase
-          .from('shop_orders')
-          .delete()
-          .eq('bot_token', bot.bot_token);
-
-        // 删除该机器人的TG商城配置
-        await supabase
-          .from('shop_configs')
-          .delete()
-          .eq('bot_token', bot.bot_token);
+        // TG商城数据（shop_products, shop_orders, shop_configs）保留在云端
+        // 重新添加同一机器人时会自动恢复所有商城配置和商品
 
         // 删除机器人
         const { error } = await supabase
@@ -1424,23 +1409,8 @@ serve(async (req) => {
           .delete()
           .eq('bot_activation_id', id);
 
-        // 删除该机器人的TG商城商品
-        await supabase
-          .from('shop_products')
-          .delete()
-          .eq('bot_token', bot.bot_token);
-
-        // 删除该机器人的TG商城订单
-        await supabase
-          .from('shop_orders')
-          .delete()
-          .eq('bot_token', bot.bot_token);
-
-        // 删除该机器人的TG商城配置
-        await supabase
-          .from('shop_configs')
-          .delete()
-          .eq('bot_token', bot.bot_token);
+        // TG商城数据（shop_products, shop_orders, shop_configs）保留在云端
+        // 重新添加同一机器人时会自动恢复所有商城配置和商品
 
         // 删除机器人
         const { error } = await supabase
