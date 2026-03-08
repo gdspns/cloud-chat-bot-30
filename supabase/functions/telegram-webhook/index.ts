@@ -170,7 +170,7 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
   balance_recharge_hint: { zh: "\n\n💡 发送 /recharge 进行充值", en: "\n\n💡 Send /recharge to top up" },
   recharge_title: { zh: "💰 **充值中心**", en: "💰 **Recharge Center**" },
   recharge_no_products: { zh: "暂无充值商品，请联系管理员配置", en: "No recharge products available. Contact admin." },
-  recharge_select: { zh: "💡 点击下方充值金额进行充值", en: "💡 Click amount below to recharge" },
+  recharge_select: { zh: "💡 点击上方指令充值金额进行充值", en: "💡 Click the command above to recharge" },
   balance_pay: { zh: "💰 余额支付", en: "💰 Balance Pay" },
   balance_insufficient: {
     zh: "❌ 余额不足！当前余额: {balance} {currency}\n需要: {amount} {currency}\n\n💡 发送 /recharge 充值",
@@ -2508,7 +2508,7 @@ serve(async (req) => {
         const productLines = rechargeProducts.map((p: any) => {
           const shortId = p.id.replace(/-/g, "");
           const displayName = p.name;
-          return `💰 **${displayName}** - ${p.price} ${p.currency}\n   /buy\\_${shortId}`;
+          return `💰 **${displayName}** - ${p.price} ${p.currency}\n   ${t("shop_click_to_buy", shopUserLanguage)}/buy\\_${shortId}`;
         });
 
         const msg = `${t("recharge_title", shopUserLanguage)}
