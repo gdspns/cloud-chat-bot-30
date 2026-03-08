@@ -1122,7 +1122,7 @@ export const Admin = () => {
     const now = new Date();
     const expireAt = config.shop_expire_at ? new Date(config.shop_expire_at) : null;
     const trialStartedAt = config.shop_trial_started_at ? new Date(config.shop_trial_started_at) : null;
-    const savedExpireAt = (config as any).shop_saved_expire_at || null;
+    const savedExpireAt = config.shop_saved_expire_at || null;
     
     if (expireAt) {
       if (expireAt < now) {
