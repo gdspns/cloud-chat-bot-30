@@ -474,8 +474,19 @@ serve(async (req) => {
           });
         }
 
-        // 不启动聊天授权，仅用于后台列表展示
-        const activationCode = 'linked-' + crypto.randomUUID().substring(0, 8);
+        // 以试用模式创建机器人（在线可测试），不自动授权
+        const activationCode = 'trial-' + crypto.randomUUID().substring(0, 8);
+
+        // 检查试用记录
+        const { data: trialRecord } = await supabase
+          .from('bot_trial_records')
+          .select('*')
+          .eq('bot_token', botToken)
+          .maybeSingle();
+
+        const trialMessagesUsed = trialRecord ? trialRecord.messages_used : 0;
+        const isBlocked = trialRecord?.is_blocked === true;
+
         const { error: insertError } = await supabase
           .from('bot_activations')
           .insert({
@@ -483,8 +494,10 @@ serve(async (req) => {
             personal_user_id: personalUserId || userId,
             greeting_message: '你好！👋 有什么可以帮助你的吗？',
             activation_code: activationCode,
-            is_active: false,
-            is_authorized: false,
+            is_active: !isBlocked,      // 未封禁则在线（试用可用）
+            is_authorized: false,        // 未授权，保持试用状态
+            trial_limit: 20,
+            trial_messages_used: trialMessagesUsed,
             user_id: userId,
           });
 
@@ -495,6 +508,23 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+
+        // 创建试用记录（如不存在）
+        if (!trialRecord) {
+          await supabase.from('bot_trial_records').insert({
+            bot_token: botToken,
+            messages_used: 0,
+            is_blocked: false,
+          });
+        }
+
+        // 设置 Webhook
+        const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${botToken}`;
+        await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: webhookUrl }),
+        });
 
         return new Response(JSON.stringify({ ok: true, created: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
