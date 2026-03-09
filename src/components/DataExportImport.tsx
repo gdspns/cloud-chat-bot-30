@@ -68,33 +68,47 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
     }
   };
 
-  // 导出为CSV
+  // 导出为CSV（所有表）
   const handleExportCSV = async () => {
     setIsExporting(true);
     try {
       const exportData = await fetchAllData();
+      const date = formatDate(new Date());
       
-      // 导出机器人数据
-      if (exportData.bot_activations.length > 0) {
-        const botsCsv = convertToCSV(exportData.bot_activations);
-        downloadFile(botsCsv, `bots-${formatDate(new Date())}.csv`, 'text/csv');
-      }
+      const tables: [string, string][] = [
+        ['bot_activations', 'bots'],
+        ['messages', 'messages'],
+        ['activation_codes', 'activation-codes'],
+        ['bot_trial_records', 'trial-records'],
+        ['disabled_users', 'disabled-users'],
+        ['keyboard_configs', 'keyboard-configs'],
+        ['store_products', 'store-products'],
+        ['store_card_keys', 'store-card-keys'],
+        ['store_orders', 'store-orders'],
+        ['shop_configs', 'shop-configs'],
+        ['shop_products', 'shop-products'],
+        ['shop_orders', 'shop-orders'],
+        ['shop_user_balances', 'shop-balances'],
+        ['shop_balance_transactions', 'balance-transactions'],
+        ['bot_users', 'bot-users'],
+        ['articles', 'articles'],
+        ['user_roles', 'user-roles'],
+        ['cron_job_logs', 'cron-logs'],
+      ];
 
-      // 导出消息数据
-      if (exportData.messages.length > 0) {
-        const messagesCsv = convertToCSV(exportData.messages);
-        downloadFile(messagesCsv, `messages-${formatDate(new Date())}.csv`, 'text/csv');
-      }
-
-      // 导出激活码数据
-      if (exportData.activation_codes.length > 0) {
-        const codesCsv = convertToCSV(exportData.activation_codes);
-        downloadFile(codesCsv, `activation-codes-${formatDate(new Date())}.csv`, 'text/csv');
+      let fileCount = 0;
+      for (const [key, filename] of tables) {
+        const data = (exportData as any)[key];
+        if (data && data.length > 0) {
+          const csv = convertToCSV(data);
+          downloadFile(csv, `${filename}-${date}.csv`, 'text/csv');
+          fileCount++;
+        }
       }
 
       toast({
         title: "导出成功",
-        description: "数据已导出为CSV格式（多个文件）",
+        description: `已导出 ${fileCount} 个CSV文件`,
       });
     } catch (error: any) {
       toast({
@@ -107,15 +121,25 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
     }
   };
 
-  // 获取所有数据
+  // 获取所有数据（突破1000行限制）
   const fetchAllData = async (): Promise<ExportData> => {
     const fetchTable = async (table: string, orderCol: string = 'created_at') => {
-      const { data, error } = await supabase
-        .from(table as any)
-        .select('*')
-        .order(orderCol, { ascending: false });
-      if (error) throw error;
-      return data || [];
+      const allData: any[] = [];
+      const pageSize = 1000;
+      let offset = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from(table as any)
+          .select('*')
+          .order(orderCol, { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < pageSize) break;
+        offset += pageSize;
+      }
+      return allData;
     };
 
     const [
