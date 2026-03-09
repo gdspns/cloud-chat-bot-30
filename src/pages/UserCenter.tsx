@@ -67,35 +67,77 @@ export const UserCenter = () => {
     const tokens = botList.map(b => b.bot_token);
     
     const [keyboardRes, shopRes] = await Promise.all([
-      supabase.from('keyboard_configs').select('bot_token, keyboard_expire_at').in('bot_token', tokens),
-      supabase.from('shop_configs').select('bot_token, shop_expire_at').in('bot_token', tokens),
+      supabase.from('keyboard_configs').select('bot_token, keyboard_expire_at, keyboard_trial_started_at').in('bot_token', tokens),
+      supabase.from('shop_configs').select('bot_token, shop_expire_at, shop_trial_started_at').in('bot_token', tokens),
     ]);
 
-    const keyboardMap: Record<string, string | null> = {};
-    (keyboardRes.data || []).forEach((k: any) => { keyboardMap[k.bot_token] = k.keyboard_expire_at; });
+    const keyboardMap: Record<string, { expireAt: string | null; trialStartedAt: string | null }> = {};
+    (keyboardRes.data || []).forEach((k: any) => { 
+      keyboardMap[k.bot_token] = { 
+        expireAt: k.keyboard_expire_at, 
+        trialStartedAt: k.keyboard_trial_started_at 
+      }; 
+    });
 
-    const shopMap: Record<string, string | null> = {};
-    (shopRes.data || []).forEach((s: any) => { shopMap[s.bot_token] = s.shop_expire_at; });
+    const shopMap: Record<string, { expireAt: string | null; trialStartedAt: string | null }> = {};
+    (shopRes.data || []).forEach((s: any) => { 
+      shopMap[s.bot_token] = { 
+        expireAt: s.shop_expire_at, 
+        trialStartedAt: s.shop_trial_started_at 
+      }; 
+    });
 
     const now = new Date();
+    const TRIAL_HOURS = 24;
     const statuses: Record<string, FeatureStatus> = {};
 
     botList.forEach(bot => {
+      // Chat feature: only show "永久" if is_authorized AND no expire_at
       const chatExpired = bot.expire_at ? new Date(bot.expire_at) < now : false;
       const chatActive = bot.is_authorized && !chatExpired;
+      // For chat, if is_authorized but expire_at is null, it's truly forever
+      const chatExpireDisplay = bot.is_authorized && !bot.expire_at ? null : bot.expire_at;
 
-      const kbExpireAt = keyboardMap[bot.bot_token] ?? null;
+      // Keyboard feature
+      const kbData = keyboardMap[bot.bot_token];
       const kbExists = bot.bot_token in keyboardMap;
-      const kbExpired = kbExpireAt ? new Date(kbExpireAt) < now : false;
-      const kbActive = kbExists && !kbExpired;
+      let kbExpireAt = kbData?.expireAt ?? null;
+      let kbActive = false;
+      
+      if (kbExists) {
+        if (kbExpireAt) {
+          // Has explicit expire date
+          kbActive = new Date(kbExpireAt) > now;
+        } else if (kbData?.trialStartedAt) {
+          // In trial mode - calculate trial expiry
+          const trialEnd = new Date(new Date(kbData.trialStartedAt).getTime() + TRIAL_HOURS * 60 * 60 * 1000);
+          kbActive = trialEnd > now;
+          kbExpireAt = trialEnd.toISOString(); // Show trial end as expire date
+        }
+        // If no expire and no trial, feature is not active (never initialized properly)
+      }
 
-      const shopExpireAt = shopMap[bot.bot_token] ?? null;
+      // Shop feature
+      const shopData = shopMap[bot.bot_token];
       const shopExists = bot.bot_token in shopMap;
-      const shopExpired = shopExpireAt ? new Date(shopExpireAt) < now : false;
-      const shopActive = shopExists && !shopExpired;
+      let shopExpireAt = shopData?.expireAt ?? null;
+      let shopActive = false;
+      
+      if (shopExists) {
+        if (shopExpireAt) {
+          // Has explicit expire date
+          shopActive = new Date(shopExpireAt) > now;
+        } else if (shopData?.trialStartedAt) {
+          // In trial mode - calculate trial expiry
+          const trialEnd = new Date(new Date(shopData.trialStartedAt).getTime() + TRIAL_HOURS * 60 * 60 * 1000);
+          shopActive = trialEnd > now;
+          shopExpireAt = trialEnd.toISOString(); // Show trial end as expire date
+        }
+        // If no expire and no trial, feature is not active
+      }
 
       statuses[bot.id] = {
-        chat: { active: chatActive, expireAt: bot.expire_at },
+        chat: { active: chatActive, expireAt: chatExpireDisplay },
         keyboard: { active: kbActive, expireAt: kbExpireAt },
         shop: { active: shopActive, expireAt: shopExpireAt },
       };
