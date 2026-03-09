@@ -390,7 +390,7 @@ export const UserCenter = () => {
                           )}
                           {!bot.is_authorized && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
-                              💬 {language === 'zh' ? '试用剩余' : 'Trial left'}: {Math.max(0, (bot.trial_limit ?? 20) - (bot.trial_messages_used ?? 0))}/{bot.trial_limit ?? 20}
+                              💬 {language === 'zh' ? '已用' : 'Used'}: {bot.trial_messages_used ?? 0}/{bot.trial_limit ?? 20}
                             </span>
                           )}
                         </div>
