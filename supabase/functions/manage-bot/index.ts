@@ -488,8 +488,10 @@ serve(async (req) => {
             personal_user_id: personalUserId || userId,
             greeting_message: '你好！👋 有什么可以帮助你的吗？',
             activation_code: activationCode,
-            is_active: false,
-            is_authorized: false,
+            is_active: true,
+            is_authorized: true,
+            web_enabled: true,
+            app_enabled: true,
             user_id: userId,
           });
 
