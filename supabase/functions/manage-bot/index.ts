@@ -462,12 +462,17 @@ serve(async (req) => {
           .maybeSingle();
 
         if (existing?.id) {
-          if (!existing.user_id) {
-            await supabase
-              .from('bot_activations')
-              .update({ user_id: userId })
-              .eq('id', existing.id);
-          }
+          // 补齐归属 + 确保在线状态
+          const updateData: any = {};
+          if (!existing.user_id) updateData.user_id = userId;
+          updateData.is_active = true;
+          updateData.web_enabled = true;
+          updateData.app_enabled = true;
+          
+          await supabase
+            .from('bot_activations')
+            .update(updateData)
+            .eq('id', existing.id);
 
           return new Response(JSON.stringify({ ok: true, existed: true }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
