@@ -462,12 +462,17 @@ serve(async (req) => {
           .maybeSingle();
 
         if (existing?.id) {
-          if (!existing.user_id) {
-            await supabase
-              .from('bot_activations')
-              .update({ user_id: userId })
-              .eq('id', existing.id);
-          }
+          // 补齐归属 + 确保在线状态
+          const updateData: any = {};
+          if (!existing.user_id) updateData.user_id = userId;
+          updateData.is_active = true;
+          updateData.web_enabled = true;
+          updateData.app_enabled = true;
+          
+          await supabase
+            .from('bot_activations')
+            .update(updateData)
+            .eq('id', existing.id);
 
           return new Response(JSON.stringify({ ok: true, existed: true }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -483,8 +488,10 @@ serve(async (req) => {
             personal_user_id: personalUserId || userId,
             greeting_message: '你好！👋 有什么可以帮助你的吗？',
             activation_code: activationCode,
-            is_active: false,
-            is_authorized: false,
+            is_active: true,
+            is_authorized: true,
+            web_enabled: true,
+            app_enabled: true,
             user_id: userId,
           });
 
