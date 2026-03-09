@@ -342,18 +342,43 @@ export default function KeyboardMenu() {
     if (savedToken) {
       setTokenInput(savedToken);
       handleConnect(savedToken, savedUser || "");
-    }
-    if (savedUser) {
-      setUserIdInput(savedUser);
-      setTargetChatId(savedUser);
-    }
-    if (savedToken) {
+      if (savedUser) {
+        setUserIdInput(savedUser);
+        setTargetChatId(savedUser);
+      }
       const savedUsers = localStorage.getItem(getStorageKey("users", savedToken));
       if (savedUsers) {
         try {
           setKnownUsers(JSON.parse(savedUsers));
         } catch (e) {}
       }
+    } else {
+      // 没有保存的token时，尝试从bot_activations同步（双向聊天添加的机器人自动连接）
+      (async () => {
+        try {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (!currentUser) return;
+          
+          const { data: bots } = await supabase
+            .from('bot_activations')
+            .select('bot_token, personal_user_id')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          
+          if (bots && bots.length > 0) {
+            const bot = bots[0];
+            setTokenInput(bot.bot_token);
+            if (bot.personal_user_id) {
+              setUserIdInput(bot.personal_user_id);
+              setTargetChatId(bot.personal_user_id);
+            }
+            handleConnect(bot.bot_token, bot.personal_user_id || "");
+          }
+        } catch (e) {
+          console.warn('[KeyboardMenu] Auto-sync from bot_activations failed:', e);
+        }
+      })();
     }
   }, []);
 
