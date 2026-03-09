@@ -107,15 +107,25 @@ export const DataExportImport = ({ open, onOpenChange, onDataImported }: DataExp
     }
   };
 
-  // 获取所有数据
+  // 获取所有数据（突破1000行限制）
   const fetchAllData = async (): Promise<ExportData> => {
     const fetchTable = async (table: string, orderCol: string = 'created_at') => {
-      const { data, error } = await supabase
-        .from(table as any)
-        .select('*')
-        .order(orderCol, { ascending: false });
-      if (error) throw error;
-      return data || [];
+      const allData: any[] = [];
+      const pageSize = 1000;
+      let offset = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from(table as any)
+          .select('*')
+          .order(orderCol, { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < pageSize) break;
+        offset += pageSize;
+      }
+      return allData;
     };
 
     const [
