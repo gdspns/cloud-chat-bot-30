@@ -128,7 +128,7 @@ export const Admin = () => {
   const [isShopBinding, setIsShopBinding] = useState(false);
   
   // 键盘配置缓存
-  const [keyboardConfigs, setKeyboardConfigs] = useState<Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null }>>({});
+  const [keyboardConfigs, setKeyboardConfigs] = useState<Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null; bot_username?: string | null }>>({});
   
   // 商城配置缓存
   const [shopConfigs, setShopConfigs] = useState<Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null; shop_saved_expire_at: string | null }>>({});
