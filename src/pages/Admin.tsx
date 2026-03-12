@@ -128,7 +128,7 @@ export const Admin = () => {
   const [isShopBinding, setIsShopBinding] = useState(false);
   
   // 键盘配置缓存
-  const [keyboardConfigs, setKeyboardConfigs] = useState<Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null }>>({});
+  const [keyboardConfigs, setKeyboardConfigs] = useState<Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null; bot_username?: string | null }>>({});
   
   // 商城配置缓存
   const [shopConfigs, setShopConfigs] = useState<Record<string, { shop_expire_at: string | null; shop_trial_started_at: string | null; shop_saved_expire_at: string | null }>>({});
@@ -442,15 +442,16 @@ export const Admin = () => {
     try {
       const { data, error } = await supabase
         .from('keyboard_configs')
-        .select('bot_token, keyboard_expire_at, keyboard_trial_started_at');
+        .select('bot_token, keyboard_expire_at, keyboard_trial_started_at, bot_username');
       
       if (error) throw error;
       
-      const configMap: Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null }> = {};
+      const configMap: Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null; bot_username?: string | null }> = {};
       for (const config of data || []) {
         configMap[config.bot_token] = {
           keyboard_expire_at: config.keyboard_expire_at,
           keyboard_trial_started_at: config.keyboard_trial_started_at,
+          bot_username: config.bot_username,
         };
       }
       setKeyboardConfigs(configMap);
@@ -1599,6 +1600,11 @@ export const Admin = () => {
                                 {activation.is_authorized ? "已激活" : "试用中"}
                               </Badge>
                             </div>
+                            {keyboardConfigs[activation.bot_token]?.bot_username && (
+                              <div className="text-xs text-muted-foreground">
+                                @{keyboardConfigs[activation.bot_token].bot_username}
+                              </div>
+                            )}
                             <div className="text-xs text-muted-foreground">
                               用户: {activation.user_email || activation.user_id?.substring(0, 8) || '无'}
                               {" | "}消息: {activation.trial_messages_used}/{activation.trial_limit}
