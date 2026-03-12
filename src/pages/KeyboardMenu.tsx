@@ -1295,9 +1295,9 @@ function Workspace({
           localStorage.setItem("keyboard_menu_users", JSON.stringify(config.knownUsers));
         }
 
-        // 导入TG商城配置
-        const botToken = config.tokenInput;
-        if (botToken) {
+        // 导入TG商城配置 - 使用当前连接的机器人token，而非导出文件中的token
+        const importBotToken = tokenInput || config.tokenInput;
+        if (importBotToken) {
           if (config.shopConfig) {
             const { id, created_at, updated_at, ...shopData } = config.shopConfig;
             await supabase.from('shop_configs').upsert(
