@@ -1299,7 +1299,7 @@ function Workspace({
         const importBotToken = tokenInput || config.tokenInput;
         if (importBotToken) {
           if (config.shopConfig) {
-            const { id, created_at, updated_at, ...shopData } = config.shopConfig;
+            const { id, created_at, updated_at, shop_expire_at, shop_trial_started_at, shop_saved_expire_at, ...shopData } = config.shopConfig;
             await supabase.from('shop_configs').upsert(
               { ...shopData, bot_token: importBotToken },
               { onConflict: 'bot_token' }
