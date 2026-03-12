@@ -1600,6 +1600,11 @@ export const Admin = () => {
                                 {activation.is_authorized ? "已激活" : "试用中"}
                               </Badge>
                             </div>
+                            {keyboardConfigs[activation.bot_token]?.bot_username && (
+                              <div className="text-xs text-muted-foreground">
+                                @{keyboardConfigs[activation.bot_token].bot_username}
+                              </div>
+                            )}
                             <div className="text-xs text-muted-foreground">
                               用户: {activation.user_email || activation.user_id?.substring(0, 8) || '无'}
                               {" | "}消息: {activation.trial_messages_used}/{activation.trial_limit}
