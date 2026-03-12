@@ -442,15 +442,16 @@ export const Admin = () => {
     try {
       const { data, error } = await supabase
         .from('keyboard_configs')
-        .select('bot_token, keyboard_expire_at, keyboard_trial_started_at');
+        .select('bot_token, keyboard_expire_at, keyboard_trial_started_at, bot_username');
       
       if (error) throw error;
       
-      const configMap: Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null }> = {};
+      const configMap: Record<string, { keyboard_expire_at: string | null; keyboard_trial_started_at: string | null; bot_username?: string | null }> = {};
       for (const config of data || []) {
         configMap[config.bot_token] = {
           keyboard_expire_at: config.keyboard_expire_at,
           keyboard_trial_started_at: config.keyboard_trial_started_at,
+          bot_username: config.bot_username,
         };
       }
       setKeyboardConfigs(configMap);
