@@ -1301,7 +1301,7 @@ function Workspace({
           if (config.shopConfig) {
             const { id, created_at, updated_at, ...shopData } = config.shopConfig;
             await supabase.from('shop_configs').upsert(
-              { ...shopData, bot_token: botToken },
+              { ...shopData, bot_token: importBotToken },
               { onConflict: 'bot_token' }
             );
           }
@@ -1309,35 +1309,35 @@ function Workspace({
             for (const product of config.shopProducts) {
               const { id, created_at, updated_at, ...productData } = product;
               await supabase.from('shop_products').upsert(
-                { ...productData, bot_token: botToken, id },
+                { ...productData, bot_token: importBotToken, id },
                 { onConflict: 'id' }
               );
             }
           }
         }
         // 导入TG商城订单
-        if (botToken && config.shopOrders && config.shopOrders.length > 0) {
+        if (importBotToken && config.shopOrders && config.shopOrders.length > 0) {
           for (const order of config.shopOrders) {
             await supabase.from('shop_orders').upsert(
-              { ...order, bot_token: botToken },
+              { ...order, bot_token: importBotToken },
               { onConflict: 'id' }
             );
           }
         }
         // 导入TG商城用户余额
-        if (botToken && config.shopUserBalances && config.shopUserBalances.length > 0) {
+        if (importBotToken && config.shopUserBalances && config.shopUserBalances.length > 0) {
           for (const balance of config.shopUserBalances) {
             await supabase.from('shop_user_balances').upsert(
-              { ...balance, bot_token: botToken },
+              { ...balance, bot_token: importBotToken },
               { onConflict: 'id' }
             );
           }
         }
         // 导入TG商城余额流水
-        if (botToken && config.shopBalanceTransactions && config.shopBalanceTransactions.length > 0) {
+        if (importBotToken && config.shopBalanceTransactions && config.shopBalanceTransactions.length > 0) {
           for (const tx of config.shopBalanceTransactions) {
             await supabase.from('shop_balance_transactions').upsert(
-              { ...tx, bot_token: botToken },
+              { ...tx, bot_token: importBotToken },
               { onConflict: 'id' }
             );
           }
