@@ -1589,8 +1589,8 @@ export const Admin = () => {
                         <div className="flex justify-between items-start">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono text-sm bg-muted px-2 py-1 rounded" title={activation.bot_token}>
-                                ID: {activation.bot_token.split(':')[0] || activation.bot_token}
+                              <span className="font-mono text-xs break-all" title={activation.bot_token}>
+                                {activation.bot_token}
                               </span>
                               <Badge variant={activation.is_active ? "default" : "secondary"}>
                                 {activation.is_active ? "运行中" : "已停止"}
