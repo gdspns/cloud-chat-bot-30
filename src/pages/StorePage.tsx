@@ -151,9 +151,9 @@ export const StorePage = () => {
   const [cardKeyRetryCount, setCardKeyRetryCount] = useState(0);
   const [cardKeyRetryError, setCardKeyRetryError] = useState('');
 
-  const paymentTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const orderPollingRef = useRef<NodeJS.Timeout | null>(null);
-  const cardKeyPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const paymentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const orderPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cardKeyPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cardKeyWaitCountRef = useRef(0);
   const orderFulfilledRef = useRef(false);
   const currentOrderRef = useRef(currentOrder);
