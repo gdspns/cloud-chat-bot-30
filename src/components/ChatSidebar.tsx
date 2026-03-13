@@ -371,6 +371,7 @@ export const ChatSidebar = ({
                       )}
                     </div>
                   </div>
+                );
               })
             )}
             
