@@ -17,6 +17,9 @@ export interface BotActivation {
   web_enabled?: boolean;
   app_enabled?: boolean;
   user_id?: string | null;
+  auto_refresh_webhook?: boolean;
+  auto_refresh_interval?: number;
+  last_auto_refresh_at?: string | null;
 }
 
 export interface Message {
