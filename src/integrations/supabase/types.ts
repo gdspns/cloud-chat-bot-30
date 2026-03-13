@@ -86,6 +86,8 @@ export type Database = {
         Row: {
           activation_code: string
           app_enabled: boolean | null
+          auto_refresh_interval: number | null
+          auto_refresh_webhook: boolean | null
           bot_token: string
           created_at: string
           expire_at: string | null
@@ -95,6 +97,7 @@ export type Database = {
           is_authorized: boolean | null
           keyboard_expire_at: string | null
           keyboard_menu_first_used_at: string | null
+          last_auto_refresh_at: string | null
           personal_user_id: string
           trial_limit: number | null
           trial_messages_used: number | null
@@ -105,6 +108,8 @@ export type Database = {
         Insert: {
           activation_code: string
           app_enabled?: boolean | null
+          auto_refresh_interval?: number | null
+          auto_refresh_webhook?: boolean | null
           bot_token: string
           created_at?: string
           expire_at?: string | null
@@ -114,6 +119,7 @@ export type Database = {
           is_authorized?: boolean | null
           keyboard_expire_at?: string | null
           keyboard_menu_first_used_at?: string | null
+          last_auto_refresh_at?: string | null
           personal_user_id: string
           trial_limit?: number | null
           trial_messages_used?: number | null
@@ -124,6 +130,8 @@ export type Database = {
         Update: {
           activation_code?: string
           app_enabled?: boolean | null
+          auto_refresh_interval?: number | null
+          auto_refresh_webhook?: boolean | null
           bot_token?: string
           created_at?: string
           expire_at?: string | null
@@ -133,6 +141,7 @@ export type Database = {
           is_authorized?: boolean | null
           keyboard_expire_at?: string | null
           keyboard_menu_first_used_at?: string | null
+          last_auto_refresh_at?: string | null
           personal_user_id?: string
           trial_limit?: number | null
           trial_messages_used?: number | null
