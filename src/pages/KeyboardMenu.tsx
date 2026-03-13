@@ -1300,19 +1300,22 @@ function Workspace({
         if (importBotToken) {
           if (config.shopConfig) {
             const { id, created_at, updated_at, shop_expire_at, shop_trial_started_at, shop_saved_expire_at, ...shopData } = config.shopConfig;
-            await supabase.from('shop_configs').upsert(
+            const { error: configErr } = await supabase.from('shop_configs').upsert(
               { ...shopData, bot_token: importBotToken },
               { onConflict: 'bot_token' }
             );
+            if (configErr) console.error('[Import] shop_configs upsert error:', configErr);
           }
           if (config.shopProducts && config.shopProducts.length > 0) {
-            for (const product of config.shopProducts) {
+            // 先清除新机器人的旧商品（避免残留），再插入导入的商品
+            await supabase.from('shop_products').delete().eq('bot_token', importBotToken);
+            const productsToInsert = config.shopProducts.map((product: any) => {
               const { id, created_at, updated_at, ...productData } = product;
-              await supabase.from('shop_products').upsert(
-                { ...productData, bot_token: importBotToken, id },
-                { onConflict: 'id' }
-              );
-            }
+              return { ...productData, bot_token: importBotToken };
+            });
+            const { error: prodErr } = await supabase.from('shop_products').insert(productsToInsert);
+            if (prodErr) console.error('[Import] shop_products insert error:', prodErr);
+            else console.log(`[Import] Successfully imported ${productsToInsert.length} products for bot ${importBotToken.split(':')[0]}`);
           }
         }
         // 导入TG商城订单
