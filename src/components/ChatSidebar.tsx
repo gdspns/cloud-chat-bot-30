@@ -292,8 +292,85 @@ export const ChatSidebar = ({
                         )}
                       </div>
                     )}
+
+                    {/* Auto-refresh webhook settings */}
+                    <div className="px-2 mt-1">
+                      <div className="flex items-center gap-1">
+                        <Timer className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground">自动刷新绑定</span>
+                        <button
+                          onClick={async () => {
+                            const newVal = !bot.auto_refresh_webhook;
+                            const updatedBot = { ...bot, auto_refresh_webhook: newVal };
+                            onBotUpdated(updatedBot);
+                            await supabase
+                              .from('bot_activations')
+                              .update({ auto_refresh_webhook: newVal } as any)
+                              .eq('id', bot.id);
+                            toast({
+                              title: newVal ? '已开启自动刷新' : '已关闭自动刷新',
+                              description: newVal ? `每${bot.auto_refresh_interval || 60}秒自动重置Webhook绑定` : '自动刷新已停止',
+                            });
+                          }}
+                          className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ml-auto ${bot.auto_refresh_webhook ? "bg-primary" : "bg-muted-foreground/30"}`}
+                        >
+                          <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${bot.auto_refresh_webhook ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                        </button>
+                      </div>
+                      {bot.auto_refresh_webhook && (
+                        <div className="flex items-center gap-1 mt-1">
+                          {autoRefreshEditingBotId === bot.id ? (
+                            <>
+                              <Input
+                                type="number"
+                                min="30"
+                                max="3600"
+                                value={autoRefreshInterval}
+                                onChange={(e) => setAutoRefreshInterval(e.target.value)}
+                                className="h-5 text-[10px] w-16 px-1"
+                              />
+                              <span className="text-[10px] text-muted-foreground">秒</span>
+                              <Button
+                                size="sm"
+                                className="h-5 text-[10px] px-2 py-0"
+                                onClick={async () => {
+                                  const interval = Math.max(30, Math.min(3600, parseInt(autoRefreshInterval) || 60));
+                                  const updatedBot = { ...bot, auto_refresh_interval: interval };
+                                  onBotUpdated(updatedBot);
+                                  await supabase
+                                    .from('bot_activations')
+                                    .update({ auto_refresh_interval: interval } as any)
+                                    .eq('id', bot.id);
+                                  setAutoRefreshEditingBotId(null);
+                                  toast({ title: '已保存', description: `自动刷新间隔设为${interval}秒` });
+                                }}
+                              >
+                                保存
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-5 text-[10px] px-1 py-0"
+                                onClick={() => setAutoRefreshEditingBotId(null)}
+                              >
+                                取消
+                              </Button>
+                            </>
+                          ) : (
+                            <button
+                              className="text-[10px] text-primary hover:underline"
+                              onClick={() => {
+                                setAutoRefreshEditingBotId(bot.id);
+                                setAutoRefreshInterval(String(bot.auto_refresh_interval || 60));
+                              }}
+                            >
+                              间隔: {bot.auto_refresh_interval || 60}秒 (点击修改)
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                );
               })
             )}
             
