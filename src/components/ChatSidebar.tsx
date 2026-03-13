@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Bot, MessageCircle, User, Key, Trash2, Calendar, RefreshCw } from "lucide-react";
+import { Plus, Bot, MessageCircle, User, Key, Trash2, Calendar, RefreshCw, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +41,8 @@ export const ChatSidebar = ({
   const [activationCode, setActivationCode] = useState("");
   const [isBinding, setIsBinding] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [autoRefreshEditingBotId, setAutoRefreshEditingBotId] = useState<string | null>(null);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>("60");
 
   const handleResetBinding = async () => {
     if (!selectedBotId) {
