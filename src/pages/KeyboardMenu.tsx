@@ -2355,6 +2355,51 @@ function SettingsPanel({
                   </button>
                 </div>
 
+                {/* 防轰炸频率限制 */}
+                <div className="bg-muted p-3 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield size={14} className="text-muted-foreground" />
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          防轰炸保护
+                        </span>
+                        <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                          限制用户每分钟消息数量，防止恶意刷屏
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setRateLimitEnabled(!rateLimitEnabled);
+                        setTimeout(() => syncConfigToCloud?.(), 100);
+                      }}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${rateLimitEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${rateLimitEnabled ? "translate-x-4" : "translate-x-1"}`}
+                      />
+                    </button>
+                  </div>
+                  {rateLimitEnabled && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">每分钟限制</span>
+                      <input
+                        type="number"
+                        min={3}
+                        max={100}
+                        value={rateLimitPerMinute}
+                        onChange={(e) => {
+                          const val = Math.max(3, Math.min(100, parseInt(e.target.value) || 10));
+                          setRateLimitPerMinute(val);
+                          setTimeout(() => syncConfigToCloud?.(), 300);
+                        }}
+                        className="w-16 bg-card border rounded px-2 py-1 text-xs text-center focus:ring-1 focus:ring-primary outline-none"
+                      />
+                      <span className="text-[10px] text-muted-foreground">条消息</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Deep Reset */}
                 <button
