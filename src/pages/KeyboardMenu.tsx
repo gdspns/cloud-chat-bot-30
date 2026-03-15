@@ -940,6 +940,8 @@ function Workspace({
     setAutoCleanupDays(0);
     setChatStartEnabled(true);
     setKeyboardStartEnabled(true);
+    setRateLimitEnabled(true);
+    setRateLimitPerMinute(10);
     setCloudSyncStatus("idle");
 
     try {
