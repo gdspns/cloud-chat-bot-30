@@ -834,6 +834,8 @@ function Workspace({
     autoCleanupEnabled,
     autoCleanupDays,
     targetChatId,
+    rateLimitEnabled,
+    rateLimitPerMinute,
     botProfile?.token,
   ]);
 
