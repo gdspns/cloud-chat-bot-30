@@ -597,6 +597,8 @@ function Workspace({
   const [keyboardStartEnabled, setKeyboardStartEnabled] = useState(true);
   const [autoCleanupEnabled, setAutoCleanupEnabled] = useState(false);
   const [autoCleanupDays, setAutoCleanupDays] = useState(0);
+  const [rateLimitEnabled, setRateLimitEnabled] = useState(true);
+  const [rateLimitPerMinute, setRateLimitPerMinute] = useState(10);
 
   // Keyboard menu trial status
   const [keyboardTrialExpired, setKeyboardTrialExpired] = useState(false);
