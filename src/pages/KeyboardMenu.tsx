@@ -970,6 +970,10 @@ function Workspace({
           setChatStartEnabled((data as any).chat_start_enabled);
         if ((data as any).keyboard_start_enabled !== null && (data as any).keyboard_start_enabled !== undefined)
           setKeyboardStartEnabled((data as any).keyboard_start_enabled);
+        if ((data as any).rate_limit_enabled !== null && (data as any).rate_limit_enabled !== undefined)
+          setRateLimitEnabled((data as any).rate_limit_enabled);
+        if ((data as any).rate_limit_per_minute !== null && (data as any).rate_limit_per_minute !== undefined)
+          setRateLimitPerMinute((data as any).rate_limit_per_minute);
         setCloudSyncStatus("synced");
         showToast("success", t('km.settings.configLoaded'));
       } else {
