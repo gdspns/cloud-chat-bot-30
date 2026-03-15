@@ -2080,6 +2080,10 @@ function SettingsPanel({
   keyboardTrialExpired,
   showTrialExpiredToast,
   onActivationStatusChange,
+  rateLimitEnabled,
+  setRateLimitEnabled,
+  rateLimitPerMinute,
+  setRateLimitPerMinute,
 }: any) {
   const { t } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
