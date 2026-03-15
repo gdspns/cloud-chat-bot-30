@@ -1697,6 +1697,10 @@ function Workspace({
               keyboardTrialExpired={keyboardTrialExpired}
               showTrialExpiredToast={showTrialExpiredToast}
               onActivationStatusChange={handleActivationStatusChange}
+              rateLimitEnabled={rateLimitEnabled}
+              setRateLimitEnabled={setRateLimitEnabled}
+              rateLimitPerMinute={rateLimitPerMinute}
+              setRateLimitPerMinute={setRateLimitPerMinute}
             />
           )}
           {activeTab === "keyboard" && (
