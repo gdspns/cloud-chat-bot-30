@@ -151,6 +151,45 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_rate_limits: {
+        Row: {
+          blocked_at: string | null
+          blocked_reason: string | null
+          bot_token: string
+          created_at: string
+          id: string
+          is_blocked: boolean
+          message_count: number
+          telegram_user_id: number
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          bot_token: string
+          created_at?: string
+          id?: string
+          is_blocked?: boolean
+          message_count?: number
+          telegram_user_id: number
+          updated_at?: string
+          window_start?: string
+        }
+        Update: {
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          bot_token?: string
+          created_at?: string
+          id?: string
+          is_blocked?: boolean
+          message_count?: number
+          telegram_user_id?: number
+          updated_at?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       bot_trial_records: {
         Row: {
           bot_token: string
@@ -298,6 +337,9 @@ export type Database = {
           keyboard_trial_started_at: string | null
           last_cleanup_at: string | null
           menu_admin_chat_id: number | null
+          rate_limit_action: string | null
+          rate_limit_enabled: boolean | null
+          rate_limit_per_minute: number | null
           reply_keyboard: Json | null
           updated_at: string
           user_language_preferences: Json | null
@@ -322,6 +364,9 @@ export type Database = {
           keyboard_trial_started_at?: string | null
           last_cleanup_at?: string | null
           menu_admin_chat_id?: number | null
+          rate_limit_action?: string | null
+          rate_limit_enabled?: boolean | null
+          rate_limit_per_minute?: number | null
           reply_keyboard?: Json | null
           updated_at?: string
           user_language_preferences?: Json | null
@@ -346,6 +391,9 @@ export type Database = {
           keyboard_trial_started_at?: string | null
           last_cleanup_at?: string | null
           menu_admin_chat_id?: number | null
+          rate_limit_action?: string | null
+          rate_limit_enabled?: boolean | null
+          rate_limit_per_minute?: number | null
           reply_keyboard?: Json | null
           updated_at?: string
           user_language_preferences?: Json | null

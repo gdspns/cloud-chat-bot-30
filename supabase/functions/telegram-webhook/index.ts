@@ -2169,6 +2169,82 @@ serve(async (req) => {
     let text = message.text || message.caption || "";
     const messageId = message.message_id;
 
+    // ========== 防轰炸：频率限制检查 ==========
+    const rateLimitEnabled = keyboardConfig?.rate_limit_enabled !== false; // 默认开启
+    const rateLimitPerMinute = keyboardConfig?.rate_limit_per_minute || 10;
+    const rateLimitAction = keyboardConfig?.rate_limit_action || 'warn';
+    const isAdminForRateLimit = (bidirectionalChatEnabled && personalUserId > 0 && chatId === personalUserId) || 
+                                (menuAdminChatId > 0 && chatId === menuAdminChatId);
+
+    if (rateLimitEnabled && !isAdminForRateLimit) {
+      // 检查用户是否已被永久拉黑
+      const { data: rateRecord } = await supabase
+        .from('bot_rate_limits')
+        .select('*')
+        .eq('bot_token', botToken)
+        .eq('telegram_user_id', chatId)
+        .maybeSingle();
+
+      if (rateRecord?.is_blocked) {
+        console.log(`[RateLimit] User ${chatId} is blocked - silently ignoring message`);
+        return new Response(JSON.stringify({ ok: true, rate_limited: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const now = new Date();
+      const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
+
+      if (rateRecord) {
+        const windowStart = new Date(rateRecord.window_start);
+        
+        if (windowStart > oneMinuteAgo) {
+          // 在同一个时间窗口内
+          const newCount = rateRecord.message_count + 1;
+          
+          if (newCount > rateLimitPerMinute) {
+            // 超过频率限制
+            console.log(`[RateLimit] User ${chatId} exceeded rate limit: ${newCount}/${rateLimitPerMinute} per minute`);
+            
+            // 发送警告提示（每次超限只提示一次，在刚超过时）
+            if (newCount === rateLimitPerMinute + 1) {
+              await sendTelegramMessage(botToken, 'sendMessage', {
+                chat_id: chatId,
+                text: '⚠️ 消息发送过于频繁，请稍后再试。\n⚠️ You are sending messages too frequently. Please try again later.',
+              });
+            }
+            
+            // 更新计数但不处理消息
+            await supabase
+              .from('bot_rate_limits')
+              .update({ message_count: newCount, updated_at: now.toISOString() })
+              .eq('id', rateRecord.id);
+            
+            return new Response(JSON.stringify({ ok: true, rate_limited: true }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          
+          // 未超限，更新计数
+          await supabase
+            .from('bot_rate_limits')
+            .update({ message_count: newCount, updated_at: now.toISOString() })
+            .eq('id', rateRecord.id);
+        } else {
+          // 时间窗口已过，重置计数
+          await supabase
+            .from('bot_rate_limits')
+            .update({ message_count: 1, window_start: now.toISOString(), updated_at: now.toISOString() })
+            .eq('id', rateRecord.id);
+        }
+      } else {
+        // 首次记录
+        await supabase
+          .from('bot_rate_limits')
+          .insert({ bot_token: botToken, telegram_user_id: chatId, message_count: 1, window_start: now.toISOString() });
+      }
+    }
+
     // 处理图片消息
     let photoUrl = "";
     let photoFileId = "";

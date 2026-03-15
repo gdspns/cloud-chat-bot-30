@@ -65,6 +65,7 @@ import {
   ShoppingCart,
   HelpCircle,
   Timer,
+  Shield,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { TgShopPanel, ConfigGuide } from "@/components/TgShop";
@@ -597,6 +598,8 @@ function Workspace({
   const [keyboardStartEnabled, setKeyboardStartEnabled] = useState(true);
   const [autoCleanupEnabled, setAutoCleanupEnabled] = useState(false);
   const [autoCleanupDays, setAutoCleanupDays] = useState(0);
+  const [rateLimitEnabled, setRateLimitEnabled] = useState(true);
+  const [rateLimitPerMinute, setRateLimitPerMinute] = useState(10);
 
   // Keyboard menu trial status
   const [keyboardTrialExpired, setKeyboardTrialExpired] = useState(false);
@@ -763,6 +766,8 @@ function Workspace({
         menu_admin_chat_id: menuAdminId,
         chat_start_enabled: chatStartEnabled,
         keyboard_start_enabled: keyboardStartEnabled,
+        rate_limit_enabled: rateLimitEnabled,
+        rate_limit_per_minute: rateLimitPerMinute,
         updated_at: new Date().toISOString(),
       };
 
@@ -829,6 +834,8 @@ function Workspace({
     autoCleanupEnabled,
     autoCleanupDays,
     targetChatId,
+    rateLimitEnabled,
+    rateLimitPerMinute,
     botProfile?.token,
   ]);
 
@@ -864,6 +871,8 @@ function Workspace({
         menu_admin_chat_id: menuAdminId,
         chat_start_enabled: chatStartEnabled,
         keyboard_start_enabled: keyboardStartEnabled,
+        rate_limit_enabled: rateLimitEnabled,
+        rate_limit_per_minute: rateLimitPerMinute,
         updated_at: new Date().toISOString(),
       };
 
@@ -934,6 +943,8 @@ function Workspace({
     setAutoCleanupDays(0);
     setChatStartEnabled(true);
     setKeyboardStartEnabled(true);
+    setRateLimitEnabled(true);
+    setRateLimitPerMinute(10);
     setCloudSyncStatus("idle");
 
     try {
@@ -962,6 +973,10 @@ function Workspace({
           setChatStartEnabled((data as any).chat_start_enabled);
         if ((data as any).keyboard_start_enabled !== null && (data as any).keyboard_start_enabled !== undefined)
           setKeyboardStartEnabled((data as any).keyboard_start_enabled);
+        if ((data as any).rate_limit_enabled !== null && (data as any).rate_limit_enabled !== undefined)
+          setRateLimitEnabled((data as any).rate_limit_enabled);
+        if ((data as any).rate_limit_per_minute !== null && (data as any).rate_limit_per_minute !== undefined)
+          setRateLimitPerMinute((data as any).rate_limit_per_minute);
         setCloudSyncStatus("synced");
         showToast("success", t('km.settings.configLoaded'));
       } else {
@@ -1684,6 +1699,10 @@ function Workspace({
               keyboardTrialExpired={keyboardTrialExpired}
               showTrialExpiredToast={showTrialExpiredToast}
               onActivationStatusChange={handleActivationStatusChange}
+              rateLimitEnabled={rateLimitEnabled}
+              setRateLimitEnabled={setRateLimitEnabled}
+              rateLimitPerMinute={rateLimitPerMinute}
+              setRateLimitPerMinute={setRateLimitPerMinute}
             />
           )}
           {activeTab === "keyboard" && (
@@ -2063,6 +2082,10 @@ function SettingsPanel({
   keyboardTrialExpired,
   showTrialExpiredToast,
   onActivationStatusChange,
+  rateLimitEnabled,
+  setRateLimitEnabled,
+  rateLimitPerMinute,
+  setRateLimitPerMinute,
 }: any) {
   const { t } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
@@ -2343,6 +2366,51 @@ function SettingsPanel({
                   </button>
                 </div>
 
+                {/* 防轰炸频率限制 */}
+                <div className="bg-muted p-3 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield size={14} className="text-muted-foreground" />
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          防轰炸保护
+                        </span>
+                        <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                          限制用户每分钟消息数量，防止恶意刷屏
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setRateLimitEnabled(!rateLimitEnabled);
+                        setTimeout(() => syncConfigToCloud?.(), 100);
+                      }}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${rateLimitEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${rateLimitEnabled ? "translate-x-4" : "translate-x-1"}`}
+                      />
+                    </button>
+                  </div>
+                  {rateLimitEnabled && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">每分钟限制</span>
+                      <input
+                        type="number"
+                        min={3}
+                        max={100}
+                        value={rateLimitPerMinute}
+                        onChange={(e) => {
+                          const val = Math.max(3, Math.min(100, parseInt(e.target.value) || 10));
+                          setRateLimitPerMinute(val);
+                          setTimeout(() => syncConfigToCloud?.(), 300);
+                        }}
+                        className="w-16 bg-card border rounded px-2 py-1 text-xs text-center focus:ring-1 focus:ring-primary outline-none"
+                      />
+                      <span className="text-[10px] text-muted-foreground">条消息</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Deep Reset */}
                 <button
