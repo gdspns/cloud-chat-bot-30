@@ -765,6 +765,8 @@ function Workspace({
         menu_admin_chat_id: menuAdminId,
         chat_start_enabled: chatStartEnabled,
         keyboard_start_enabled: keyboardStartEnabled,
+        rate_limit_enabled: rateLimitEnabled,
+        rate_limit_per_minute: rateLimitPerMinute,
         updated_at: new Date().toISOString(),
       };
 
