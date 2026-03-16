@@ -3669,6 +3669,11 @@ function UsersPanel({
   const [dbUsers, setDbUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [blockedUsers, setBlockedUsers] = useState<Record<number, boolean>>({});
+  const [togglingBlock, setTogglingBlock] = useState<number | null>(null);
+  const [userPage, setUserPage] = useState(1);
+  const [blacklistPage, setBlacklistPage] = useState(1);
+  const PAGE_SIZE = 500;
 
   // 从数据库加载用户
   const loadUsersFromDb = async () => {
@@ -3690,33 +3695,90 @@ function UsersPanel({
     }
   };
 
+  // 加载黑名单状态
+  const loadBlockedStatus = async () => {
+    if (!botToken) return;
+    try {
+      const { data, error } = await supabase
+        .from("bot_rate_limits")
+        .select("telegram_user_id, is_blocked")
+        .eq("bot_token", botToken)
+        .eq("is_blocked", true);
+
+      if (error) throw error;
+      const blocked: Record<number, boolean> = {};
+      (data || []).forEach((r: any) => { blocked[r.telegram_user_id] = true; });
+      setBlockedUsers(blocked);
+    } catch (e: any) {
+      console.error("Failed to load blocked status:", e);
+    }
+  };
+
+  // 切换黑名单状态
+  const toggleBlacklist = async (telegramUserId: number, userName: string) => {
+    if (!botToken) return;
+    setTogglingBlock(telegramUserId);
+    const isCurrentlyBlocked = blockedUsers[telegramUserId] || false;
+    
+    try {
+      if (isCurrentlyBlocked) {
+        // 解除黑名单 - 删除记录或更新为非拉黑
+        const { error } = await supabase
+          .from("bot_rate_limits")
+          .update({ is_blocked: false, blocked_at: null, blocked_reason: null, updated_at: new Date().toISOString() })
+          .eq("bot_token", botToken)
+          .eq("telegram_user_id", telegramUserId);
+        if (error) throw error;
+        setBlockedUsers(prev => { const n = { ...prev }; delete n[telegramUserId]; return n; });
+        showToast("success", `已解除黑名单: ${userName}`);
+      } else {
+        // 加入黑名单 - upsert记录
+        const { data: existing } = await supabase
+          .from("bot_rate_limits")
+          .select("id")
+          .eq("bot_token", botToken)
+          .eq("telegram_user_id", telegramUserId)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("bot_rate_limits")
+            .update({ is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: "手动拉黑", updated_at: new Date().toISOString() })
+            .eq("id", existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("bot_rate_limits")
+            .insert({ bot_token: botToken, telegram_user_id: telegramUserId, is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: "手动拉黑", message_count: 0 });
+          if (error) throw error;
+        }
+        setBlockedUsers(prev => ({ ...prev, [telegramUserId]: true }));
+        showToast("success", `已加入黑名单: ${userName}`);
+      }
+    } catch (e: any) {
+      showToast("error", `操作失败: ${e.message}`);
+    } finally {
+      setTogglingBlock(null);
+    }
+  };
+
   // 初始加载和实时订阅
   useEffect(() => {
     loadUsersFromDb();
+    loadBlockedStatus();
 
     if (!botToken) return;
 
-    // 实时订阅用户变化
     const channel = supabase
       .channel("bot-users-changes")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bot_users",
-          filter: `bot_token=eq.${botToken}`,
-        },
-        (payload) => {
-          console.log("Bot users change:", payload);
-          loadUsersFromDb();
-        },
+        { event: "*", schema: "public", table: "bot_users", filter: `bot_token=eq.${botToken}` },
+        () => { loadUsersFromDb(); },
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [botToken]);
 
   // 删除单个用户
@@ -3724,7 +3786,6 @@ function UsersPanel({
     setDeleting(userId);
     try {
       const { error } = await supabase.from("bot_users").delete().eq("id", userId);
-
       if (error) throw error;
       setDbUsers((prev) => prev.filter((u) => u.id !== userId));
       showToast("success", `${t('km.users.deleted')}: ${telegramUserId}`);
@@ -3735,8 +3796,110 @@ function UsersPanel({
     }
   };
 
-  // 合并数据库用户和本地用户
-  const allUsers = [...dbUsers];
+  // 分离正常用户和黑名单用户
+  const normalUsers = dbUsers.filter(u => !blockedUsers[u.telegram_user_id]);
+  const blacklistedUsers = dbUsers.filter(u => blockedUsers[u.telegram_user_id]);
+
+  // 分页
+  const normalTotalPages = Math.max(1, Math.ceil(normalUsers.length / PAGE_SIZE));
+  const blacklistTotalPages = Math.max(1, Math.ceil(blacklistedUsers.length / PAGE_SIZE));
+  const pagedNormalUsers = normalUsers.slice((userPage - 1) * PAGE_SIZE, userPage * PAGE_SIZE);
+  const pagedBlacklistUsers = blacklistedUsers.slice((blacklistPage - 1) * PAGE_SIZE, blacklistPage * PAGE_SIZE);
+
+  const renderPagination = (currentPage: number, totalPages: number, setPage: (p: number) => void, total: number) => {
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex items-center justify-between mt-3 px-2">
+        <span className="text-xs text-muted-foreground">共 {total} 条，每页 {PAGE_SIZE} 条</span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage <= 1}
+            className="px-2 py-1 text-xs rounded border bg-card hover:bg-muted disabled:opacity-40"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span className="text-xs px-2">{currentPage} / {totalPages}</span>
+          <button
+            onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage >= totalPages}
+            className="px-2 py-1 text-xs rounded border bg-card hover:bg-muted disabled:opacity-40"
+          >
+            <ChevronLeft size={14} className="rotate-180" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderUserRow = (u: any, isBlacklisted: boolean) => (
+    <tr key={u.id} className="hover:bg-muted/50">
+      <td className="px-4 py-3 font-mono text-muted-foreground">{u.telegram_user_id}</td>
+      <td className="px-4 py-3">
+        <div className="font-medium">
+          {u.first_name}
+          {u.last_name ? ` ${u.last_name}` : ""}
+        </div>
+        {u.username && <div className="text-xs text-primary">@{u.username}</div>}
+      </td>
+      <td className="px-4 py-3 text-muted-foreground text-xs">
+        {new Date(u.first_seen_at).toLocaleString("zh-CN")}
+      </td>
+      <td className="px-4 py-3 text-muted-foreground text-xs">
+        {new Date(u.last_seen_at).toLocaleString("zh-CN")}
+      </td>
+      <td className="px-4 py-3 text-right">
+        <div className="flex justify-end gap-2">
+          {!isBlacklisted && (
+            <>
+              <button
+                onClick={() => {
+                  setTargetChatId(u.telegram_user_id.toString());
+                  showToast("success", `${t('km.users.locked')}: ${u.first_name}`);
+                }}
+                className="flex items-center gap-1 bg-muted hover:bg-accent px-2 py-1.5 rounded text-xs transition"
+                title={t('km.users.lock')}
+              >
+                <Target size={14} /> {t('km.users.lock')}
+              </button>
+              <button
+                onClick={() => handlePushMenu(u.telegram_user_id, u.first_name)}
+                className="flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary px-2 py-1.5 rounded text-xs transition font-medium"
+                title={t('km.users.push')}
+              >
+                <SendHorizontal size={14} /> {t('km.users.push')}
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => toggleBlacklist(u.telegram_user_id, u.first_name)}
+            disabled={togglingBlock === u.telegram_user_id}
+            className={`flex items-center gap-1 px-2 py-1.5 rounded text-xs transition font-medium ${
+              isBlacklisted
+                ? "bg-green-500/10 hover:bg-green-500/20 text-green-600"
+                : "bg-red-500/10 hover:bg-red-500/20 text-red-600"
+            }`}
+            title={isBlacklisted ? "解除黑名单" : "加入黑名单"}
+          >
+            {togglingBlock === u.telegram_user_id ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Shield size={14} />
+            )}
+            {isBlacklisted ? "解除" : "拉黑"}
+          </button>
+          <button
+            onClick={() => deleteUser(u.id, u.telegram_user_id)}
+            disabled={deleting === u.id}
+            className="flex items-center gap-1 bg-destructive/10 hover:bg-destructive/20 text-destructive px-2 py-1.5 rounded text-xs transition"
+            title={t('common.delete')}
+          >
+            {deleting === u.id ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
 
   return (
     <div className="space-y-6">
@@ -3744,12 +3907,12 @@ function UsersPanel({
         <div>
           <h2 className="text-2xl font-bold mb-1">{t('km.users.title')}</h2>
           <p className="text-xs text-muted-foreground">
-            {t('km.users.total')} {allUsers.length} {t('km.users.users')} {botToken ? t('km.users.realTimeSync') : t('km.users.notConnected')}
+            {t('km.users.total')} {dbUsers.length} {t('km.users.users')}（正常: {normalUsers.length}，黑名单: {blacklistedUsers.length}）{botToken ? t('km.users.realTimeSync') : t('km.users.notConnected')}
           </p>
         </div>
         <div className="flex gap-2">
           <button
-            onClick={loadUsersFromDb}
+            onClick={() => { loadUsersFromDb(); loadBlockedStatus(); }}
             disabled={loading}
             className="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded flex items-center gap-1"
           >
@@ -3778,9 +3941,11 @@ function UsersPanel({
         </div>
       </div>
 
+      {/* 正常用户列表 */}
       <div className="bg-card p-6 rounded-xl border shadow-sm">
         <h4 className="font-bold mb-4 flex items-center gap-2">
-          <List size={18} /> {t('km.users.userList')}
+          <Users size={18} /> {t('km.users.userList')}
+          <span className="text-xs text-muted-foreground font-normal ml-2">({normalUsers.length})</span>
         </h4>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -3801,64 +3966,55 @@ function UsersPanel({
                     {t('km.users.loading')}
                   </td>
                 </tr>
-              ) : allUsers.length === 0 ? (
+              ) : pagedNormalUsers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                     {t('km.users.noData')}
                   </td>
                 </tr>
               ) : (
-                allUsers.map((u: any) => (
-                  <tr key={u.id} className="hover:bg-muted/50">
-                    <td className="px-4 py-3 font-mono text-muted-foreground">{u.telegram_user_id}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium">
-                        {u.first_name}
-                        {u.last_name ? ` ${u.last_name}` : ""}
-                      </div>
-                      {u.username && <div className="text-xs text-primary">@{u.username}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {new Date(u.first_seen_at).toLocaleString("zh-CN")}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {new Date(u.last_seen_at).toLocaleString("zh-CN")}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setTargetChatId(u.telegram_user_id.toString());
-                            showToast("success", `${t('km.users.locked')}: ${u.first_name}`);
-                          }}
-                          className="flex items-center gap-1 bg-muted hover:bg-accent px-2 py-1.5 rounded text-xs transition"
-                          title={t('km.users.lock')}
-                        >
-                          <Target size={14} /> {t('km.users.lock')}
-                        </button>
-                        <button
-                          onClick={() => handlePushMenu(u.telegram_user_id, u.first_name)}
-                          className="flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary px-2 py-1.5 rounded text-xs transition font-medium"
-                          title={t('km.users.push')}
-                        >
-                          <SendHorizontal size={14} /> {t('km.users.push')}
-                        </button>
-                        <button
-                          onClick={() => deleteUser(u.id, u.telegram_user_id)}
-                          disabled={deleting === u.id}
-                          className="flex items-center gap-1 bg-destructive/10 hover:bg-destructive/20 text-destructive px-2 py-1.5 rounded text-xs transition"
-                          title={t('common.delete')}
-                        >
-                          {deleting === u.id ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                pagedNormalUsers.map((u: any) => renderUserRow(u, false))
               )}
             </tbody>
           </table>
         </div>
+        {renderPagination(userPage, normalTotalPages, setUserPage, normalUsers.length)}
+      </div>
+
+      {/* 黑名单列表 */}
+      <div className="bg-card p-6 rounded-xl border shadow-sm border-red-500/20">
+        <h4 className="font-bold mb-4 flex items-center gap-2 text-red-600">
+          <Shield size={18} /> 黑名单用户
+          <span className="text-xs text-muted-foreground font-normal ml-2">({blacklistedUsers.length})</span>
+        </h4>
+        <p className="text-xs text-muted-foreground mb-4">
+          黑名单中的用户发送的所有消息（包括 /start）都会被自动忽略，即使删除机器人重新开始也无法绕过。
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
+              <tr>
+                <th className="px-4 py-3">{t('km.users.userId')}</th>
+                <th className="px-4 py-3">{t('km.users.nickname')}</th>
+                <th className="px-4 py-3">{t('km.users.firstSeen')}</th>
+                <th className="px-4 py-3">{t('km.users.lastActive')}</th>
+                <th className="px-4 py-3 text-right">{t('km.users.actions')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {blacklistedUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                    暂无黑名单用户
+                  </td>
+                </tr>
+              ) : (
+                pagedBlacklistUsers.map((u: any) => renderUserRow(u, true))
+              )}
+            </tbody>
+          </table>
+        </div>
+        {renderPagination(blacklistPage, blacklistTotalPages, setBlacklistPage, blacklistedUsers.length)}
       </div>
     </div>
   );
