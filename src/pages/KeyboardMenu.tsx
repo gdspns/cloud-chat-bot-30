@@ -4035,10 +4035,22 @@ function UsersPanel({
 
       {/* 正常用户列表 */}
       <div className="bg-card p-6 rounded-xl border shadow-sm">
-        <h4 className="font-bold mb-4 flex items-center gap-2">
-          <Users size={18} /> {t('km.users.userList')}
-          <span className="text-xs text-muted-foreground font-normal ml-2">({normalUsers.length})</span>
-        </h4>
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-bold flex items-center gap-2">
+            <Users size={18} /> {t('km.users.userList')}
+            <span className="text-xs text-muted-foreground font-normal ml-2">({filteredNormalUsers.length}{userSearchQuery ? ` / ${normalUsers.length}` : ''})</span>
+          </h4>
+          <div className="relative w-64">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={userSearchQuery}
+              onChange={(e) => { setUserSearchQuery(e.target.value); setUserPage(1); }}
+              placeholder="搜索用户ID / 昵称 / 用户名"
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
