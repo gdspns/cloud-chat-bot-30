@@ -3870,11 +3870,26 @@ function UsersPanel({
   const normalUsers = dbUsers.filter((u) => !blockedUsers[u.telegram_user_id]);
   const blacklistedUsers = dbUsers.filter((u) => blockedUsers[u.telegram_user_id]);
 
+  // 搜索过滤函数
+  const filterUsers = (users: any[], query: string) => {
+    if (!query.trim()) return users;
+    const q = query.trim().toLowerCase();
+    return users.filter((u: any) =>
+      String(u.telegram_user_id).includes(q) ||
+      (u.first_name && u.first_name.toLowerCase().includes(q)) ||
+      (u.last_name && u.last_name.toLowerCase().includes(q)) ||
+      (u.username && u.username.toLowerCase().includes(q))
+    );
+  };
+
+  const filteredNormalUsers = filterUsers(normalUsers, userSearchQuery);
+  const filteredBlacklistUsers = filterUsers(blacklistedUsers, blacklistSearchQuery);
+
   // 分页
-  const normalTotalPages = Math.max(1, Math.ceil(normalUsers.length / PAGE_SIZE));
-  const blacklistTotalPages = Math.max(1, Math.ceil(blacklistedUsers.length / PAGE_SIZE));
-  const pagedNormalUsers = normalUsers.slice((userPage - 1) * PAGE_SIZE, userPage * PAGE_SIZE);
-  const pagedBlacklistUsers = blacklistedUsers.slice((blacklistPage - 1) * PAGE_SIZE, blacklistPage * PAGE_SIZE);
+  const normalTotalPages = Math.max(1, Math.ceil(filteredNormalUsers.length / PAGE_SIZE));
+  const blacklistTotalPages = Math.max(1, Math.ceil(filteredBlacklistUsers.length / PAGE_SIZE));
+  const pagedNormalUsers = filteredNormalUsers.slice((userPage - 1) * PAGE_SIZE, userPage * PAGE_SIZE);
+  const pagedBlacklistUsers = filteredBlacklistUsers.slice((blacklistPage - 1) * PAGE_SIZE, blacklistPage * PAGE_SIZE);
 
   useEffect(() => {
     if (userPage > normalTotalPages) setUserPage(normalTotalPages);
