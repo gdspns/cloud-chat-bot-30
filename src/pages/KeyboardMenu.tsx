@@ -3979,7 +3979,7 @@ function UsersPanel({
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => { loadUsersFromDb(); loadBlockedStatus(); }}
+            onClick={loadAllUserData}
             disabled={loading}
             className="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded flex items-center gap-1"
           >
