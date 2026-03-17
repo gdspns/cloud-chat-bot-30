@@ -3673,6 +3673,8 @@ function UsersPanel({
   const [togglingBlock, setTogglingBlock] = useState<number | null>(null);
   const [userPage, setUserPage] = useState(1);
   const [blacklistPage, setBlacklistPage] = useState(1);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [blacklistSearchQuery, setBlacklistSearchQuery] = useState("");
   const PAGE_SIZE = 500;
   const FETCH_BATCH_SIZE = 1000;
 
