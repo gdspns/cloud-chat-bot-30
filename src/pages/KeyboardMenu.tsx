@@ -3674,43 +3674,79 @@ function UsersPanel({
   const [userPage, setUserPage] = useState(1);
   const [blacklistPage, setBlacklistPage] = useState(1);
   const PAGE_SIZE = 500;
+  const FETCH_BATCH_SIZE = 1000;
 
-  // 从数据库加载用户
+  // 从数据库分批加载全部用户（绕过默认 1000 行限制）
   const loadUsersFromDb = async () => {
-    if (!botToken) return;
-    setLoading(true);
-    try {
+    if (!botToken) {
+      setDbUsers([]);
+      return;
+    }
+
+    const allUsers: any[] = [];
+    let from = 0;
+
+    while (true) {
       const { data, error } = await supabase
         .from("bot_users")
         .select("*")
         .eq("bot_token", botToken)
-        .order("last_seen_at", { ascending: false });
+        .order("last_seen_at", { ascending: false })
+        .range(from, from + FETCH_BATCH_SIZE - 1);
 
       if (error) throw error;
-      setDbUsers(data || []);
-    } catch (e: any) {
-      console.error("Failed to load users:", e);
-    } finally {
-      setLoading(false);
+
+      const chunk = data || [];
+      allUsers.push(...chunk);
+
+      if (chunk.length < FETCH_BATCH_SIZE) break;
+      from += FETCH_BATCH_SIZE;
     }
+
+    setDbUsers(allUsers);
   };
 
-  // 加载黑名单状态
+  // 分批加载全部黑名单状态（绕过默认 1000 行限制）
   const loadBlockedStatus = async () => {
-    if (!botToken) return;
-    try {
+    if (!botToken) {
+      setBlockedUsers({});
+      return;
+    }
+
+    const blocked: Record<number, boolean> = {};
+    let from = 0;
+
+    while (true) {
       const { data, error } = await supabase
         .from("bot_rate_limits")
-        .select("telegram_user_id, is_blocked")
+        .select("telegram_user_id")
         .eq("bot_token", botToken)
-        .eq("is_blocked", true);
+        .eq("is_blocked", true)
+        .range(from, from + FETCH_BATCH_SIZE - 1);
 
       if (error) throw error;
-      const blocked: Record<number, boolean> = {};
-      (data || []).forEach((r: any) => { blocked[r.telegram_user_id] = true; });
-      setBlockedUsers(blocked);
+
+      const chunk = data || [];
+      chunk.forEach((r: any) => {
+        blocked[r.telegram_user_id] = true;
+      });
+
+      if (chunk.length < FETCH_BATCH_SIZE) break;
+      from += FETCH_BATCH_SIZE;
+    }
+
+    setBlockedUsers(blocked);
+  };
+
+  const loadAllUserData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([loadUsersFromDb(), loadBlockedStatus()]);
     } catch (e: any) {
-      console.error("Failed to load blocked status:", e);
+      console.error("Failed to load user panel data:", e);
+      showToast("error", `加载失败: ${e.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -3719,7 +3755,7 @@ function UsersPanel({
     if (!botToken) return;
     setTogglingBlock(telegramUserId);
     const isCurrentlyBlocked = blockedUsers[telegramUserId] || false;
-    
+
     try {
       if (isCurrentlyBlocked) {
         // 解除黑名单 - 删除记录或更新为非拉黑
@@ -3729,7 +3765,11 @@ function UsersPanel({
           .eq("bot_token", botToken)
           .eq("telegram_user_id", telegramUserId);
         if (error) throw error;
-        setBlockedUsers(prev => { const n = { ...prev }; delete n[telegramUserId]; return n; });
+        setBlockedUsers((prev) => {
+          const next = { ...prev };
+          delete next[telegramUserId];
+          return next;
+        });
         showToast("success", `已解除黑名单: ${userName}`);
       } else {
         // 加入黑名单 - upsert记录
@@ -3747,12 +3787,17 @@ function UsersPanel({
             .eq("id", existing.id);
           if (error) throw error;
         } else {
-          const { error } = await supabase
-            .from("bot_rate_limits")
-            .insert({ bot_token: botToken, telegram_user_id: telegramUserId, is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: "手动拉黑", message_count: 0 });
+          const { error } = await supabase.from("bot_rate_limits").insert({
+            bot_token: botToken,
+            telegram_user_id: telegramUserId,
+            is_blocked: true,
+            blocked_at: new Date().toISOString(),
+            blocked_reason: "手动拉黑",
+            message_count: 0,
+          });
           if (error) throw error;
         }
-        setBlockedUsers(prev => ({ ...prev, [telegramUserId]: true }));
+        setBlockedUsers((prev) => ({ ...prev, [telegramUserId]: true }));
         showToast("success", `已加入黑名单: ${userName}`);
       }
     } catch (e: any) {
@@ -3764,21 +3809,36 @@ function UsersPanel({
 
   // 初始加载和实时订阅
   useEffect(() => {
-    loadUsersFromDb();
-    loadBlockedStatus();
+    loadAllUserData();
 
     if (!botToken) return;
 
-    const channel = supabase
-      .channel("bot-users-changes")
+    const usersChannel = supabase
+      .channel(`bot-users-changes-${botToken}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "bot_users", filter: `bot_token=eq.${botToken}` },
-        () => { loadUsersFromDb(); },
+        () => {
+          loadUsersFromDb().catch((e) => console.error("Realtime load users failed:", e));
+        },
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    const blacklistChannel = supabase
+      .channel(`bot-rate-limits-changes-${botToken}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bot_rate_limits", filter: `bot_token=eq.${botToken}` },
+        () => {
+          loadBlockedStatus().catch((e) => console.error("Realtime load blocked status failed:", e));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(usersChannel);
+      supabase.removeChannel(blacklistChannel);
+    };
   }, [botToken]);
 
   // 删除单个用户
@@ -3797,8 +3857,8 @@ function UsersPanel({
   };
 
   // 分离正常用户和黑名单用户
-  const normalUsers = dbUsers.filter(u => !blockedUsers[u.telegram_user_id]);
-  const blacklistedUsers = dbUsers.filter(u => blockedUsers[u.telegram_user_id]);
+  const normalUsers = dbUsers.filter((u) => !blockedUsers[u.telegram_user_id]);
+  const blacklistedUsers = dbUsers.filter((u) => blockedUsers[u.telegram_user_id]);
 
   // 分页
   const normalTotalPages = Math.max(1, Math.ceil(normalUsers.length / PAGE_SIZE));
@@ -3806,6 +3866,13 @@ function UsersPanel({
   const pagedNormalUsers = normalUsers.slice((userPage - 1) * PAGE_SIZE, userPage * PAGE_SIZE);
   const pagedBlacklistUsers = blacklistedUsers.slice((blacklistPage - 1) * PAGE_SIZE, blacklistPage * PAGE_SIZE);
 
+  useEffect(() => {
+    if (userPage > normalTotalPages) setUserPage(normalTotalPages);
+  }, [userPage, normalTotalPages]);
+
+  useEffect(() => {
+    if (blacklistPage > blacklistTotalPages) setBlacklistPage(blacklistTotalPages);
+  }, [blacklistPage, blacklistTotalPages]);
   const renderPagination = (currentPage: number, totalPages: number, setPage: (p: number) => void, total: number) => {
     if (totalPages <= 1) return null;
     return (
@@ -3912,7 +3979,7 @@ function UsersPanel({
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => { loadUsersFromDb(); loadBlockedStatus(); }}
+            onClick={loadAllUserData}
             disabled={loading}
             className="text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded flex items-center gap-1"
           >
