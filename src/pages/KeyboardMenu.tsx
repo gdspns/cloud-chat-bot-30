@@ -3673,6 +3673,8 @@ function UsersPanel({
   const [togglingBlock, setTogglingBlock] = useState<number | null>(null);
   const [userPage, setUserPage] = useState(1);
   const [blacklistPage, setBlacklistPage] = useState(1);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [blacklistSearchQuery, setBlacklistSearchQuery] = useState("");
   const PAGE_SIZE = 500;
   const FETCH_BATCH_SIZE = 1000;
 
@@ -3868,11 +3870,26 @@ function UsersPanel({
   const normalUsers = dbUsers.filter((u) => !blockedUsers[u.telegram_user_id]);
   const blacklistedUsers = dbUsers.filter((u) => blockedUsers[u.telegram_user_id]);
 
+  // 搜索过滤函数
+  const filterUsers = (users: any[], query: string) => {
+    if (!query.trim()) return users;
+    const q = query.trim().toLowerCase();
+    return users.filter((u: any) =>
+      String(u.telegram_user_id).includes(q) ||
+      (u.first_name && u.first_name.toLowerCase().includes(q)) ||
+      (u.last_name && u.last_name.toLowerCase().includes(q)) ||
+      (u.username && u.username.toLowerCase().includes(q))
+    );
+  };
+
+  const filteredNormalUsers = filterUsers(normalUsers, userSearchQuery);
+  const filteredBlacklistUsers = filterUsers(blacklistedUsers, blacklistSearchQuery);
+
   // 分页
-  const normalTotalPages = Math.max(1, Math.ceil(normalUsers.length / PAGE_SIZE));
-  const blacklistTotalPages = Math.max(1, Math.ceil(blacklistedUsers.length / PAGE_SIZE));
-  const pagedNormalUsers = normalUsers.slice((userPage - 1) * PAGE_SIZE, userPage * PAGE_SIZE);
-  const pagedBlacklistUsers = blacklistedUsers.slice((blacklistPage - 1) * PAGE_SIZE, blacklistPage * PAGE_SIZE);
+  const normalTotalPages = Math.max(1, Math.ceil(filteredNormalUsers.length / PAGE_SIZE));
+  const blacklistTotalPages = Math.max(1, Math.ceil(filteredBlacklistUsers.length / PAGE_SIZE));
+  const pagedNormalUsers = filteredNormalUsers.slice((userPage - 1) * PAGE_SIZE, userPage * PAGE_SIZE);
+  const pagedBlacklistUsers = filteredBlacklistUsers.slice((blacklistPage - 1) * PAGE_SIZE, blacklistPage * PAGE_SIZE);
 
   useEffect(() => {
     if (userPage > normalTotalPages) setUserPage(normalTotalPages);
@@ -4018,10 +4035,22 @@ function UsersPanel({
 
       {/* 正常用户列表 */}
       <div className="bg-card p-6 rounded-xl border shadow-sm">
-        <h4 className="font-bold mb-4 flex items-center gap-2">
-          <Users size={18} /> {t('km.users.userList')}
-          <span className="text-xs text-muted-foreground font-normal ml-2">({normalUsers.length})</span>
-        </h4>
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-bold flex items-center gap-2">
+            <Users size={18} /> {t('km.users.userList')}
+            <span className="text-xs text-muted-foreground font-normal ml-2">({filteredNormalUsers.length}{userSearchQuery ? ` / ${normalUsers.length}` : ''})</span>
+          </h4>
+          <div className="relative w-64">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={userSearchQuery}
+              onChange={(e) => { setUserSearchQuery(e.target.value); setUserPage(1); }}
+              placeholder="搜索用户ID / 昵称 / 用户名"
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
@@ -4058,10 +4087,22 @@ function UsersPanel({
 
       {/* 黑名单列表 */}
       <div className="bg-card p-6 rounded-xl border shadow-sm border-red-500/20">
-        <h4 className="font-bold mb-4 flex items-center gap-2 text-red-600">
-          <Shield size={18} /> 黑名单用户
-          <span className="text-xs text-muted-foreground font-normal ml-2">({blacklistedUsers.length})</span>
-        </h4>
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-bold flex items-center gap-2 text-red-600">
+            <Shield size={18} /> 黑名单用户
+            <span className="text-xs text-muted-foreground font-normal ml-2">({filteredBlacklistUsers.length}{blacklistSearchQuery ? ` / ${blacklistedUsers.length}` : ''})</span>
+          </h4>
+          <div className="relative w-64">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={blacklistSearchQuery}
+              onChange={(e) => { setBlacklistSearchQuery(e.target.value); setBlacklistPage(1); }}
+              placeholder="搜索用户ID / 昵称 / 用户名"
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground mb-4">
           黑名单中的用户发送的所有消息（包括 /start）都会被自动忽略，即使删除机器人重新开始也无法绕过。
         </p>
