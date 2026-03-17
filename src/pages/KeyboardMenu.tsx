@@ -3703,7 +3703,15 @@ function UsersPanel({
       from += FETCH_BATCH_SIZE;
     }
 
-    setDbUsers(allUsers);
+    // 按 telegram_user_id 去重，保留最新（last_seen_at 最大）的记录
+    const uniqueMap = new Map<number, any>();
+    for (const u of allUsers) {
+      const uid = u.telegram_user_id;
+      if (!uniqueMap.has(uid) || new Date(u.last_seen_at) > new Date(uniqueMap.get(uid).last_seen_at)) {
+        uniqueMap.set(uid, u);
+      }
+    }
+    setDbUsers(Array.from(uniqueMap.values()));
   };
 
   // 分批加载全部黑名单状态（绕过默认 1000 行限制）
