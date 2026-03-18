@@ -3675,6 +3675,9 @@ function UsersPanel({
   const [blacklistPage, setBlacklistPage] = useState(1);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [blacklistSearchQuery, setBlacklistSearchQuery] = useState("");
+  const [selectedNormalUsers, setSelectedNormalUsers] = useState<Set<number>>(new Set());
+  const [selectedBlacklistUsers, setSelectedBlacklistUsers] = useState<Set<number>>(new Set());
+  const [batchProcessing, setBatchProcessing] = useState(false);
   const PAGE_SIZE = 500;
   const FETCH_BATCH_SIZE = 1000;
 
