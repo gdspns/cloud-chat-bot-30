@@ -3821,7 +3821,67 @@ function UsersPanel({
     }
   };
 
-  // 初始加载和实时订阅
+  // 批量拉黑
+  const batchBlock = async () => {
+    if (!botToken || selectedNormalUsers.size === 0) return;
+    if (!confirm(`确定要将选中的 ${selectedNormalUsers.size} 个用户加入黑名单？`)) return;
+    setBatchProcessing(true);
+    try {
+      for (const uid of selectedNormalUsers) {
+        const { data: existing } = await supabase.from("bot_rate_limits").select("id").eq("bot_token", botToken).eq("telegram_user_id", uid).maybeSingle();
+        if (existing) {
+          await supabase.from("bot_rate_limits").update({ is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: "批量拉黑", updated_at: new Date().toISOString() }).eq("id", existing.id);
+        } else {
+          await supabase.from("bot_rate_limits").insert({ bot_token: botToken, telegram_user_id: uid, is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: "批量拉黑", message_count: 0 });
+        }
+      }
+      setBlockedUsers((prev) => {
+        const next = { ...prev };
+        for (const uid of selectedNormalUsers) next[uid] = true;
+        return next;
+      });
+      showToast("success", `已批量拉黑 ${selectedNormalUsers.size} 个用户`);
+      setSelectedNormalUsers(new Set());
+    } catch (e: any) {
+      showToast("error", `批量拉黑失败: ${e.message}`);
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
+  // 批量解除黑名单
+  const batchUnblock = async () => {
+    if (!botToken || selectedBlacklistUsers.size === 0) return;
+    if (!confirm(`确定要解除选中的 ${selectedBlacklistUsers.size} 个用户的黑名单？`)) return;
+    setBatchProcessing(true);
+    try {
+      for (const uid of selectedBlacklistUsers) {
+        await supabase.from("bot_rate_limits").update({ is_blocked: false, blocked_at: null, blocked_reason: null, updated_at: new Date().toISOString() }).eq("bot_token", botToken).eq("telegram_user_id", uid);
+      }
+      setBlockedUsers((prev) => {
+        const next = { ...prev };
+        for (const uid of selectedBlacklistUsers) delete next[uid];
+        return next;
+      });
+      showToast("success", `已批量解除 ${selectedBlacklistUsers.size} 个用户`);
+      setSelectedBlacklistUsers(new Set());
+    } catch (e: any) {
+      showToast("error", `批量解除失败: ${e.message}`);
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
+  const toggleSelectUser = (uid: number, isBlacklisted: boolean) => {
+    const setter = isBlacklisted ? setSelectedBlacklistUsers : setSelectedNormalUsers;
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  };
+
+
   useEffect(() => {
     loadAllUserData();
 
