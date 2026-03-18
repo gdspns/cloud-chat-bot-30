@@ -3988,8 +3988,18 @@ function UsersPanel({
     );
   };
 
-  const renderUserRow = (u: any, isBlacklisted: boolean) => (
+  const renderUserRow = (u: any, isBlacklisted: boolean) => {
+    const selected = isBlacklisted ? selectedBlacklistUsers.has(u.telegram_user_id) : selectedNormalUsers.has(u.telegram_user_id);
+    return (
     <tr key={u.id} className="hover:bg-muted/50">
+      <td className="px-2 py-3 w-8">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => toggleSelectUser(u.telegram_user_id, isBlacklisted)}
+          className="rounded border-muted-foreground"
+        />
+      </td>
       <td className="px-4 py-3 font-mono text-muted-foreground">{u.telegram_user_id}</td>
       <td className="px-4 py-3">
         <div className="font-medium">
@@ -4055,7 +4065,43 @@ function UsersPanel({
         </div>
       </td>
     </tr>
-  );
+    );
+  };
+
+  const isAllNormalSelected = pagedNormalUsers.length > 0 && pagedNormalUsers.every((u: any) => selectedNormalUsers.has(u.telegram_user_id));
+  const isAllBlacklistSelected = pagedBlacklistUsers.length > 0 && pagedBlacklistUsers.every((u: any) => selectedBlacklistUsers.has(u.telegram_user_id));
+
+  const toggleSelectAllNormal = () => {
+    if (isAllNormalSelected) {
+      setSelectedNormalUsers((prev) => {
+        const next = new Set(prev);
+        pagedNormalUsers.forEach((u: any) => next.delete(u.telegram_user_id));
+        return next;
+      });
+    } else {
+      setSelectedNormalUsers((prev) => {
+        const next = new Set(prev);
+        pagedNormalUsers.forEach((u: any) => next.add(u.telegram_user_id));
+        return next;
+      });
+    }
+  };
+
+  const toggleSelectAllBlacklist = () => {
+    if (isAllBlacklistSelected) {
+      setSelectedBlacklistUsers((prev) => {
+        const next = new Set(prev);
+        pagedBlacklistUsers.forEach((u: any) => next.delete(u.telegram_user_id));
+        return next;
+      });
+    } else {
+      setSelectedBlacklistUsers((prev) => {
+        const next = new Set(prev);
+        pagedBlacklistUsers.forEach((u: any) => next.add(u.telegram_user_id));
+        return next;
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -4100,10 +4146,22 @@ function UsersPanel({
       {/* 正常用户列表 */}
       <div className="bg-card p-6 rounded-xl border shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-bold flex items-center gap-2">
-            <Users size={18} /> {t('km.users.userList')}
-            <span className="text-xs text-muted-foreground font-normal ml-2">({filteredNormalUsers.length}{userSearchQuery ? ` / ${normalUsers.length}` : ''})</span>
-          </h4>
+          <div className="flex items-center gap-3">
+            <h4 className="font-bold flex items-center gap-2">
+              <Users size={18} /> {t('km.users.userList')}
+              <span className="text-xs text-muted-foreground font-normal ml-2">({filteredNormalUsers.length}{userSearchQuery ? ` / ${normalUsers.length}` : ''})</span>
+            </h4>
+            {selectedNormalUsers.size > 0 && (
+              <button
+                onClick={batchBlock}
+                disabled={batchProcessing}
+                className="flex items-center gap-1 bg-red-500/10 hover:bg-red-500/20 text-red-600 px-3 py-1.5 rounded text-xs transition font-medium"
+              >
+                {batchProcessing ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+                一键拉黑 ({selectedNormalUsers.size})
+              </button>
+            )}
+          </div>
           <div className="relative w-64">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -4119,6 +4177,9 @@ function UsersPanel({
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
               <tr>
+                <th className="px-2 py-3 w-8">
+                  <input type="checkbox" checked={isAllNormalSelected} onChange={toggleSelectAllNormal} className="rounded border-muted-foreground" />
+                </th>
                 <th className="px-4 py-3">{t('km.users.userId')}</th>
                 <th className="px-4 py-3">{t('km.users.nickname')}</th>
                 <th className="px-4 py-3">{t('km.users.firstSeen')}</th>
