@@ -4190,14 +4190,14 @@ function UsersPanel({
             <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     <Loader2 size={20} className="animate-spin mx-auto mb-2" />
                     {t('km.users.loading')}
                   </td>
                 </tr>
               ) : pagedNormalUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     {t('km.users.noData')}
                   </td>
                 </tr>
