@@ -3675,6 +3675,9 @@ function UsersPanel({
   const [blacklistPage, setBlacklistPage] = useState(1);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [blacklistSearchQuery, setBlacklistSearchQuery] = useState("");
+  const [selectedNormalUsers, setSelectedNormalUsers] = useState<Set<number>>(new Set());
+  const [selectedBlacklistUsers, setSelectedBlacklistUsers] = useState<Set<number>>(new Set());
+  const [batchProcessing, setBatchProcessing] = useState(false);
   const PAGE_SIZE = 500;
   const FETCH_BATCH_SIZE = 1000;
 
@@ -3818,7 +3821,67 @@ function UsersPanel({
     }
   };
 
-  // 初始加载和实时订阅
+  // 批量拉黑
+  const batchBlock = async () => {
+    if (!botToken || selectedNormalUsers.size === 0) return;
+    if (!confirm(`确定要将选中的 ${selectedNormalUsers.size} 个用户加入黑名单？`)) return;
+    setBatchProcessing(true);
+    try {
+      for (const uid of selectedNormalUsers) {
+        const { data: existing } = await supabase.from("bot_rate_limits").select("id").eq("bot_token", botToken).eq("telegram_user_id", uid).maybeSingle();
+        if (existing) {
+          await supabase.from("bot_rate_limits").update({ is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: "批量拉黑", updated_at: new Date().toISOString() }).eq("id", existing.id);
+        } else {
+          await supabase.from("bot_rate_limits").insert({ bot_token: botToken, telegram_user_id: uid, is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: "批量拉黑", message_count: 0 });
+        }
+      }
+      setBlockedUsers((prev) => {
+        const next = { ...prev };
+        for (const uid of selectedNormalUsers) next[uid] = true;
+        return next;
+      });
+      showToast("success", `已批量拉黑 ${selectedNormalUsers.size} 个用户`);
+      setSelectedNormalUsers(new Set());
+    } catch (e: any) {
+      showToast("error", `批量拉黑失败: ${e.message}`);
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
+  // 批量解除黑名单
+  const batchUnblock = async () => {
+    if (!botToken || selectedBlacklistUsers.size === 0) return;
+    if (!confirm(`确定要解除选中的 ${selectedBlacklistUsers.size} 个用户的黑名单？`)) return;
+    setBatchProcessing(true);
+    try {
+      for (const uid of selectedBlacklistUsers) {
+        await supabase.from("bot_rate_limits").update({ is_blocked: false, blocked_at: null, blocked_reason: null, updated_at: new Date().toISOString() }).eq("bot_token", botToken).eq("telegram_user_id", uid);
+      }
+      setBlockedUsers((prev) => {
+        const next = { ...prev };
+        for (const uid of selectedBlacklistUsers) delete next[uid];
+        return next;
+      });
+      showToast("success", `已批量解除 ${selectedBlacklistUsers.size} 个用户`);
+      setSelectedBlacklistUsers(new Set());
+    } catch (e: any) {
+      showToast("error", `批量解除失败: ${e.message}`);
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
+  const toggleSelectUser = (uid: number, isBlacklisted: boolean) => {
+    const setter = isBlacklisted ? setSelectedBlacklistUsers : setSelectedNormalUsers;
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  };
+
+
   useEffect(() => {
     loadAllUserData();
 
@@ -3925,8 +3988,18 @@ function UsersPanel({
     );
   };
 
-  const renderUserRow = (u: any, isBlacklisted: boolean) => (
+  const renderUserRow = (u: any, isBlacklisted: boolean) => {
+    const selected = isBlacklisted ? selectedBlacklistUsers.has(u.telegram_user_id) : selectedNormalUsers.has(u.telegram_user_id);
+    return (
     <tr key={u.id} className="hover:bg-muted/50">
+      <td className="px-2 py-3 w-8">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => toggleSelectUser(u.telegram_user_id, isBlacklisted)}
+          className="rounded border-muted-foreground"
+        />
+      </td>
       <td className="px-4 py-3 font-mono text-muted-foreground">{u.telegram_user_id}</td>
       <td className="px-4 py-3">
         <div className="font-medium">
@@ -3992,7 +4065,43 @@ function UsersPanel({
         </div>
       </td>
     </tr>
-  );
+    );
+  };
+
+  const isAllNormalSelected = pagedNormalUsers.length > 0 && pagedNormalUsers.every((u: any) => selectedNormalUsers.has(u.telegram_user_id));
+  const isAllBlacklistSelected = pagedBlacklistUsers.length > 0 && pagedBlacklistUsers.every((u: any) => selectedBlacklistUsers.has(u.telegram_user_id));
+
+  const toggleSelectAllNormal = () => {
+    if (isAllNormalSelected) {
+      setSelectedNormalUsers((prev) => {
+        const next = new Set(prev);
+        pagedNormalUsers.forEach((u: any) => next.delete(u.telegram_user_id));
+        return next;
+      });
+    } else {
+      setSelectedNormalUsers((prev) => {
+        const next = new Set(prev);
+        pagedNormalUsers.forEach((u: any) => next.add(u.telegram_user_id));
+        return next;
+      });
+    }
+  };
+
+  const toggleSelectAllBlacklist = () => {
+    if (isAllBlacklistSelected) {
+      setSelectedBlacklistUsers((prev) => {
+        const next = new Set(prev);
+        pagedBlacklistUsers.forEach((u: any) => next.delete(u.telegram_user_id));
+        return next;
+      });
+    } else {
+      setSelectedBlacklistUsers((prev) => {
+        const next = new Set(prev);
+        pagedBlacklistUsers.forEach((u: any) => next.add(u.telegram_user_id));
+        return next;
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -4037,10 +4146,22 @@ function UsersPanel({
       {/* 正常用户列表 */}
       <div className="bg-card p-6 rounded-xl border shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-bold flex items-center gap-2">
-            <Users size={18} /> {t('km.users.userList')}
-            <span className="text-xs text-muted-foreground font-normal ml-2">({filteredNormalUsers.length}{userSearchQuery ? ` / ${normalUsers.length}` : ''})</span>
-          </h4>
+          <div className="flex items-center gap-3">
+            <h4 className="font-bold flex items-center gap-2">
+              <Users size={18} /> {t('km.users.userList')}
+              <span className="text-xs text-muted-foreground font-normal ml-2">({filteredNormalUsers.length}{userSearchQuery ? ` / ${normalUsers.length}` : ''})</span>
+            </h4>
+            {selectedNormalUsers.size > 0 && (
+              <button
+                onClick={batchBlock}
+                disabled={batchProcessing}
+                className="flex items-center gap-1 bg-red-500/10 hover:bg-red-500/20 text-red-600 px-3 py-1.5 rounded text-xs transition font-medium"
+              >
+                {batchProcessing ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+                一键拉黑 ({selectedNormalUsers.size})
+              </button>
+            )}
+          </div>
           <div className="relative w-64">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -4056,6 +4177,9 @@ function UsersPanel({
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
               <tr>
+                <th className="px-2 py-3 w-8">
+                  <input type="checkbox" checked={isAllNormalSelected} onChange={toggleSelectAllNormal} className="rounded border-muted-foreground" />
+                </th>
                 <th className="px-4 py-3">{t('km.users.userId')}</th>
                 <th className="px-4 py-3">{t('km.users.nickname')}</th>
                 <th className="px-4 py-3">{t('km.users.firstSeen')}</th>
@@ -4066,14 +4190,14 @@ function UsersPanel({
             <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     <Loader2 size={20} className="animate-spin mx-auto mb-2" />
                     {t('km.users.loading')}
                   </td>
                 </tr>
               ) : pagedNormalUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     {t('km.users.noData')}
                   </td>
                 </tr>
@@ -4089,10 +4213,22 @@ function UsersPanel({
       {/* 黑名单列表 */}
       <div className="bg-card p-6 rounded-xl border shadow-sm border-red-500/20">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-bold flex items-center gap-2 text-red-600">
-            <Shield size={18} /> 黑名单用户
-            <span className="text-xs text-muted-foreground font-normal ml-2">({filteredBlacklistUsers.length}{blacklistSearchQuery ? ` / ${blacklistedUsers.length}` : ''})</span>
-          </h4>
+          <div className="flex items-center gap-3">
+            <h4 className="font-bold flex items-center gap-2 text-red-600">
+              <Shield size={18} /> 黑名单用户
+              <span className="text-xs text-muted-foreground font-normal ml-2">({filteredBlacklistUsers.length}{blacklistSearchQuery ? ` / ${blacklistedUsers.length}` : ''})</span>
+            </h4>
+            {selectedBlacklistUsers.size > 0 && (
+              <button
+                onClick={batchUnblock}
+                disabled={batchProcessing}
+                className="flex items-center gap-1 bg-green-500/10 hover:bg-green-500/20 text-green-600 px-3 py-1.5 rounded text-xs transition font-medium"
+              >
+                {batchProcessing ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+                一键解除 ({selectedBlacklistUsers.size})
+              </button>
+            )}
+          </div>
           <div className="relative w-64">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -4111,6 +4247,9 @@ function UsersPanel({
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
               <tr>
+                <th className="px-2 py-3 w-8">
+                  <input type="checkbox" checked={isAllBlacklistSelected} onChange={toggleSelectAllBlacklist} className="rounded border-muted-foreground" />
+                </th>
                 <th className="px-4 py-3">{t('km.users.userId')}</th>
                 <th className="px-4 py-3">{t('km.users.nickname')}</th>
                 <th className="px-4 py-3">{t('km.users.firstSeen')}</th>
@@ -4121,7 +4260,7 @@ function UsersPanel({
             <tbody className="divide-y">
               {blacklistedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     暂无黑名单用户
                   </td>
                 </tr>
