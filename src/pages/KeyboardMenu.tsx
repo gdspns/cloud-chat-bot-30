@@ -3706,10 +3706,11 @@ function UsersPanel({
     }
 
     // 按 telegram_user_id 去重，保留最新（last_seen_at 最大）的记录
-    const uniqueMap = new Map<number, any>();
+    const uniqueMap = new Map<string, any>();
     for (const u of allUsers) {
-      const uid = u.telegram_user_id;
-      if (!uniqueMap.has(uid) || new Date(u.last_seen_at) > new Date(uniqueMap.get(uid).last_seen_at)) {
+      const uid = String(u.telegram_user_id);
+      const existing = uniqueMap.get(uid);
+      if (!existing || new Date(u.last_seen_at) > new Date(existing.last_seen_at)) {
         uniqueMap.set(uid, u);
       }
     }
