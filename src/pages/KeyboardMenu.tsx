@@ -4213,10 +4213,22 @@ function UsersPanel({
       {/* 黑名单列表 */}
       <div className="bg-card p-6 rounded-xl border shadow-sm border-red-500/20">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-bold flex items-center gap-2 text-red-600">
-            <Shield size={18} /> 黑名单用户
-            <span className="text-xs text-muted-foreground font-normal ml-2">({filteredBlacklistUsers.length}{blacklistSearchQuery ? ` / ${blacklistedUsers.length}` : ''})</span>
-          </h4>
+          <div className="flex items-center gap-3">
+            <h4 className="font-bold flex items-center gap-2 text-red-600">
+              <Shield size={18} /> 黑名单用户
+              <span className="text-xs text-muted-foreground font-normal ml-2">({filteredBlacklistUsers.length}{blacklistSearchQuery ? ` / ${blacklistedUsers.length}` : ''})</span>
+            </h4>
+            {selectedBlacklistUsers.size > 0 && (
+              <button
+                onClick={batchUnblock}
+                disabled={batchProcessing}
+                className="flex items-center gap-1 bg-green-500/10 hover:bg-green-500/20 text-green-600 px-3 py-1.5 rounded text-xs transition font-medium"
+              >
+                {batchProcessing ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+                一键解除 ({selectedBlacklistUsers.size})
+              </button>
+            )}
+          </div>
           <div className="relative w-64">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -4235,6 +4247,9 @@ function UsersPanel({
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
               <tr>
+                <th className="px-2 py-3 w-8">
+                  <input type="checkbox" checked={isAllBlacklistSelected} onChange={toggleSelectAllBlacklist} className="rounded border-muted-foreground" />
+                </th>
                 <th className="px-4 py-3">{t('km.users.userId')}</th>
                 <th className="px-4 py-3">{t('km.users.nickname')}</th>
                 <th className="px-4 py-3">{t('km.users.firstSeen')}</th>
@@ -4245,7 +4260,7 @@ function UsersPanel({
             <tbody className="divide-y">
               {blacklistedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     暂无黑名单用户
                   </td>
                 </tr>
