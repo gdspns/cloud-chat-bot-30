@@ -360,13 +360,13 @@ ${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
       if (shopConfig?.admin_id) {
         let adminMessage: string
         if (isPhysicalOrder) {
-          adminMessage = `📦 **新实物商品订单需要发货！**
+          adminMessage = `✅ **用户已付款！实物商品订单需要发货！**
 
-订单号: \`${orderNo}\`
-商品: ${order.product_name}
-金额: ${order.amount} ${order.currency}
-用户: ${order.telegram_username || order.telegram_user_id || 'Unknown'}
-${txHash ? `TxHash: \`${txHash}\`\n` : ''}
+📝 订单号: \`${orderNo}\`
+📦 商品: ${order.product_name}
+💰 金额: ${order.amount} ${order.currency}
+👤 用户: ${order.telegram_username || order.telegram_user_id || 'Unknown'}
+${txHash ? `🔗 TxHash: \`${txHash}\`\n` : ''}
 ⏳ 等待用户提供收货地址`
         } else {
           adminMessage = `📦 **新订单完成！**
