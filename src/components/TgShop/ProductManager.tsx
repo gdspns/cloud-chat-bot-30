@@ -410,7 +410,56 @@ export function ProductManager({
               />
             </div>
 
-            {formData.type === 'auto' ? (
+            {/* 商品图片上传 */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                {language === 'zh' ? '商品图片' : 'Product Image'}
+                <span className="text-xs text-muted-foreground font-normal ml-1">
+                  {language === 'zh' ? '(可选，将在Telegram中展示)' : '(optional, shown in Telegram)'}
+                </span>
+              </label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              {formData.imageUrl ? (
+                <div className="relative inline-block">
+                  <img
+                    src={formData.imageUrl}
+                    alt="Product"
+                    className="w-32 h-32 object-cover rounded-lg border"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-md hover:bg-destructive/90"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={isUploadingImage}
+                  className="flex items-center gap-2 px-4 py-3 border-2 border-dashed rounded-lg text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                >
+                  {isUploadingImage ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <ImagePlus size={16} />
+                  )}
+                  {isUploadingImage
+                    ? (language === 'zh' ? '上传中...' : 'Uploading...')
+                    : (language === 'zh' ? '点击上传商品图片' : 'Click to upload image')}
+                </button>
+              )}
+            </div>
+
+
               <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
                 <label className="block text-sm font-medium text-foreground mb-1 flex justify-between">
                   <span>{t('tgshop.product.stockTitle')}</span>
