@@ -883,7 +883,7 @@ ${t("physical_need_address", lang)}`;
 💰 ${deductAmount} ${deductCurrency}
 👤 @${order.telegram_username || chatId}
 
-⏳ ${lang === "zh" ? "等待用户提供收货地址" : "Waiting for user to provide shipping address"}`;
+⏳ ${lang === "zh" ? "等待用户提供收货地址\n\n💡 用户提交地址后，发送「发货」指令管理发货" : "Waiting for user to provide shipping address\n\n💡 Send 'ship' command to manage shipping after address received"}`;
         await sendTelegramMessage(botToken, "sendMessage", {
           chat_id: shopConfig.admin_id,
           text: adminMsg,
