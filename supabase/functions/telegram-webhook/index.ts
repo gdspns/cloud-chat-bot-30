@@ -2913,6 +2913,88 @@ ${t("recharge_select", shopUserLanguage)}`;
         console.log("[TG Shop] Admin ship command handled");
       }
 
+      // ========== 管理员"查单"指令处理 ==========
+      const isCheckOrderCommand = text === "查单" || text === "/checkorder" || text.startsWith("查单 ") || text.startsWith("/checkorder ");
+      if (!keyboardHandled && isCheckOrderCommand) {
+        // 提取订单号
+        const orderNoInput = text.replace(/^(查单|\/checkorder)\s*/, "").trim();
+
+        if (!orderNoInput) {
+          // 没有输入订单号，提示用法
+          await sendTelegramMessage(botToken, "sendMessage", {
+            chat_id: chatId,
+            text: "🔍 **查单指令用法**\n\n发送：`查单 订单号`\n例如：`查单 ORD20250401123456`\n\n即可查询订单详情和发货状态",
+            parse_mode: "Markdown",
+          });
+        } else {
+          // 查询订单（支持模糊匹配）
+          const { data: foundOrders } = await supabase
+            .from("shop_orders")
+            .select("*")
+            .eq("bot_token", botToken)
+            .ilike("order_no", `%${orderNoInput}%`)
+            .order("created_at", { ascending: false })
+            .limit(5);
+
+          if (!foundOrders || foundOrders.length === 0) {
+            await sendTelegramMessage(botToken, "sendMessage", {
+              chat_id: chatId,
+              text: `❌ 未找到包含 \`${orderNoInput}\` 的订单`,
+              parse_mode: "Markdown",
+            });
+          } else {
+            let msg = `🔍 **查询结果 (${foundOrders.length})**\n\n`;
+            for (const ord of foundOrders) {
+              const timeStr = new Date(ord.created_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+
+              // 状态映射
+              const statusMap: Record<string, string> = {
+                pending: "⏳ 待付款",
+                paid: "✅ 已付款",
+                shipped: "🚚 已发货",
+                cancelled: "❌ 已取消",
+                completed: "✅ 已完成",
+              };
+              const statusText = statusMap[ord.status] || ord.status;
+
+              msg += `📝 订单号: \`${ord.order_no}\`\n`;
+              msg += `📊 状态: ${statusText}\n`;
+              msg += `🛍️ 商品: ${ord.product_name}\n`;
+              msg += `💰 金额: ${ord.amount} ${ord.currency}\n`;
+              msg += `💳 支付: ${ord.payment_method}\n`;
+              msg += `👤 买家: @${ord.telegram_username || ord.telegram_user_id || "未知"}\n`;
+              msg += `🕐 下单: ${timeStr}\n`;
+
+              if (ord.order_type === "physical") {
+                msg += `📦 类型: 实物商品\n`;
+                if (ord.status === "shipped" && ord.delivered_at) {
+                  const shipTimeStr = new Date(ord.delivered_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+                  msg += `🚚 发货时间: ${shipTimeStr}\n`;
+                }
+                if (ord.delivery_content && ord.status !== "shipped") {
+                  msg += `📮 收货地址: ${ord.delivery_content}\n`;
+                }
+              }
+
+              if (ord.tx_hash) {
+                msg += `🔗 交易哈希: \`${ord.tx_hash}\`\n`;
+              }
+              msg += `\n`;
+            }
+
+            await sendTelegramMessage(botToken, "sendMessage", {
+              chat_id: chatId,
+              text: msg,
+              parse_mode: "Markdown",
+            });
+          }
+        }
+
+        keyboardHandled = true;
+        suppressActivityForward = true;
+        console.log("[TG Shop] Admin check order command handled");
+      }
+
       // 管理员回复发货提示消息 - 处理快递单号
       if (!keyboardHandled && message.reply_to_message) {
         const replyText = message.reply_to_message.text || "";
