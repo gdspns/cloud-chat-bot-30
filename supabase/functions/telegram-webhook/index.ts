@@ -711,6 +711,7 @@ ${t("order_timeout_warning", lang)}`;
     message,
     inlineKeyboard: { inline_keyboard: paymentButtons },
     orderId: newOrder.id,
+    photoUrl: product.image_url || undefined,
   };
 }
 
