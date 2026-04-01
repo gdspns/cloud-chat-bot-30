@@ -3678,6 +3678,7 @@ function UsersPanel({
   const [selectedNormalUsers, setSelectedNormalUsers] = useState<Set<number>>(new Set());
   const [selectedBlacklistUsers, setSelectedBlacklistUsers] = useState<Set<number>>(new Set());
   const [batchProcessing, setBatchProcessing] = useState(false);
+  const [batchUnblockProcessing, setBatchUnblockProcessing] = useState(false);
   const PAGE_SIZE = 500;
   const FETCH_BATCH_SIZE = 1000;
 
@@ -3821,27 +3822,35 @@ function UsersPanel({
     }
   };
 
-  // 批量拉黑
+  // 批量拉黑 - 使用upsert批量操作提速
   const batchBlock = async () => {
     if (!botToken || selectedNormalUsers.size === 0) return;
     if (!confirm(`确定要将选中的 ${selectedNormalUsers.size} 个用户加入黑名单？`)) return;
     setBatchProcessing(true);
     try {
-      for (const uid of selectedNormalUsers) {
-        const { data: existing } = await supabase.from("bot_rate_limits").select("id").eq("bot_token", botToken).eq("telegram_user_id", uid).maybeSingle();
-        if (existing) {
-          await supabase.from("bot_rate_limits").update({ is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: "批量拉黑", updated_at: new Date().toISOString() }).eq("id", existing.id);
-        } else {
-          await supabase.from("bot_rate_limits").insert({ bot_token: botToken, telegram_user_id: uid, is_blocked: true, blocked_at: new Date().toISOString(), blocked_reason: "批量拉黑", message_count: 0 });
-        }
+      const now = new Date().toISOString();
+      const rows = Array.from(selectedNormalUsers).map(uid => ({
+        bot_token: botToken,
+        telegram_user_id: uid,
+        is_blocked: true,
+        blocked_at: now,
+        blocked_reason: "批量拉黑",
+        message_count: 0,
+        updated_at: now,
+      }));
+      // 分批upsert，每批100条
+      for (let i = 0; i < rows.length; i += 100) {
+        const batch = rows.slice(i, i + 100);
+        await supabase.from("bot_rate_limits").upsert(batch, { onConflict: "bot_token,telegram_user_id", ignoreDuplicates: false });
       }
       setBlockedUsers((prev) => {
         const next = { ...prev };
         for (const uid of selectedNormalUsers) next[uid] = true;
         return next;
       });
-      showToast("success", `已批量拉黑 ${selectedNormalUsers.size} 个用户`);
+      const count = selectedNormalUsers.size;
       setSelectedNormalUsers(new Set());
+      showToast("success", `已批量拉黑 ${count} 个用户`);
     } catch (e: any) {
       showToast("error", `批量拉黑失败: ${e.message}`);
     } finally {
@@ -3849,26 +3858,30 @@ function UsersPanel({
     }
   };
 
-  // 批量解除黑名单
+  // 批量解除黑名单 - 使用in批量操作提速
   const batchUnblock = async () => {
     if (!botToken || selectedBlacklistUsers.size === 0) return;
     if (!confirm(`确定要解除选中的 ${selectedBlacklistUsers.size} 个用户的黑名单？`)) return;
-    setBatchProcessing(true);
+    setBatchUnblockProcessing(true);
     try {
-      for (const uid of selectedBlacklistUsers) {
-        await supabase.from("bot_rate_limits").update({ is_blocked: false, blocked_at: null, blocked_reason: null, updated_at: new Date().toISOString() }).eq("bot_token", botToken).eq("telegram_user_id", uid);
+      const uids = Array.from(selectedBlacklistUsers);
+      // 分批更新，每批100条
+      for (let i = 0; i < uids.length; i += 100) {
+        const batch = uids.slice(i, i + 100);
+        await supabase.from("bot_rate_limits").update({ is_blocked: false, blocked_at: null, blocked_reason: null, updated_at: new Date().toISOString() }).eq("bot_token", botToken).in("telegram_user_id", batch);
       }
       setBlockedUsers((prev) => {
         const next = { ...prev };
         for (const uid of selectedBlacklistUsers) delete next[uid];
         return next;
       });
-      showToast("success", `已批量解除 ${selectedBlacklistUsers.size} 个用户`);
+      const count = selectedBlacklistUsers.size;
       setSelectedBlacklistUsers(new Set());
+      showToast("success", `已批量解除 ${count} 个用户`);
     } catch (e: any) {
       showToast("error", `批量解除失败: ${e.message}`);
     } finally {
-      setBatchProcessing(false);
+      setBatchUnblockProcessing(false);
     }
   };
 
@@ -4221,10 +4234,10 @@ function UsersPanel({
             {selectedBlacklistUsers.size > 0 && (
               <button
                 onClick={batchUnblock}
-                disabled={batchProcessing}
+                disabled={batchUnblockProcessing}
                 className="flex items-center gap-1 bg-green-500/10 hover:bg-green-500/20 text-green-600 px-3 py-1.5 rounded text-xs transition font-medium"
               >
-                {batchProcessing ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+                {batchUnblockProcessing ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
                 一键解除 ({selectedBlacklistUsers.size})
               </button>
             )}
