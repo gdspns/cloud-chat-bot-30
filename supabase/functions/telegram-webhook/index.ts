@@ -2850,12 +2850,20 @@ ${t("recharge_select", shopUserLanguage)}`;
               shopUserLanguage,
             );
             if (buyResult.handled && buyResult.message) {
-              const msgResult = await sendTelegramMessage(botToken, "sendMessage", {
-                chat_id: chatId,
-                text: buyResult.message,
-                parse_mode: "Markdown",
-                reply_markup: buyResult.inlineKeyboard,
-              });
+              const msgResult = buyResult.photoUrl
+                ? await sendTelegramMessage(botToken, "sendPhoto", {
+                    chat_id: chatId,
+                    photo: buyResult.photoUrl,
+                    caption: buyResult.message,
+                    parse_mode: "Markdown",
+                    reply_markup: buyResult.inlineKeyboard,
+                  })
+                : await sendTelegramMessage(botToken, "sendMessage", {
+                    chat_id: chatId,
+                    text: buyResult.message,
+                    parse_mode: "Markdown",
+                    reply_markup: buyResult.inlineKeyboard,
+                  });
               if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
                 await supabase
                   .from("shop_orders")
