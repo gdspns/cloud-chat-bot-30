@@ -32,9 +32,11 @@ interface DbOrder {
   status: string;
   telegram_user_id: number | null;
   telegram_username: string | null;
+  telegram_chat_id: number | null;
   tx_hash: string | null;
   delivery_content: string | null;
   delivered_at: string | null;
+  order_type: string | null;
   created_at: string;
   updated_at: string;
 }
