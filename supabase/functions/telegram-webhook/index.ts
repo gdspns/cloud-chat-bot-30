@@ -14,10 +14,11 @@ interface ShopProduct {
   price: number;
   currency: string;
   stock_content: string[] | null;
+  stock_quantity: number | null;
   is_active: boolean;
   keywords: string[] | null;
   category: string | null;
-  type?: string; // 'goods' | 'recharge'
+  type?: string; // 'goods' | 'recharge' | 'physical'
 }
 
 interface ShopConfig {
@@ -82,6 +83,7 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
   shop_stock: { zh: "库存", en: "Stock" },
   shop_out_of_stock: { zh: "缺货", en: "Out of stock" },
   shop_recharge_product: { zh: "余额充值", en: "Balance recharge" },
+  shop_physical_product: { zh: "实物商品", en: "Physical" },
   shop_click_to_buy: { zh: "点击购买👉", en: "Buy now👉" },
   shop_buy_tip: { zh: "💡 点击上方指令直接购买对应商品", en: "💡 Click the command above to buy the product" },
 
@@ -177,6 +179,11 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
     en: "❌ Insufficient balance! Current: {balance} {currency}\nRequired: {amount} {currency}\n\n💡 Send /recharge to top up",
   },
   balance_pay_success: { zh: "✅ **余额支付成功！**", en: "✅ **Balance payment successful!**" },
+  // 实物商品
+  physical_need_address: { zh: "📮 请发送您的收货地址（姓名+电话+地址），我们将尽快为您发货：", en: "📮 Please send your shipping address (name + phone + address) for delivery:" },
+  physical_address_received: { zh: "✅ 收货地址已记录，等待管理员处理发货", en: "✅ Shipping address recorded, waiting for admin to process" },
+  physical_order_paid: { zh: "📦 **实物商品订单已支付**", en: "📦 **Physical product order paid**" },
+  physical_admin_notify: { zh: "📦 新实物商品订单需要发货！", en: "📦 New physical product order needs shipping!" },
 };
 
 // 获取翻译文本
@@ -477,13 +484,16 @@ async function handleBuyCommand(
     const nameMap = lang === "en" ? await translateManyToEnglish(names) : {};
 
     const productLines = matchedProducts.map((p: ShopProduct) => {
-      const stock = p.stock_content?.length || 0;
+      const stock = p.type === "physical" ? (p.stock_quantity ?? 0) : (p.stock_content?.length || 0);
       const isRecharge = p.type === "recharge";
+      const isPhysical = p.type === "physical";
       const stockText = isRecharge
         ? `(${t("shop_recharge_product", lang)})`
-        : stock > 0
-          ? `(${stockLabel}: ${stock})`
-          : `(${outOfStockLabel})`;
+        : isPhysical
+          ? `(${t("shop_physical_product", lang)} ${stock > 0 ? `${stockLabel}: ${stock}` : outOfStockLabel})`
+          : stock > 0
+            ? `(${stockLabel}: ${stock})`
+            : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, "");
       const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
       return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
@@ -549,7 +559,13 @@ async function createOrderForProduct(
   }
 
   // 检查库存 (充值商品不需要库存)
-  if (product.type !== "recharge" && (!product.stock_content || product.stock_content.length === 0)) {
+  if (product.type === "physical") {
+    // 实物商品检查数量库存
+    if (product.stock_quantity !== null && product.stock_quantity !== undefined && product.stock_quantity <= 0) {
+      const displayName = await localizeText(product.name, lang);
+      return { handled: true, message: `❌ "${displayName}" ${t("error_no_stock", lang)}` };
+    }
+  } else if (product.type !== "recharge" && (!product.stock_content || product.stock_content.length === 0)) {
     const displayName = await localizeText(product.name, lang);
     return { handled: true, message: `❌ "${displayName}" ${t("error_no_stock", lang)}` };
   }
@@ -577,7 +593,7 @@ async function createOrderForProduct(
       telegram_chat_id: chatId,
       expires_at: expiresAt,
       status: "pending",
-      order_type: product.type === "recharge" ? "recharge" : "purchase",
+      order_type: product.type === "recharge" ? "recharge" : product.type === "physical" ? "physical" : "purchase",
     })
     .select()
     .single();
@@ -671,9 +687,12 @@ async function createOrderForProduct(
   const itemsLabel = t("order_items", lang);
   const displayProductName = await localizeText(product.name, lang);
   const isRechargeProduct = product.type === "recharge";
+  const isPhysicalProduct = product.type === "physical";
   const stockLine = isRechargeProduct
     ? ""
-    : `\n${t("order_stock", lang)}: ${product.stock_content.length} ${itemsLabel}`;
+    : isPhysicalProduct
+    ? (product.stock_quantity !== null ? `\n${t("order_stock", lang)}: ${product.stock_quantity} ${itemsLabel}` : "")
+    : `\n${t("order_stock", lang)}: ${product.stock_content?.length || 0} ${itemsLabel}`;
   const message = `${t("order_created", lang)}
 
 ${t("order_product", lang)}: ${displayProductName}
@@ -794,16 +813,24 @@ async function handlePaymentMethodCallback(
       description: `购买 ${order.product_name}`,
     });
 
-    // 获取商品库存并发货
+    // 获取商品信息
     let deliveryContent = "";
+    let isPhysicalOrder = false;
     if (order.product_id) {
       const { data: product } = await supabase
         .from("shop_products")
-        .select("stock_content")
+        .select("stock_content, type, stock_quantity")
         .eq("id", order.product_id)
         .single();
 
-      if (product?.stock_content && product.stock_content.length > 0) {
+      if (product?.type === "physical") {
+        isPhysicalOrder = true;
+        // 实物商品：扣减数量库存
+        if (product.stock_quantity !== null && product.stock_quantity > 0) {
+          await supabase.from("shop_products").update({ stock_quantity: product.stock_quantity - 1 }).eq("id", order.product_id);
+        }
+        deliveryContent = lang === "zh" ? "实物商品-等待发货" : "Physical product - awaiting shipment";
+      } else if (product?.stock_content && product.stock_content.length > 0) {
         deliveryContent = product.stock_content[0];
         const remainingStock = product.stock_content.slice(1);
         await supabase.from("shop_products").update({ stock_content: remainingStock }).eq("id", order.product_id);
@@ -821,7 +848,7 @@ async function handlePaymentMethodCallback(
         amount: deductAmount,
         currency: deductCurrency,
         delivery_content: deliveryContent,
-        delivered_at: new Date().toISOString(),
+        delivered_at: isPhysicalOrder ? null : new Date().toISOString(),
       })
       .eq("order_no", orderNo);
 
@@ -832,6 +859,40 @@ async function handlePaymentMethodCallback(
     });
 
     const displayProductName = await localizeText(order.product_name, lang);
+
+    if (isPhysicalOrder) {
+      // 实物商品：提示用户发送收货地址
+      const message = `${t("balance_pay_success", lang)}
+
+${t("order_product", lang)}: ${displayProductName}
+${t("order_amount", lang)}: ${deductAmount} ${deductCurrency}
+${t("order_no", lang)}: \`${orderNo}\`
+💳 ${lang === "zh" ? "剩余余额" : "Remaining balance"}: ${newBalance.toFixed(2)} ${deductCurrency}
+
+────────────────
+${t("physical_need_address", lang)}`;
+
+      // 通知管理员
+      const { data: shopConfig } = await supabase.from("shop_configs").select("admin_id").eq("bot_token", botToken).maybeSingle();
+      if (shopConfig?.admin_id) {
+        const adminMsg = `${t("physical_admin_notify", lang)}
+
+📦 ${order.product_name}
+💰 ${deductAmount} ${deductCurrency}
+📝 ${orderNo}
+👤 @${order.telegram_username || chatId}
+
+⏳ ${lang === "zh" ? "等待用户提供收货地址" : "Waiting for user to provide shipping address"}`;
+        await sendTelegramMessage(botToken, "sendMessage", {
+          chat_id: shopConfig.admin_id,
+          text: adminMsg,
+          parse_mode: "Markdown",
+        });
+      }
+
+      return { handled: true, message };
+    }
+
     const message = `${t("balance_pay_success", lang)}
 
 ${t("order_product", lang)}: ${displayProductName}
@@ -1160,13 +1221,16 @@ async function handleShopCommand(
     const descMap = lang === "en" ? await translateManyToEnglish(descToTranslate) : {};
 
     const productLines = bucket.products.map((p: ShopProduct) => {
-      const stock = p.stock_content?.length || 0;
+      const stock = p.type === "physical" ? (p.stock_quantity ?? 0) : (p.stock_content?.length || 0);
       const isRecharge = p.type === "recharge";
+      const isPhysical = p.type === "physical";
       const stockText = isRecharge
         ? `(${t("shop_recharge_product", lang)})`
-        : stock > 0
-          ? `(${stockLabel}: ${stock})`
-          : `(${outOfStockLabel})`;
+        : isPhysical
+          ? `(${t("shop_physical_product", lang)} ${stock > 0 ? `${stockLabel}: ${stock}` : outOfStockLabel})`
+          : stock > 0
+            ? `(${stockLabel}: ${stock})`
+            : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, "");
       const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
       const displayDesc = p.description

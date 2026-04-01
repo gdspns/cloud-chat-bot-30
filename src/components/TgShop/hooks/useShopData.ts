@@ -14,6 +14,7 @@ interface DbProduct {
   is_active: boolean;
   category: string | null;
   type: string;
+  stock_quantity: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -174,8 +175,9 @@ function dbProductToProduct(dbProduct: DbProduct): Product {
     stockContent: dbProduct.stock_content?.join("\n") || "",
     stockCount: dbProduct.stock_content?.length || 0,
     description: dbProduct.description || "",
-    type: dbProduct.type === 'recharge' ? 'recharge' : 'auto',
+    type: dbProduct.type === 'recharge' ? 'recharge' : dbProduct.type === 'physical' ? 'physical' : 'auto',
     category: dbProduct.category || "默认分类",
+    stockQuantity: dbProduct.stock_quantity ?? undefined,
     createdAt: dbProduct.created_at,
     updatedAt: dbProduct.updated_at,
   };
@@ -189,11 +191,12 @@ function productToDbProduct(product: Partial<Product>, botToken: string): Partia
     price: product.price,
     currency: product.currency,
     keywords: product.keywordsList || product.keywords?.split(",").map((k) => k.trim().toLowerCase()) || [],
-    stock_content: product.stockContent?.split("\n").filter((l) => l.trim()) || [],
+    stock_content: product.type === 'physical' ? [] : (product.stockContent?.split("\n").filter((l) => l.trim()) || []),
     description: product.description || null,
     category: product.category || "默认分类",
-    type: product.type === 'recharge' ? 'recharge' : 'goods',
+    type: product.type === 'recharge' ? 'recharge' : product.type === 'physical' ? 'physical' : 'goods',
     is_active: true,
+    stock_quantity: product.type === 'physical' ? (product.stockQuantity ?? 0) : null,
   };
 }
 
