@@ -2452,9 +2452,11 @@ serve(async (req) => {
     const isAdminUser = bidirectionalChatEnabled && personalUserId > 0 && chatId === personalUserId;
 
     // 存储消息到数据库 (仅当双向聊天可用时，且不是管理员自己的消息)
+    // /start 命令不存入消息表，防止轰炸时大量垃圾数据
     const userName = fromUser.first_name + (fromUser.last_name ? " " + fromUser.last_name : "");
+    const isStartCommand = text === "/start";
 
-    if (bidirectionalChatEnabled && activation && !isAdminUser) {
+    if (bidirectionalChatEnabled && activation && !isAdminUser && !isStartCommand) {
       await supabase.from("messages").insert({
         bot_activation_id: activation.id,
         telegram_chat_id: chatId,
@@ -3600,7 +3602,8 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
     const activityRecipient = bidirectionalChatEnabled && personalUserId > 0 ? personalUserId : menuAdminChatId;
 
     // 转发消息给管理员（支持无双向聊天绑定的菜单键盘机器人）
-    if (activityRecipient > 0 && chatId !== activityRecipient) {
+    // /start 命令不转发给管理员，防止轰炸时管理员收到大量垃圾消息
+    if (activityRecipient > 0 && chatId !== activityRecipient && !isStartCommand) {
       if (bidirectionalChatEnabled && personalUserId > 0) {
         // ===== 双向聊天模式：转发完整消息带发起私聊按钮 =====
         // 根据 activityLogEnabled 设置决定是否转发已自动处理的消息
