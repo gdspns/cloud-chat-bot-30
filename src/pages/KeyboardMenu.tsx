@@ -3862,7 +3862,7 @@ function UsersPanel({
   const batchUnblock = async () => {
     if (!botToken || selectedBlacklistUsers.size === 0) return;
     if (!confirm(`确定要解除选中的 ${selectedBlacklistUsers.size} 个用户的黑名单？`)) return;
-    setBatchProcessing(true);
+    setBatchUnblockProcessing(true);
     try {
       const uids = Array.from(selectedBlacklistUsers);
       // 分批更新，每批100条
@@ -3881,7 +3881,7 @@ function UsersPanel({
     } catch (e: any) {
       showToast("error", `批量解除失败: ${e.message}`);
     } finally {
-      setBatchProcessing(false);
+      setBatchUnblockProcessing(false);
     }
   };
 
