@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Eye, Check, Download, RefreshCw, Trash2, Clock, XCircle, CheckCircle } from "lucide-react";
+import { Eye, Check, Download, RefreshCw, Trash2, Clock, XCircle, CheckCircle, Search, X, Copy } from "lucide-react";
 import { Order } from "./types";
 import { useLanguage } from "@/hooks/use-language";
 import {
@@ -12,6 +12,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type OrderFilter = 'all' | 'paid' | 'pending' | 'cancelled';
 
@@ -28,11 +34,25 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
   const [activeFilter, setActiveFilter] = useState<OrderFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearingStatus, setClearingStatus] = useState<Order['status'] | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const filteredOrders = useMemo(() => {
-    if (activeFilter === 'all') return orders;
-    return orders.filter(order => order.status === activeFilter);
-  }, [orders, activeFilter]);
+    let result = orders;
+    if (activeFilter !== 'all') {
+      result = result.filter(order => order.status === activeFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(order =>
+        order.orderId.toLowerCase().includes(q) ||
+        order.productName.toLowerCase().includes(q) ||
+        order.customer.toLowerCase().includes(q) ||
+        (order.deliveryContent && order.deliveryContent.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [orders, activeFilter, searchQuery]);
 
   const orderCounts = useMemo(() => ({
     all: orders.length,
@@ -63,6 +83,34 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
     }
   };
 
+  const getPaymentMethodLabel = (method?: string) => {
+    if (!method) return '-';
+    const map: Record<string, string> = {
+      balance: language === 'zh' ? '余额支付' : 'Balance',
+      usdt: 'USDT',
+      trx: 'TRX',
+      alipay: language === 'zh' ? '支付宝' : 'Alipay',
+      wechat: language === 'zh' ? '微信支付' : 'WeChat',
+      pending: language === 'zh' ? '待选择' : 'Pending',
+      cancelled: language === 'zh' ? '已取消' : 'Cancelled',
+    };
+    return map[method] || method;
+  };
+
+  const getOrderTypeLabel = (type?: string) => {
+    if (!type) return '-';
+    const map: Record<string, string> = {
+      purchase: language === 'zh' ? '发卡商品' : 'Card/Key',
+      physical: language === 'zh' ? '实物商品' : 'Physical',
+      recharge: language === 'zh' ? '充值' : 'Recharge',
+    };
+    return map[type] || type;
+  };
+
+  const copyText = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
   const filterTabs: { key: OrderFilter; label: string; icon: React.ReactNode; showClear: boolean }[] = [
     { key: 'all', label: t('tgshop.order.all'), icon: null, showClear: false },
     { key: 'paid', label: t('tgshop.order.paid'), icon: <CheckCircle size={14} className="text-green-500" />, showClear: true },
@@ -72,8 +120,8 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
 
   const handleExportCSV = () => {
     const headers = language === 'zh' 
-      ? ['订单号', '商品', '用户', '金额', '货币', '状态', '时间']
-      : ['Order No.', 'Product', 'User', 'Amount', 'Currency', 'Status', 'Time'];
+      ? ['订单号', '商品', '用户', '金额', '货币', '状态', '支付方式', '发货内容', '时间']
+      : ['Order No.', 'Product', 'User', 'Amount', 'Currency', 'Status', 'Payment', 'Delivery', 'Time'];
     const rows = filteredOrders.map(order => [
       order.orderId,
       order.productName,
@@ -81,6 +129,8 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
       order.amount.toString(),
       order.currency,
       order.status,
+      order.paymentMethod || '',
+      (order.deliveryContent || '').replace(/,/g, '，'),
       order.createdAt || ''
     ]);
     
@@ -118,6 +168,23 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
           </div>
         </div>
 
+        {/* Search Bar */}
+        <div className="relative mb-4">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={language === 'zh' ? '搜索订单号、商品名、用户名、发货内容...' : 'Search order no, product, user, delivery content...'}
+            className="w-full pl-10 pr-10 py-2.5 rounded-lg border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
         {/* Filter Tabs */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           {filterTabs.map(tab => (
@@ -151,6 +218,11 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
               )}
             </div>
           ))}
+          {searchQuery && (
+            <span className="text-sm text-muted-foreground ml-2">
+              {language === 'zh' ? `找到 ${filteredOrders.length} 条结果` : `${filteredOrders.length} results found`}
+            </span>
+          )}
         </div>
         
         <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
@@ -170,14 +242,20 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
               {filteredOrders.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">
-                    {activeFilter === 'all' 
-                      ? t('tgshop.order.noOrders')
-                      : (language === 'zh' ? `暂无${getStatusLabel(activeFilter as Order['status'])}订单` : `No ${getStatusLabel(activeFilter as Order['status']).toLowerCase()} orders`)}
+                    {searchQuery
+                      ? (language === 'zh' ? '未找到匹配的订单' : 'No matching orders found')
+                      : activeFilter === 'all' 
+                        ? t('tgshop.order.noOrders')
+                        : (language === 'zh' ? `暂无${getStatusLabel(activeFilter as Order['status'])}订单` : `No ${getStatusLabel(activeFilter as Order['status']).toLowerCase()} orders`)}
                   </td>
                 </tr>
               )}
               {filteredOrders.map(order => (
-                <tr key={order.id} className="hover:bg-muted/50 transition-colors">
+                <tr 
+                  key={order.id} 
+                  className="hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedOrder(order)}
+                >
                   <td className="px-6 py-4 font-mono text-sm text-muted-foreground">{order.orderId}</td>
                   <td className="px-6 py-4 font-medium text-foreground">{order.productName}</td>
                   <td className="px-6 py-4 text-sm text-primary">{order.customer}</td>
@@ -198,7 +276,10 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
                     {order.createdAt ? new Date(order.createdAt).toLocaleString() : t('tgshop.order.justNow')}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="text-muted-foreground hover:text-primary">
+                    <button 
+                      className="text-muted-foreground hover:text-primary"
+                      onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); }}
+                    >
                       <Eye size={18}/>
                     </button>
                   </td>
@@ -208,6 +289,103 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
           </table>
         </div>
       </div>
+
+      {/* Order Detail Dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{language === 'zh' ? '订单详情' : 'Order Details'}</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">{language === 'zh' ? '订单号' : 'Order No.'}</span>
+                  <div className="font-mono mt-1 flex items-center gap-1">
+                    {selectedOrder.orderId}
+                    <button onClick={() => copyText(selectedOrder.orderId)} className="text-muted-foreground hover:text-primary"><Copy size={12}/></button>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{language === 'zh' ? '状态' : 'Status'}</span>
+                  <div className="mt-1">
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      selectedOrder.status === 'paid' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                        : selectedOrder.status === 'pending' 
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
+                          : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {getStatusLabel(selectedOrder.status)}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{language === 'zh' ? '商品名称' : 'Product'}</span>
+                  <div className="font-medium mt-1">{selectedOrder.productName}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{language === 'zh' ? '商品类型' : 'Type'}</span>
+                  <div className="mt-1">{getOrderTypeLabel(selectedOrder.orderType)}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{language === 'zh' ? '金额' : 'Amount'}</span>
+                  <div className="font-bold text-green-600 mt-1">{selectedOrder.amount} {selectedOrder.currency}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{language === 'zh' ? '支付方式' : 'Payment'}</span>
+                  <div className="mt-1">{getPaymentMethodLabel(selectedOrder.paymentMethod)}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{language === 'zh' ? '买家' : 'Buyer'}</span>
+                  <div className="mt-1 text-primary">{selectedOrder.customer}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{language === 'zh' ? '下单时间' : 'Time'}</span>
+                  <div className="mt-1 text-xs">{selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString() : '-'}</div>
+                </div>
+              </div>
+
+              {selectedOrder.txHash && (
+                <div>
+                  <span className="text-sm text-muted-foreground">{language === 'zh' ? '交易哈希' : 'Tx Hash'}</span>
+                  <div className="mt-1 font-mono text-xs bg-muted p-2 rounded break-all flex items-start gap-1">
+                    {selectedOrder.txHash}
+                    <button onClick={() => copyText(selectedOrder.txHash!)} className="text-muted-foreground hover:text-primary flex-shrink-0 mt-0.5"><Copy size={12}/></button>
+                  </div>
+                </div>
+              )}
+
+              {selectedOrder.deliveryContent && (
+                <div>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedOrder.orderType === 'physical' 
+                      ? (language === 'zh' ? '收货地址' : 'Shipping Address')
+                      : (language === 'zh' ? '发货内容（卡密）' : 'Delivery Content (Card/Key)')}
+                  </span>
+                  <div className="mt-1 bg-muted p-3 rounded-lg border">
+                    <pre className="font-mono text-sm whitespace-pre-wrap break-all">{selectedOrder.deliveryContent}</pre>
+                    <button 
+                      onClick={() => copyText(selectedOrder.deliveryContent!)}
+                      className="mt-2 text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                    >
+                      <Copy size={12}/> {language === 'zh' ? '复制' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!selectedOrder.deliveryContent && selectedOrder.status === 'paid' && (
+                <div className="text-sm text-muted-foreground italic">
+                  {selectedOrder.orderType === 'physical'
+                    ? (language === 'zh' ? '等待买家提供收货地址...' : 'Waiting for buyer to provide shipping address...')
+                    : (language === 'zh' ? '暂无发货内容' : 'No delivery content')}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Clear Confirmation Dialog */}
       <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>

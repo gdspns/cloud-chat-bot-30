@@ -214,6 +214,10 @@ function dbOrderToOrder(dbOrder: DbOrder): Order {
     status: dbOrder.status as "pending" | "paid" | "cancelled",
     customer: dbOrder.telegram_username || String(dbOrder.telegram_user_id) || "Unknown",
     createdAt: dbOrder.created_at,
+    deliveryContent: dbOrder.delivery_content || undefined,
+    paymentMethod: dbOrder.payment_method || undefined,
+    orderType: (dbOrder as any).order_type || undefined,
+    txHash: dbOrder.tx_hash || undefined,
   };
 }
 
