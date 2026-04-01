@@ -2096,7 +2096,7 @@ serve(async (req) => {
 
           let successCount = 0;
           
-          for (const user of dbUsers) {
+          for (const user of filteredUsers) {
             try {
               const body: any = {
                 chat_id: user.telegram_user_id,
