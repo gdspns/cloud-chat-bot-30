@@ -669,14 +669,15 @@ const Index = () => {
 
   // 构建聊天列表
   const chatItems: ChatItem[] = (() => {
-    const chatMap = new Map<string, ChatItem>();
+    const chatMap = new Map<string, ChatItem & { _sortTime: number }>();
     
     filteredMessages
       .filter(m => m.direction === 'incoming' && m.bot_activation_id === selectedBotId)
       .forEach(m => {
         const key = `${m.bot_activation_id}-${m.telegram_chat_id}`;
+        const msgTime = new Date(m.created_at).getTime();
         const existing = chatMap.get(key);
-        if (!existing || new Date(m.created_at) > new Date(existing.lastTime)) {
+        if (!existing || msgTime > existing._sortTime) {
           chatMap.set(key, {
             chatId: m.telegram_chat_id,
             userName: m.telegram_user_name,
@@ -684,13 +685,14 @@ const Index = () => {
             lastTime: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
             unread: unreadChats.has(m.telegram_chat_id),
             botId: m.bot_activation_id,
+            _sortTime: msgTime,
           });
         }
       });
     
-    return Array.from(chatMap.values()).sort((a, b) => 
-      new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime()
-    );
+    return Array.from(chatMap.values())
+      .sort((a, b) => b._sortTime - a._sortTime)
+      .map(({ _sortTime, ...item }) => item);
   })();
 
   // Show loading skeleton during auth loading
