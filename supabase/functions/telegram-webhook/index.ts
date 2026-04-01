@@ -2819,6 +2819,67 @@ ${t("recharge_select", shopUserLanguage)}`;
       }
     }
 
+    // ========== 实物商品收货地址捕获（优先于关键词匹配） ==========
+    if (!keyboardHandled && shopEnabled && shopConfig && !text.startsWith("/")) {
+      try {
+        // 检查用户是否有已付款但未发货的实物订单
+        const { data: pendingPhysicalOrders } = await supabase
+          .from("shop_orders")
+          .select("*")
+          .eq("bot_token", botToken)
+          .eq("telegram_user_id", chatId)
+          .eq("status", "paid")
+          .eq("order_type", "physical")
+          .is("delivered_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (pendingPhysicalOrders && pendingPhysicalOrders.length > 0) {
+          const physicalOrder = pendingPhysicalOrders[0];
+          const addressText = text.trim();
+
+          // 更新订单：记录收货地址
+          await supabase
+            .from("shop_orders")
+            .update({
+              delivery_content: addressText,
+              delivered_at: new Date().toISOString(),
+            })
+            .eq("id", physicalOrder.id);
+
+          // 通知用户
+          await sendTelegramMessage(botToken, "sendMessage", {
+            chat_id: chatId,
+            text: `${t("physical_address_received", shopUserLanguage)}\n\n📝 ${shopUserLanguage === "zh" ? "订单号" : "Order No"}: \`${physicalOrder.order_no}\``,
+            parse_mode: "Markdown",
+          });
+
+          // 通知管理员：用户已付款 + 收货地址 + 商品信息
+          if ((shopConfig as any).admin_id) {
+            const adminMsg = `✅ **${shopUserLanguage === "zh" ? "买家已付款，请尽快发货！" : "Buyer has paid, please ship ASAP!"}**
+
+📝 ${shopUserLanguage === "zh" ? "订单号" : "Order No"}: \`${physicalOrder.order_no}\`
+📦 ${shopUserLanguage === "zh" ? "商品" : "Product"}: ${physicalOrder.product_name}
+💰 ${shopUserLanguage === "zh" ? "金额" : "Amount"}: ${physicalOrder.amount} ${physicalOrder.currency}
+👤 ${shopUserLanguage === "zh" ? "买家" : "Buyer"}: @${physicalOrder.telegram_username || chatId}
+
+📮 ${shopUserLanguage === "zh" ? "收货地址" : "Shipping Address"}:
+${addressText}`;
+            await sendTelegramMessage(botToken, "sendMessage", {
+              chat_id: (shopConfig as any).admin_id,
+              text: adminMsg,
+              parse_mode: "Markdown",
+            });
+          }
+
+          keyboardHandled = true;
+          console.log(`[TG Shop] Physical order ${physicalOrder.order_no} address captured`);
+        }
+      } catch (addrErr) {
+        console.error("[TG Shop] Address capture error:", addrErr);
+      }
+    }
+
     // ========== 商品关键词触发：用户直接发送关键词匹配商品 ==========
     if (!keyboardHandled && shopEnabled && shopConfig && !text.startsWith("/")) {
       try {
