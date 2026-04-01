@@ -684,9 +684,12 @@ async function createOrderForProduct(
   const itemsLabel = t("order_items", lang);
   const displayProductName = await localizeText(product.name, lang);
   const isRechargeProduct = product.type === "recharge";
+  const isPhysicalProduct = product.type === "physical";
   const stockLine = isRechargeProduct
     ? ""
-    : `\n${t("order_stock", lang)}: ${product.stock_content.length} ${itemsLabel}`;
+    : isPhysicalProduct
+    ? (product.stock_quantity !== null ? `\n${t("order_stock", lang)}: ${product.stock_quantity} ${itemsLabel}` : "")
+    : `\n${t("order_stock", lang)}: ${product.stock_content?.length || 0} ${itemsLabel}`;
   const message = `${t("order_created", lang)}
 
 ${t("order_product", lang)}: ${displayProductName}
