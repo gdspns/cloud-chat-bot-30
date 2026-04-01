@@ -13,6 +13,7 @@ export interface Product {
   type: 'auto' | 'manual' | 'recharge' | 'physical';
   category: string;
   stockQuantity?: number;
+  imageUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }

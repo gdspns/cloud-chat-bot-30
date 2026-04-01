@@ -199,6 +199,7 @@ function productToDbProduct(product: Partial<Product>, botToken: string): Partia
     type: product.type === 'recharge' ? 'recharge' : product.type === 'physical' ? 'physical' : 'goods',
     is_active: true,
     stock_quantity: product.type === 'physical' ? (product.stockQuantity ?? 0) : null,
+    image_url: product.imageUrl || null,
   };
 }
 
