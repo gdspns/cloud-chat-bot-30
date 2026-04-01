@@ -3016,7 +3016,9 @@ ${t("recharge_select", shopUserLanguage)}`;
 👤 ${shopUserLanguage === "zh" ? "买家" : "Buyer"}: @${physicalOrder.telegram_username || chatId}
 
 📮 ${shopUserLanguage === "zh" ? "收货地址" : "Shipping Address"}:
-${addressText}`;
+${addressText}
+
+💡 ${shopUserLanguage === "zh" ? "发送「发货」指令管理发货" : "Send 'ship' command to manage shipping"}`;
             await sendTelegramMessage(botToken, "sendMessage", {
               chat_id: adminTarget,
               text: adminMsg,
