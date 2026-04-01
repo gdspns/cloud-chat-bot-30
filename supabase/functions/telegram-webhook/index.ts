@@ -2466,6 +2466,7 @@ serve(async (req) => {
 
     // 菜单键盘功能 - 独立运行，不依赖双向聊天
     let keyboardHandled = false;
+    let suppressActivityForward = false;
 
     // 获取用户的语言偏好
     let userLanguage = getUserLanguage(chatId, userLanguagePreferences);
@@ -2855,7 +2856,8 @@ ${t("recharge_select", shopUserLanguage)}`;
           });
 
           // 通知管理员：用户已付款 + 收货地址 + 商品信息
-          if ((shopConfig as any).admin_id) {
+          const adminTarget = Number((shopConfig as any).admin_id || 0) || (bidirectionalChatEnabled && personalUserId > 0 ? personalUserId : menuAdminChatId);
+          if (adminTarget > 0 && adminTarget !== chatId) {
             const adminMsg = `✅ **${shopUserLanguage === "zh" ? "买家已付款，请尽快发货！" : "Buyer has paid, please ship ASAP!"}**
 
 📝 ${shopUserLanguage === "zh" ? "订单号" : "Order No"}: \`${physicalOrder.order_no}\`
@@ -2866,10 +2868,11 @@ ${t("recharge_select", shopUserLanguage)}`;
 📮 ${shopUserLanguage === "zh" ? "收货地址" : "Shipping Address"}:
 ${addressText}`;
             await sendTelegramMessage(botToken, "sendMessage", {
-              chat_id: (shopConfig as any).admin_id,
+              chat_id: adminTarget,
               text: adminMsg,
               parse_mode: "Markdown",
             });
+            suppressActivityForward = true;
           }
 
           keyboardHandled = true;
@@ -3367,7 +3370,7 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
       if (bidirectionalChatEnabled && personalUserId > 0) {
         // ===== 双向聊天模式：转发完整消息带发起私聊按钮 =====
         // 根据 activityLogEnabled 设置决定是否转发已自动处理的消息
-        const shouldForward = activityLogEnabled || !keyboardHandled;
+        const shouldForward = !suppressActivityForward && (activityLogEnabled || !keyboardHandled);
 
         if (shouldForward) {
           // 构建发起私聊按钮 - 点击可直接跳转到用户私聊
