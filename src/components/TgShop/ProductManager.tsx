@@ -459,7 +459,7 @@ export function ProductManager({
               )}
             </div>
 
-
+            {formData.type === 'auto' ? (
               <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
                 <label className="block text-sm font-medium text-foreground mb-1 flex justify-between">
                   <span>{t('tgshop.product.stockTitle')}</span>
