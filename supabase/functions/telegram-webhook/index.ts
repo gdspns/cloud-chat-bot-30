@@ -877,11 +877,11 @@ ${t("physical_need_address", lang)}`;
       // 通知管理员
       const { data: shopConfig } = await supabase.from("shop_configs").select("admin_id").eq("bot_token", botToken).maybeSingle();
       if (shopConfig?.admin_id) {
-        const adminMsg = `${t("physical_admin_notify", lang)}
+        const adminMsg = `✅ **${lang === "zh" ? "用户已付款！实物商品订单需要发货！" : "User has paid! Physical product order needs shipping!"}**
 
+📝 ${orderNo}
 📦 ${order.product_name}
 💰 ${deductAmount} ${deductCurrency}
-📝 ${orderNo}
 👤 @${order.telegram_username || chatId}
 
 ⏳ ${lang === "zh" ? "等待用户提供收货地址" : "Waiting for user to provide shipping address"}`;
