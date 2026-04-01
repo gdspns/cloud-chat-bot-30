@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { Eye, Check, Download, RefreshCw, Trash2, Clock, XCircle, CheckCircle, Search, X, Copy } from "lucide-react";
+import { Eye, Check, Download, RefreshCw, Trash2, Clock, XCircle, CheckCircle, Search, X, Copy, Truck, Package } from "lucide-react";
 import { Order } from "./types";
 import { useLanguage } from "@/hooks/use-language";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,9 +18,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
-type OrderFilter = 'all' | 'paid' | 'pending' | 'cancelled';
+type OrderFilter = 'all' | 'paid' | 'pending' | 'cancelled' | 'shipped';
 
 interface OrderManagerProps {
   orders: Order[];
@@ -31,11 +34,16 @@ interface OrderManagerProps {
 
 export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, readOnly }: OrderManagerProps) {
   const { t, language } = useLanguage();
+  const { toast } = useToast();
   const [activeFilter, setActiveFilter] = useState<OrderFilter>('all');
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearingStatus, setClearingStatus] = useState<Order['status'] | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [shipDialogOpen, setShipDialogOpen] = useState(false);
+  const [shipOrder, setShipOrder] = useState<Order | null>(null);
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [isShipping, setIsShipping] = useState(false);
 
   const filteredOrders = useMemo(() => {
     let result = orders;
@@ -59,6 +67,7 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
     paid: orders.filter(o => o.status === 'paid').length,
     pending: orders.filter(o => o.status === 'pending').length,
     cancelled: orders.filter(o => o.status === 'cancelled').length,
+    shipped: orders.filter(o => o.status === 'shipped').length,
   }), [orders]);
 
   const handleClearClick = (status: Order['status']) => {
@@ -79,6 +88,7 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
       case 'paid': return t('tgshop.order.paid');
       case 'pending': return t('tgshop.order.pending');
       case 'cancelled': return t('tgshop.order.cancelled');
+      case 'shipped': return language === 'zh' ? '已发货' : 'Shipped';
       default: return status;
     }
   };
@@ -111,9 +121,50 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
     navigator.clipboard.writeText(text);
   };
 
+  const handleShipClick = (order: Order, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setShipOrder(order);
+    setTrackingNumber('');
+    setShipDialogOpen(true);
+  };
+
+  const handleConfirmShip = async () => {
+    if (!shipOrder) return;
+    setIsShipping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ship-order', {
+        body: {
+          orderNo: shipOrder.orderId,
+          trackingNumber: trackingNumber.trim() || undefined,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'zh' ? '发货成功' : 'Shipped',
+        description: language === 'zh' ? '已通知买家订单已发货' : 'Buyer has been notified',
+      });
+
+      setShipDialogOpen(false);
+      setShipOrder(null);
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      console.error('Ship error:', err);
+      toast({
+        title: language === 'zh' ? '发货失败' : 'Ship failed',
+        description: String(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsShipping(false);
+    }
+  };
+
   const filterTabs: { key: OrderFilter; label: string; icon: React.ReactNode; showClear: boolean }[] = [
     { key: 'all', label: t('tgshop.order.all'), icon: null, showClear: false },
     { key: 'paid', label: t('tgshop.order.paid'), icon: <CheckCircle size={14} className="text-green-500" />, showClear: true },
+    { key: 'shipped', label: language === 'zh' ? '已发货' : 'Shipped', icon: <Truck size={14} className="text-blue-500" />, showClear: false },
     { key: 'pending', label: t('tgshop.order.pending'), icon: <Clock size={14} className="text-yellow-500" />, showClear: true },
     { key: 'cancelled', label: t('tgshop.order.cancelled'), icon: <XCircle size={14} className="text-muted-foreground" />, showClear: true },
   ];
@@ -142,6 +193,28 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
     a.download = `orders_${activeFilter}_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const getStatusStyle = (status: Order['status']) => {
+    switch (status) {
+      case 'paid':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'shipped':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      default:
+        return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getStatusIcon = (status: Order['status']) => {
+    switch (status) {
+      case 'paid': return <Check size={10}/>;
+      case 'shipped': return <Truck size={10}/>;
+      case 'pending': return <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"/>;
+      default: return <XCircle size={10}/>;
+    }
   };
 
   return (
@@ -257,18 +330,17 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
                   onClick={() => setSelectedOrder(order)}
                 >
                   <td className="px-6 py-4 font-mono text-sm text-muted-foreground">{order.orderId}</td>
-                  <td className="px-6 py-4 font-medium text-foreground">{order.productName}</td>
+                  <td className="px-6 py-4 font-medium text-foreground">
+                    <div className="flex items-center gap-1.5">
+                      {order.orderType === 'physical' && <Package size={14} className="text-blue-500 flex-shrink-0" />}
+                      {order.productName}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 text-sm text-primary">{order.customer}</td>
                   <td className="px-6 py-4 text-sm font-bold text-green-600">{order.amount} {order.currency}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      order.status === 'paid' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                        : order.status === 'pending' 
-                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
-                          : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {order.status === 'paid' ? <Check size={10}/> : order.status === 'pending' ? <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"/> : <XCircle size={10}/>}
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusStyle(order.status)}`}>
+                      {getStatusIcon(order.status)}
                       {getStatusLabel(order.status)}
                     </span>
                   </td>
@@ -276,12 +348,24 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
                     {order.createdAt ? new Date(order.createdAt).toLocaleString() : t('tgshop.order.justNow')}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button 
-                      className="text-muted-foreground hover:text-primary"
-                      onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); }}
-                    >
-                      <Eye size={18}/>
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      {/* 实物商品已付款显示发货按钮 */}
+                      {order.orderType === 'physical' && order.status === 'paid' && !readOnly && (
+                        <button 
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                          onClick={(e) => handleShipClick(order, e)}
+                          title={language === 'zh' ? '发货' : 'Ship'}
+                        >
+                          <Truck size={12}/> {language === 'zh' ? '发货' : 'Ship'}
+                        </button>
+                      )}
+                      <button 
+                        className="text-muted-foreground hover:text-primary"
+                        onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); }}
+                      >
+                        <Eye size={18}/>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -309,13 +393,7 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
                 <div>
                   <span className="text-muted-foreground">{language === 'zh' ? '状态' : 'Status'}</span>
                   <div className="mt-1">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      selectedOrder.status === 'paid' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                        : selectedOrder.status === 'pending' 
-                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
-                          : 'bg-muted text-muted-foreground'
-                    }`}>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusStyle(selectedOrder.status)}`}>
                       {getStatusLabel(selectedOrder.status)}
                     </span>
                   </div>
@@ -382,8 +460,88 @@ export function OrderManager({ orders, onRefresh, onClearOrders, isLoading, read
                     : (language === 'zh' ? '暂无发货内容' : 'No delivery content')}
                 </div>
               )}
+
+              {/* 发货按钮在详情弹窗中 */}
+              {selectedOrder.orderType === 'physical' && selectedOrder.status === 'paid' && !readOnly && (
+                <div className="pt-2 border-t">
+                  <button
+                    onClick={() => { setSelectedOrder(null); handleShipClick(selectedOrder); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors font-medium"
+                  >
+                    <Truck size={16}/> {language === 'zh' ? '确认发货并通知买家' : 'Ship & Notify Buyer'}
+                  </button>
+                </div>
+              )}
+
+              {selectedOrder.status === 'shipped' && (
+                <div className="pt-2 border-t">
+                  <div className="flex items-center gap-2 text-blue-600 text-sm font-medium">
+                    <Truck size={16}/> {language === 'zh' ? '此订单已发货' : 'This order has been shipped'}
+                  </div>
+                </div>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Ship Confirmation Dialog */}
+      <Dialog open={shipDialogOpen} onOpenChange={(open) => { if (!open) { setShipDialogOpen(false); setShipOrder(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck size={20} className="text-blue-500" />
+              {language === 'zh' ? '确认发货' : 'Confirm Shipment'}
+            </DialogTitle>
+          </DialogHeader>
+          {shipOrder && (
+            <div className="space-y-4">
+              <div className="bg-muted rounded-lg p-3 text-sm space-y-1">
+                <div><span className="text-muted-foreground">{language === 'zh' ? '订单号：' : 'Order: '}</span><span className="font-mono">{shipOrder.orderId}</span></div>
+                <div><span className="text-muted-foreground">{language === 'zh' ? '商品：' : 'Product: '}</span><span className="font-medium">{shipOrder.productName}</span></div>
+                <div><span className="text-muted-foreground">{language === 'zh' ? '买家：' : 'Buyer: '}</span><span className="text-primary">{shipOrder.customer}</span></div>
+              </div>
+
+              {shipOrder.deliveryContent && (
+                <div>
+                  <label className="text-sm text-muted-foreground">{language === 'zh' ? '收货地址' : 'Shipping Address'}</label>
+                  <div className="mt-1 bg-muted p-2 rounded text-sm font-mono whitespace-pre-wrap">{shipOrder.deliveryContent}</div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-medium">{language === 'zh' ? '快递单号（可选）' : 'Tracking Number (optional)'}</label>
+                <input
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder={language === 'zh' ? '输入快递单号...' : 'Enter tracking number...'}
+                  className="w-full mt-1 px-3 py-2 rounded-lg border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                {language === 'zh' ? '确认后将通过 Telegram 机器人通知买家订单已发货' : 'Buyer will be notified via Telegram bot after confirmation'}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <button
+              onClick={() => { setShipDialogOpen(false); setShipOrder(null); }}
+              className="px-4 py-2 rounded-lg border bg-card hover:bg-muted text-sm"
+              disabled={isShipping}
+            >
+              {language === 'zh' ? '取消' : 'Cancel'}
+            </button>
+            <button
+              onClick={handleConfirmShip}
+              disabled={isShipping}
+              className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+            >
+              {isShipping ? <RefreshCw size={14} className="animate-spin" /> : <Truck size={14} />}
+              {language === 'zh' ? '确认发货' : 'Confirm Ship'}
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

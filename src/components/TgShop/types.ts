@@ -24,13 +24,16 @@ export interface Order {
   productName: string;
   amount: number;
   currency: string;
-  status: 'pending' | 'paid' | 'cancelled';
+  status: 'pending' | 'paid' | 'cancelled' | 'shipped';
   customer: string;
   createdAt?: string;
   deliveryContent?: string;
   paymentMethod?: string;
   orderType?: string;
   txHash?: string;
+  telegramChatId?: number;
+  telegramUserId?: number;
+  botToken?: string;
 }
 
 export interface ShopConfig {
