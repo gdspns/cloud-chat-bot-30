@@ -179,6 +179,11 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
     en: "❌ Insufficient balance! Current: {balance} {currency}\nRequired: {amount} {currency}\n\n💡 Send /recharge to top up",
   },
   balance_pay_success: { zh: "✅ **余额支付成功！**", en: "✅ **Balance payment successful!**" },
+  // 实物商品
+  physical_need_address: { zh: "📮 请发送您的收货地址（姓名+电话+地址），我们将尽快为您发货：", en: "📮 Please send your shipping address (name + phone + address) for delivery:" },
+  physical_address_received: { zh: "✅ 收货地址已记录，等待管理员处理发货", en: "✅ Shipping address recorded, waiting for admin to process" },
+  physical_order_paid: { zh: "📦 **实物商品订单已支付**", en: "📦 **Physical product order paid**" },
+  physical_admin_notify: { zh: "📦 新实物商品订单需要发货！", en: "📦 New physical product order needs shipping!" },
 };
 
 // 获取翻译文本
