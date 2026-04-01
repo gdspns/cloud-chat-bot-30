@@ -2452,9 +2452,11 @@ serve(async (req) => {
     const isAdminUser = bidirectionalChatEnabled && personalUserId > 0 && chatId === personalUserId;
 
     // 存储消息到数据库 (仅当双向聊天可用时，且不是管理员自己的消息)
+    // /start 命令不存入消息表，防止轰炸时大量垃圾数据
     const userName = fromUser.first_name + (fromUser.last_name ? " " + fromUser.last_name : "");
+    const isStartCommand = text === "/start";
 
-    if (bidirectionalChatEnabled && activation && !isAdminUser) {
+    if (bidirectionalChatEnabled && activation && !isAdminUser && !isStartCommand) {
       await supabase.from("messages").insert({
         bot_activation_id: activation.id,
         telegram_chat_id: chatId,
