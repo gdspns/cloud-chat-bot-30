@@ -14,6 +14,7 @@ interface DbProduct {
   is_active: boolean;
   category: string | null;
   type: string;
+  stock_quantity: number | null;
   created_at: string;
   updated_at: string;
 }
