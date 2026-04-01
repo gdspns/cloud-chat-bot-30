@@ -810,16 +810,24 @@ async function handlePaymentMethodCallback(
       description: `购买 ${order.product_name}`,
     });
 
-    // 获取商品库存并发货
+    // 获取商品信息
     let deliveryContent = "";
+    let isPhysicalOrder = false;
     if (order.product_id) {
       const { data: product } = await supabase
         .from("shop_products")
-        .select("stock_content")
+        .select("stock_content, type, stock_quantity")
         .eq("id", order.product_id)
         .single();
 
-      if (product?.stock_content && product.stock_content.length > 0) {
+      if (product?.type === "physical") {
+        isPhysicalOrder = true;
+        // 实物商品：扣减数量库存
+        if (product.stock_quantity !== null && product.stock_quantity > 0) {
+          await supabase.from("shop_products").update({ stock_quantity: product.stock_quantity - 1 }).eq("id", order.product_id);
+        }
+        deliveryContent = lang === "zh" ? "实物商品-等待发货" : "Physical product - awaiting shipment";
+      } else if (product?.stock_content && product.stock_content.length > 0) {
         deliveryContent = product.stock_content[0];
         const remainingStock = product.stock_content.slice(1);
         await supabase.from("shop_products").update({ stock_content: remainingStock }).eq("id", order.product_id);
@@ -837,7 +845,7 @@ async function handlePaymentMethodCallback(
         amount: deductAmount,
         currency: deductCurrency,
         delivery_content: deliveryContent,
-        delivered_at: new Date().toISOString(),
+        delivered_at: isPhysicalOrder ? null : new Date().toISOString(),
       })
       .eq("order_no", orderNo);
 
@@ -848,6 +856,40 @@ async function handlePaymentMethodCallback(
     });
 
     const displayProductName = await localizeText(order.product_name, lang);
+
+    if (isPhysicalOrder) {
+      // 实物商品：提示用户发送收货地址
+      const message = `${t("balance_pay_success", lang)}
+
+${t("order_product", lang)}: ${displayProductName}
+${t("order_amount", lang)}: ${deductAmount} ${deductCurrency}
+${t("order_no", lang)}: \`${orderNo}\`
+💳 ${lang === "zh" ? "剩余余额" : "Remaining balance"}: ${newBalance.toFixed(2)} ${deductCurrency}
+
+────────────────
+${t("physical_need_address", lang)}`;
+
+      // 通知管理员
+      const { data: shopConfig } = await supabase.from("shop_configs").select("admin_id").eq("bot_token", botToken).maybeSingle();
+      if (shopConfig?.admin_id) {
+        const adminMsg = `${t("physical_admin_notify", lang)}
+
+📦 ${order.product_name}
+💰 ${deductAmount} ${deductCurrency}
+📝 ${orderNo}
+👤 @${order.telegram_username || chatId}
+
+⏳ ${lang === "zh" ? "等待用户提供收货地址" : "Waiting for user to provide shipping address"}`;
+        await sendTelegramMessage(botToken, "sendMessage", {
+          chat_id: shopConfig.admin_id,
+          text: adminMsg,
+          parse_mode: "Markdown",
+        });
+      }
+
+      return { handled: true, message };
+    }
+
     const message = `${t("balance_pay_success", lang)}
 
 ${t("order_product", lang)}: ${displayProductName}
