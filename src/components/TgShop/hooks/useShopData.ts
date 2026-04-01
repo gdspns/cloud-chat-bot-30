@@ -175,8 +175,9 @@ function dbProductToProduct(dbProduct: DbProduct): Product {
     stockContent: dbProduct.stock_content?.join("\n") || "",
     stockCount: dbProduct.stock_content?.length || 0,
     description: dbProduct.description || "",
-    type: dbProduct.type === 'recharge' ? 'recharge' : 'auto',
+    type: dbProduct.type === 'recharge' ? 'recharge' : dbProduct.type === 'physical' ? 'physical' : 'auto',
     category: dbProduct.category || "默认分类",
+    stockQuantity: dbProduct.stock_quantity ?? undefined,
     createdAt: dbProduct.created_at,
     updatedAt: dbProduct.updated_at,
   };
