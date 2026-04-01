@@ -3370,7 +3370,7 @@ ${t("fiat_auto_deliver", shopUserLanguage)}`;
       if (bidirectionalChatEnabled && personalUserId > 0) {
         // ===== 双向聊天模式：转发完整消息带发起私聊按钮 =====
         // 根据 activityLogEnabled 设置决定是否转发已自动处理的消息
-        const shouldForward = activityLogEnabled || !keyboardHandled;
+        const shouldForward = !suppressActivityForward && (activityLogEnabled || !keyboardHandled);
 
         if (shouldForward) {
           // 构建发起私聊按钮 - 点击可直接跳转到用户私聊
