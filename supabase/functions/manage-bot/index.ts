@@ -2084,6 +2084,16 @@ serve(async (req) => {
             });
           }
 
+          // 获取黑名单用户，排除在群发之外
+          const { data: blockedUsers } = await supabase
+            .from('bot_rate_limits')
+            .select('telegram_user_id')
+            .eq('bot_token', botToken)
+            .eq('is_blocked', true);
+          
+          const blockedSet = new Set((blockedUsers || []).map(u => u.telegram_user_id));
+          const filteredUsers = dbUsers.filter(u => !blockedSet.has(u.telegram_user_id));
+
           let successCount = 0;
           
           for (const user of dbUsers) {
