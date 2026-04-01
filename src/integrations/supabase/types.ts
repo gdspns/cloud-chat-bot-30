@@ -765,6 +765,7 @@ export type Database = {
           name: string
           price: number
           stock_content: string[] | null
+          stock_quantity: number | null
           type: string
           updated_at: string
         }
@@ -780,6 +781,7 @@ export type Database = {
           name: string
           price: number
           stock_content?: string[] | null
+          stock_quantity?: number | null
           type?: string
           updated_at?: string
         }
@@ -795,6 +797,7 @@ export type Database = {
           name?: string
           price?: number
           stock_content?: string[] | null
+          stock_quantity?: number | null
           type?: string
           updated_at?: string
         }
