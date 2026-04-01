@@ -556,7 +556,13 @@ async function createOrderForProduct(
   }
 
   // 检查库存 (充值商品不需要库存)
-  if (product.type !== "recharge" && (!product.stock_content || product.stock_content.length === 0)) {
+  if (product.type === "physical") {
+    // 实物商品检查数量库存
+    if (product.stock_quantity !== null && product.stock_quantity !== undefined && product.stock_quantity <= 0) {
+      const displayName = await localizeText(product.name, lang);
+      return { handled: true, message: `❌ "${displayName}" ${t("error_no_stock", lang)}` };
+    }
+  } else if (product.type !== "recharge" && (!product.stock_content || product.stock_content.length === 0)) {
     const displayName = await localizeText(product.name, lang);
     return { handled: true, message: `❌ "${displayName}" ${t("error_no_stock", lang)}` };
   }
