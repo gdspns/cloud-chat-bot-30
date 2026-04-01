@@ -474,13 +474,21 @@ export function ProductManager({
                                 <Wallet size={10} /> {language === 'zh' ? '充值' : 'Recharge'}
                               </span>
                             )}
+                            {p.type === 'physical' && (
+                              <span className="inline-flex items-center gap-0.5 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-normal shrink-0">
+                                <Package size={10} /> {language === 'zh' ? '实物' : 'Physical'}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <code className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded font-mono">
                               /buy_{p.id.slice(0, 8)}
                             </code>
-                            {p.type !== 'recharge' && (
+                            {p.type === 'auto' && (
                               <span className="text-xs text-muted-foreground">{t('tgshop.product.stock')}: {p.stockCount || 0}</span>
+                            )}
+                            {p.type === 'physical' && (
+                              <span className="text-xs text-muted-foreground">{language === 'zh' ? '库存' : 'Stock'}: {p.stockQuantity ?? 0}</span>
                             )}
                           </div>
                         </div>
