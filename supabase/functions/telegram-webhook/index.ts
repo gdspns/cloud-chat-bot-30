@@ -484,13 +484,16 @@ async function handleBuyCommand(
     const nameMap = lang === "en" ? await translateManyToEnglish(names) : {};
 
     const productLines = matchedProducts.map((p: ShopProduct) => {
-      const stock = p.stock_content?.length || 0;
+      const stock = p.type === "physical" ? (p.stock_quantity ?? 0) : (p.stock_content?.length || 0);
       const isRecharge = p.type === "recharge";
+      const isPhysical = p.type === "physical";
       const stockText = isRecharge
         ? `(${t("shop_recharge_product", lang)})`
-        : stock > 0
-          ? `(${stockLabel}: ${stock})`
-          : `(${outOfStockLabel})`;
+        : isPhysical
+          ? `(${t("shop_physical_product", lang)} ${stock > 0 ? `${stockLabel}: ${stock}` : outOfStockLabel})`
+          : stock > 0
+            ? `(${stockLabel}: ${stock})`
+            : `(${outOfStockLabel})`;
       const shortId = p.id.replace(/-/g, "");
       const displayName = lang === "en" ? nameMap[p.name] || p.name : p.name;
       return `📦 **${displayName}** - ${p.price} ${p.currency} ${stockText}\n${buyLabel} /buy\\_${shortId}`;
