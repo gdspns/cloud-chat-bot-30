@@ -2466,6 +2466,7 @@ serve(async (req) => {
 
     // 菜单键盘功能 - 独立运行，不依赖双向聊天
     let keyboardHandled = false;
+    let suppressActivityForward = false;
 
     // 获取用户的语言偏好
     let userLanguage = getUserLanguage(chatId, userLanguagePreferences);
