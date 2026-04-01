@@ -131,6 +131,51 @@ export function ProductManager({
     });
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      showToast("error", language === 'zh' ? '请选择图片文件' : 'Please select an image file');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("error", language === 'zh' ? '图片大小不能超过5MB' : 'Image must be under 5MB');
+      return;
+    }
+    
+    setIsUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+      
+      setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
+      showToast("success", language === 'zh' ? '图片上传成功' : 'Image uploaded');
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      showToast("error", language === 'zh' ? '图片上传失败' : 'Image upload failed');
+    } finally {
+      setIsUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, imageUrl: undefined }));
+  };
+
   // 获取所有分类（包含自定义分类）
   const categories = useMemo(() => {
     const cats = new Set(products.map(p => p.category || defaultCategory));
