@@ -258,17 +258,25 @@ ${txHash ? `TxHash: \`${txHash}\`\n` : ''}`
       console.log(`[Shop Webhook] Recharge order ${orderNo} completed: +${rechargeAmount} ${rechargeCurrency}, new balance: ${newBalance}`)
 
     } else {
-      // ========== 普通发卡订单：原有逻辑 ==========
-      // 获取商品库存
+      // ========== 普通发卡/实物订单 ==========
+      // 获取商品信息
       let deliveryContent = ''
+      let isPhysicalOrder = false
       if (order.product_id) {
         const { data: product } = await supabase
           .from('shop_products')
-          .select('stock_content')
+          .select('stock_content, type, stock_quantity')
           .eq('id', order.product_id)
           .single()
 
-        if (product?.stock_content && product.stock_content.length > 0) {
+        if (product?.type === 'physical') {
+          isPhysicalOrder = true
+          // 实物商品：扣减数量库存
+          if (product.stock_quantity !== null && product.stock_quantity > 0) {
+            await supabase.from('shop_products').update({ stock_quantity: product.stock_quantity - 1 }).eq('id', order.product_id)
+          }
+          deliveryContent = '实物商品-等待发货'
+        } else if (product?.stock_content && product.stock_content.length > 0) {
           deliveryContent = product.stock_content[0]
           const remainingStock = product.stock_content.slice(1)
           await supabase
@@ -287,7 +295,7 @@ ${txHash ? `TxHash: \`${txHash}\`\n` : ''}`
           status: 'paid',
           tx_hash: txHash,
           delivery_content: deliveryContent,
-          delivered_at: new Date().toISOString()
+          delivered_at: isPhysicalOrder ? null : new Date().toISOString()
         })
         .eq('id', order.id)
 
@@ -308,7 +316,18 @@ ${txHash ? `TxHash: \`${txHash}\`\n` : ''}`
 
       // 发送 Telegram 消息通知用户
       if (order.telegram_user_id && shopConfig) {
-        const message = `✅ **支付成功！**
+        let message: string
+        if (isPhysicalOrder) {
+          message = `✅ **支付成功！**
+
+💰 订单号: \`/order ${orderNo}\`
+🎁 商品: ${order.product_name}
+💵 金额: ${order.amount} ${order.currency}
+${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
+────────────────
+📮 请发送您的收货地址（姓名+电话+地址），我们将尽快为您发货`
+        } else {
+          message = `✅ **支付成功！**
 
 💰 订单号: \`/order ${orderNo}\`
 🎁 商品: ${order.product_name}
@@ -320,6 +339,7 @@ ${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
 ────────────────
 感谢您的惠顾！点击卡密可复制！
 点击上面订单号可复制粘贴发送查询！`
+        }
 
         try {
           await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -338,7 +358,18 @@ ${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
 
       // 通知管理员
       if (shopConfig?.admin_id) {
-        const adminMessage = `📦 **新订单完成！**
+        let adminMessage: string
+        if (isPhysicalOrder) {
+          adminMessage = `📦 **新实物商品订单需要发货！**
+
+订单号: \`${orderNo}\`
+商品: ${order.product_name}
+金额: ${order.amount} ${order.currency}
+用户: ${order.telegram_username || order.telegram_user_id || 'Unknown'}
+${txHash ? `TxHash: \`${txHash}\`\n` : ''}
+⏳ 等待用户提供收货地址`
+        } else {
+          adminMessage = `📦 **新订单完成！**
 
 订单号: \`${orderNo}\`
 商品: ${order.product_name}
@@ -346,6 +377,7 @@ ${txHash ? `🔗 交易哈希: \`${txHash.slice(0, 16)}...\`\n` : ''}
 用户: ${order.telegram_username || order.telegram_user_id || 'Unknown'}
 ${txHash ? `TxHash: \`${txHash}\`\n` : ''}
 已自动发货 ✅`
+        }
 
         try {
           await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -362,7 +394,7 @@ ${txHash ? `TxHash: \`${txHash}\`\n` : ''}
         }
       }
 
-      console.log(`[Shop Webhook] Order ${orderNo} processed successfully, delivered: ${deliveryContent.slice(0, 20)}...`)
+      console.log(`[Shop Webhook] Order ${orderNo} processed successfully${isPhysicalOrder ? ' (physical)' : ''}, delivered: ${deliveryContent.slice(0, 20)}...`)
     }
 
     // 返回不同支付平台期望的响应格式
