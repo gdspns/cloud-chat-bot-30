@@ -362,7 +362,7 @@ export function ProductManager({
               />
             </div>
 
-            {formData.type !== 'recharge' ? (
+            {formData.type === 'auto' ? (
               <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
                 <label className="block text-sm font-medium text-foreground mb-1 flex justify-between">
                   <span>{t('tgshop.product.stockTitle')}</span>
@@ -376,6 +376,27 @@ export function ProductManager({
                   placeholder={t('tgshop.product.stockPlaceholder')}
                 />
                 <p className="text-xs text-muted-foreground mt-1">{t('tgshop.product.stockHint')}</p>
+              </div>
+            ) : formData.type === 'physical' ? (
+              <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+                <label className="block text-sm font-medium text-foreground mb-1 flex justify-between">
+                  <span>{language === 'zh' ? '库存数量' : 'Stock Quantity'}</span>
+                  <span className="text-primary font-bold">{formData.stockQuantity ?? 0}</span>
+                </label>
+                <input 
+                  type="number"
+                  min={0}
+                  value={formData.stockQuantity ?? 0}
+                  onChange={(e) => setFormData({...formData, stockQuantity: Math.max(0, Number(e.target.value))})}
+                  className="w-full p-3 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none text-lg font-bold"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {language === 'zh' ? '设置实物商品可售数量，每笔订单自动扣减1' : 'Set available quantity, automatically decremented per order'}
+                </p>
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground bg-muted p-2 rounded">
+                  <Package size={14} className="text-primary shrink-0" />
+                  {language === 'zh' ? '用户下单时需填写收货地址，付款后通知管理员处理发货' : 'Buyer provides shipping address at checkout, admin notified to ship'}
+                </div>
               </div>
             ) : (
               <div className="bg-accent/50 p-3 rounded-lg border border-accent">
