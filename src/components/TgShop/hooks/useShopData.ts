@@ -179,6 +179,7 @@ function dbProductToProduct(dbProduct: DbProduct): Product {
     type: dbProduct.type === 'recharge' ? 'recharge' : dbProduct.type === 'physical' ? 'physical' : 'auto',
     category: dbProduct.category || "默认分类",
     stockQuantity: dbProduct.stock_quantity ?? undefined,
+    imageUrl: dbProduct.image_url ?? undefined,
     createdAt: dbProduct.created_at,
     updatedAt: dbProduct.updated_at,
   };
