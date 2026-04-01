@@ -970,6 +970,7 @@ export const Admin = () => {
 
   // 管理员设置菜单键盘过期时间
   const handleAdminSetKeyboardExpire = async (botToken: string, expireAt: string) => {
+    if (!expireAt) return;
     try {
       const { data, error } = await supabase.functions.invoke('manage-bot', {
         body: { action: 'admin-set-keyboard-expire', botToken, expireAt }
