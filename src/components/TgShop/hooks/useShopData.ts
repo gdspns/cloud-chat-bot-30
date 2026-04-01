@@ -191,11 +191,12 @@ function productToDbProduct(product: Partial<Product>, botToken: string): Partia
     price: product.price,
     currency: product.currency,
     keywords: product.keywordsList || product.keywords?.split(",").map((k) => k.trim().toLowerCase()) || [],
-    stock_content: product.stockContent?.split("\n").filter((l) => l.trim()) || [],
+    stock_content: product.type === 'physical' ? [] : (product.stockContent?.split("\n").filter((l) => l.trim()) || []),
     description: product.description || null,
     category: product.category || "默认分类",
-    type: product.type === 'recharge' ? 'recharge' : 'goods',
+    type: product.type === 'recharge' ? 'recharge' : product.type === 'physical' ? 'physical' : 'goods',
     is_active: true,
+    stock_quantity: product.type === 'physical' ? (product.stockQuantity ?? 0) : null,
   };
 }
 
