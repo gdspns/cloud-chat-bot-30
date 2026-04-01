@@ -27,6 +27,10 @@ export interface Order {
   status: 'pending' | 'paid' | 'cancelled';
   customer: string;
   createdAt?: string;
+  deliveryContent?: string;
+  paymentMethod?: string;
+  orderType?: string;
+  txHash?: string;
 }
 
 export interface ShopConfig {
