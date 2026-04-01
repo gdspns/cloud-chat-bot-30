@@ -590,7 +590,7 @@ async function createOrderForProduct(
       telegram_chat_id: chatId,
       expires_at: expiresAt,
       status: "pending",
-      order_type: product.type === "recharge" ? "recharge" : "purchase",
+      order_type: product.type === "recharge" ? "recharge" : product.type === "physical" ? "physical" : "purchase",
     })
     .select()
     .single();
