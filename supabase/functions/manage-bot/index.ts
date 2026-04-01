@@ -2084,9 +2084,19 @@ serve(async (req) => {
             });
           }
 
+          // 获取黑名单用户，排除在群发之外
+          const { data: blockedUsers } = await supabase
+            .from('bot_rate_limits')
+            .select('telegram_user_id')
+            .eq('bot_token', botToken)
+            .eq('is_blocked', true);
+          
+          const blockedSet = new Set((blockedUsers || []).map(u => u.telegram_user_id));
+          const filteredUsers = dbUsers.filter(u => !blockedSet.has(u.telegram_user_id));
+
           let successCount = 0;
           
-          for (const user of dbUsers) {
+          for (const user of filteredUsers) {
             try {
               const body: any = {
                 chat_id: user.telegram_user_id,
@@ -2115,7 +2125,7 @@ serve(async (req) => {
             await new Promise(r => setTimeout(r, 100));
           }
 
-          return new Response(JSON.stringify({ ok: true, successCount, total: dbUsers.length, message: `群发完成：${successCount}/${dbUsers.length} 成功` }), {
+          return new Response(JSON.stringify({ ok: true, successCount, total: filteredUsers.length, skippedBlocked: blockedSet.size, message: `群发完成：${successCount}/${filteredUsers.length} 成功（跳过${blockedSet.size}个黑名单用户）` }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (err) {
