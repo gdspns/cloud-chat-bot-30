@@ -206,22 +206,22 @@ export function ProductManager({
               <label className="block text-sm font-medium text-foreground mb-1">
                 {language === 'zh' ? '商品类型' : 'Product Type'}
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setFormData({...formData, type: 'auto'})}
                   className={`flex items-center gap-2 p-3 border rounded-lg text-sm font-medium transition-colors ${
-                    formData.type !== 'recharge'
+                    formData.type === 'auto'
                       ? 'bg-primary/10 border-primary text-primary ring-1 ring-primary'
                       : 'bg-background text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   <ShoppingBag size={16} />
-                  {language === 'zh' ? '发卡商品' : 'Card Product'}
+                  {language === 'zh' ? '发卡商品' : 'Card'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormData({...formData, type: 'recharge', stockContent: '', stockCount: 0})}
+                  onClick={() => setFormData({...formData, type: 'recharge', stockContent: '', stockCount: 0, stockQuantity: undefined})}
                   className={`flex items-center gap-2 p-3 border rounded-lg text-sm font-medium transition-colors ${
                     formData.type === 'recharge'
                       ? 'bg-primary/10 border-primary text-primary ring-1 ring-primary'
@@ -229,12 +229,26 @@ export function ProductManager({
                   }`}
                 >
                   <Wallet size={16} />
-                  {language === 'zh' ? '充值商品' : 'Recharge Product'}
+                  {language === 'zh' ? '充值商品' : 'Recharge'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, type: 'physical', stockContent: '', stockCount: 0, stockQuantity: formData.stockQuantity ?? 10})}
+                  className={`flex items-center gap-2 p-3 border rounded-lg text-sm font-medium transition-colors ${
+                    formData.type === 'physical'
+                      ? 'bg-primary/10 border-primary text-primary ring-1 ring-primary'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Package size={16} />
+                  {language === 'zh' ? '实物商品' : 'Physical'}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 {formData.type === 'recharge'
                   ? (language === 'zh' ? '充值商品：用户付款后金额自动充入余额账户' : 'Recharge: Payment amount is added to user balance')
+                  : formData.type === 'physical'
+                  ? (language === 'zh' ? '实物商品：用户需填写收货地址，付款后通知管理员发货' : 'Physical: User provides shipping address, admin is notified to ship')
                   : (language === 'zh' ? '发卡商品：用户付款后自动发送卡密' : 'Card: Card keys are delivered after payment')}
               </p>
             </div>
