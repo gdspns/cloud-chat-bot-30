@@ -44,8 +44,10 @@ export function ProductManager({
   const [formData, setFormData] = useState<Omit<Product, 'id' | 'keywordsList'>>(getDefaultFormData());
   const [isSaving, setIsSaving] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const categoryInputRef = useRef<HTMLInputElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingId) {
