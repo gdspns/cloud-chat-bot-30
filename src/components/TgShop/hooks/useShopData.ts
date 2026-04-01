@@ -213,13 +213,16 @@ function dbOrderToOrder(dbOrder: DbOrder): Order {
     productName: dbOrder.product_name,
     amount: Number(dbOrder.amount),
     currency: dbOrder.currency,
-    status: dbOrder.status as "pending" | "paid" | "cancelled",
+    status: dbOrder.status as "pending" | "paid" | "cancelled" | "shipped",
     customer: dbOrder.telegram_username || String(dbOrder.telegram_user_id) || "Unknown",
     createdAt: dbOrder.created_at,
     deliveryContent: dbOrder.delivery_content || undefined,
     paymentMethod: dbOrder.payment_method || undefined,
-    orderType: (dbOrder as any).order_type || undefined,
+    orderType: dbOrder.order_type || undefined,
     txHash: dbOrder.tx_hash || undefined,
+    telegramChatId: dbOrder.telegram_chat_id ?? undefined,
+    telegramUserId: dbOrder.telegram_user_id ?? undefined,
+    botToken: dbOrder.bot_token,
   };
 }
 
