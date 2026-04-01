@@ -4234,10 +4234,10 @@ function UsersPanel({
             {selectedBlacklistUsers.size > 0 && (
               <button
                 onClick={batchUnblock}
-                disabled={batchProcessing}
+                disabled={batchUnblockProcessing}
                 className="flex items-center gap-1 bg-green-500/10 hover:bg-green-500/20 text-green-600 px-3 py-1.5 rounded text-xs transition font-medium"
               >
-                {batchProcessing ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+                {batchUnblockProcessing ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
                 一键解除 ({selectedBlacklistUsers.size})
               </button>
             )}
