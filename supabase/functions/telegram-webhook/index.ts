@@ -2469,6 +2469,8 @@ serve(async (req) => {
     }
 
     // 自动抓取用户数据到 bot_users 表 (菜单键盘功能需要)
+    // 纯 /start 命令不写入用户表，防止轰炸时用户面板持续变化
+    if (!isStartCommand) {
     try {
       await supabase.from("bot_users").upsert(
         {
@@ -2487,6 +2489,9 @@ serve(async (req) => {
       console.log(`User ${chatId} saved/updated in bot_users`);
     } catch (e) {
       console.error("Failed to save user to bot_users:", e);
+    }
+    } else {
+      console.log(`[AntiSpam] Skipped bot_users upsert for /start-only user ${chatId}`);
     }
 
     // Update trial messages count if not authorized (仅当有activation时)
