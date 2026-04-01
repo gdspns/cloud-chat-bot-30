@@ -2189,7 +2189,47 @@ serve(async (req) => {
         });
       }
 
-      // 其他回调走原有自动回复逻辑 - 传入语言参数实现自动翻译
+      // ========== 管理员发货回调处理 ==========
+      if (callbackData.startsWith("ship_")) {
+        const shipOrderNo = callbackData.replace("ship_", "");
+        console.log(`[TG Shop] Ship callback for order: ${shipOrderNo}`);
+
+        // 获取订单信息
+        const { data: shipOrd } = await supabase
+          .from("shop_orders")
+          .select("*")
+          .eq("order_no", shipOrderNo)
+          .eq("bot_token", botToken)
+          .maybeSingle();
+
+        if (!shipOrd || shipOrd.status === "shipped") {
+          await sendTelegramMessage(botToken, "sendMessage", {
+            chat_id: cbChatId,
+            text: shipOrd ? "⚠️ 该订单已发货" : "❌ 订单不存在",
+          });
+          return new Response(JSON.stringify({ ok: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // 提示管理员回复快递信息
+        const promptMsg = `📦 准备发货\n\n📝 订单号: \`${shipOrd.order_no}\`\n🛍️ 商品: ${shipOrd.product_name}\n👤 买家: @${shipOrd.telegram_username || shipOrd.telegram_user_id}\n\n请**回复此消息**，输入快递公司+快递单号\n例如: 顺丰 SF1234567890\n\n（直接回复\"确认\"则不填快递单号直接发货）`;
+
+        await sendTelegramMessage(botToken, "sendMessage", {
+          chat_id: cbChatId,
+          text: promptMsg,
+          parse_mode: "Markdown",
+          reply_markup: {
+            force_reply: true,
+            selective: true,
+            input_field_placeholder: "快递公司 快递单号",
+          },
+        });
+
+        return new Response(JSON.stringify({ ok: true, ship_prompt: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const cbUserLanguage = getUserLanguage(cbChatId, userLanguagePreferences);
       const handled = await handleCallbackQuery(
         botToken,
