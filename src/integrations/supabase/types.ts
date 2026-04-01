@@ -1003,6 +1003,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      decrement_stock_quantity: {
+        Args: { p_product_id: string }
+        Returns: number
+      }
       deliver_card_key: {
         Args: { p_order_no: string; p_product_id: string }
         Returns: {
