@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen, ChevronDown, ShoppingBag, Wallet, Package } from "lucide-react";
+import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen, ChevronDown, ShoppingBag, Wallet, Package, ImagePlus, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Product } from "./types";
 import { useLanguage } from "@/hooks/use-language";
 
