@@ -271,10 +271,9 @@ ${txHash ? `TxHash: \`${txHash}\`\n` : ''}`
 
         if (product?.type === 'physical') {
           isPhysicalOrder = true
-          // 实物商品：扣减数量库存
-          if (product.stock_quantity !== null && product.stock_quantity > 0) {
-            await supabase.from('shop_products').update({ stock_quantity: product.stock_quantity - 1 }).eq('id', order.product_id)
-          }
+          // 实物商品：原子扣减数量库存
+          const { data: newQty } = await supabase.rpc('decrement_stock_quantity', { p_product_id: order.product_id })
+          console.log(`[Shop Webhook] Physical product stock decremented, new quantity: ${newQty}`)
           deliveryContent = '实物商品-等待发货'
         } else if (product?.stock_content && product.stock_content.length > 0) {
           deliveryContent = product.stock_content[0]
