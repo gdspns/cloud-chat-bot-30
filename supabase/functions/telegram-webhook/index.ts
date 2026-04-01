@@ -14,10 +14,11 @@ interface ShopProduct {
   price: number;
   currency: string;
   stock_content: string[] | null;
+  stock_quantity: number | null;
   is_active: boolean;
   keywords: string[] | null;
   category: string | null;
-  type?: string; // 'goods' | 'recharge'
+  type?: string; // 'goods' | 'recharge' | 'physical'
 }
 
 interface ShopConfig {
