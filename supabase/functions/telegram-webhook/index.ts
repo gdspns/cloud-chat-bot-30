@@ -83,6 +83,7 @@ const shopI18n: Record<string, { zh: string; en: string }> = {
   shop_stock: { zh: "库存", en: "Stock" },
   shop_out_of_stock: { zh: "缺货", en: "Out of stock" },
   shop_recharge_product: { zh: "余额充值", en: "Balance recharge" },
+  shop_physical_product: { zh: "实物商品", en: "Physical" },
   shop_click_to_buy: { zh: "点击购买👉", en: "Buy now👉" },
   shop_buy_tip: { zh: "💡 点击上方指令直接购买对应商品", en: "💡 Click the command above to buy the product" },
 
