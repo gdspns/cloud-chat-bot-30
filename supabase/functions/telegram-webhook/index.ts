@@ -19,6 +19,7 @@ interface ShopProduct {
   keywords: string[] | null;
   category: string | null;
   type?: string; // 'goods' | 'recharge' | 'physical'
+  image_url?: string | null;
 }
 
 interface ShopConfig {
