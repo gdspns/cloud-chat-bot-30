@@ -2856,7 +2856,8 @@ ${t("recharge_select", shopUserLanguage)}`;
           });
 
           // 通知管理员：用户已付款 + 收货地址 + 商品信息
-          if ((shopConfig as any).admin_id) {
+          const adminTarget = Number((shopConfig as any).admin_id || 0) || (bidirectionalChatEnabled && personalUserId > 0 ? personalUserId : menuAdminChatId);
+          if (adminTarget > 0 && adminTarget !== chatId) {
             const adminMsg = `✅ **${shopUserLanguage === "zh" ? "买家已付款，请尽快发货！" : "Buyer has paid, please ship ASAP!"}**
 
 📝 ${shopUserLanguage === "zh" ? "订单号" : "Order No"}: \`${physicalOrder.order_no}\`
@@ -2867,10 +2868,11 @@ ${t("recharge_select", shopUserLanguage)}`;
 📮 ${shopUserLanguage === "zh" ? "收货地址" : "Shipping Address"}:
 ${addressText}`;
             await sendTelegramMessage(botToken, "sendMessage", {
-              chat_id: (shopConfig as any).admin_id,
+              chat_id: adminTarget,
               text: adminMsg,
               parse_mode: "Markdown",
             });
+            suppressActivityForward = true;
           }
 
           keyboardHandled = true;
