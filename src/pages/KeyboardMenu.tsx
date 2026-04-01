@@ -3678,6 +3678,7 @@ function UsersPanel({
   const [selectedNormalUsers, setSelectedNormalUsers] = useState<Set<number>>(new Set());
   const [selectedBlacklistUsers, setSelectedBlacklistUsers] = useState<Set<number>>(new Set());
   const [batchProcessing, setBatchProcessing] = useState(false);
+  const [batchUnblockProcessing, setBatchUnblockProcessing] = useState(false);
   const PAGE_SIZE = 500;
   const FETCH_BATCH_SIZE = 1000;
 
