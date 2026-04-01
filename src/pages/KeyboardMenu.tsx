@@ -3871,19 +3871,25 @@ function UsersPanel({
     setBatchUnblockProcessing(true);
     try {
       const uids = Array.from(selectedBlacklistUsers);
-      // 分批更新，每批100条
-      for (let i = 0; i < uids.length; i += 100) {
-        const batch = uids.slice(i, i + 100);
-        await supabase.from("bot_rate_limits").update({ is_blocked: false, blocked_at: null, blocked_reason: null, updated_at: new Date().toISOString() }).eq("bot_token", botToken).in("telegram_user_id", batch);
+      let failedCount = 0;
+      // 分批更新，每批500条
+      for (let i = 0; i < uids.length; i += 500) {
+        const batch = uids.slice(i, i + 500);
+        const { error } = await supabase.from("bot_rate_limits").update({ is_blocked: false, blocked_at: null, blocked_reason: null, updated_at: new Date().toISOString() }).eq("bot_token", botToken).in("telegram_user_id", batch);
+        if (error) {
+          console.error(`Batch unblock error at ${i}:`, error.message);
+          failedCount += batch.length;
+        }
       }
-      setBlockedUsers((prev) => {
-        const next = { ...prev };
-        for (const uid of selectedBlacklistUsers) delete next[uid];
-        return next;
-      });
+      // 从数据库重新加载真实状态
+      await loadBlockedStatus();
       const count = selectedBlacklistUsers.size;
       setSelectedBlacklistUsers(new Set());
-      showToast("success", `已批量解除 ${count} 个用户`);
+      if (failedCount > 0) {
+        showToast("error", `批量解除部分失败：${count - failedCount}/${count} 成功`);
+      } else {
+        showToast("success", `已批量解除 ${count} 个用户`);
+      }
     } catch (e: any) {
       showToast("error", `批量解除失败: ${e.message}`);
     } finally {
