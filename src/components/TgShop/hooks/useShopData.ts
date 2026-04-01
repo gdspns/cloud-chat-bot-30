@@ -15,6 +15,7 @@ interface DbProduct {
   category: string | null;
   type: string;
   stock_quantity: number | null;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 }
