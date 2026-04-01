@@ -2860,6 +2860,116 @@ ${t("recharge_select", shopUserLanguage)}`;
       }
     }
 
+    // ========== 管理员"发货"指令处理 ==========
+    if (!keyboardHandled && isAdminUser && shopEnabled && shopConfig) {
+      const isShipCommand = text === "发货" || text === "/ship" || text.toLowerCase() === "ship";
+      
+      if (isShipCommand) {
+        // 查询所有未发货的实物订单
+        const { data: unshippedOrders } = await supabase
+          .from("shop_orders")
+          .select("*")
+          .eq("bot_token", botToken)
+          .eq("order_type", "physical")
+          .eq("status", "paid")
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        if (!unshippedOrders || unshippedOrders.length === 0) {
+          await sendTelegramMessage(botToken, "sendMessage", {
+            chat_id: chatId,
+            text: "📦 暂无待发货的实物商品订单",
+          });
+        } else {
+          let msg = `📦 **待发货实物订单 (${unshippedOrders.length})**\n\n`;
+          const inlineButtons: any[][] = [];
+
+          for (const ord of unshippedOrders) {
+            const timeStr = new Date(ord.created_at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+            msg += `📝 \`${ord.order_no}\`\n`;
+            msg += `🛍️ ${ord.product_name} | 💰 ${ord.amount} ${ord.currency}\n`;
+            msg += `👤 @${ord.telegram_username || ord.telegram_user_id}\n`;
+            if (ord.delivery_content) {
+              msg += `📮 地址: ${ord.delivery_content.substring(0, 50)}${ord.delivery_content.length > 50 ? '...' : ''}\n`;
+            } else {
+              msg += `⏳ 等待买家提供地址\n`;
+            }
+            msg += `🕐 ${timeStr}\n\n`;
+
+            // 每个订单一个发货按钮（callback_data 限制64字节，用订单号）
+            inlineButtons.push([{ text: `🚚 发货 ${ord.order_no}`, callback_data: `ship_${ord.order_no}` }]);
+          }
+
+          await sendTelegramMessage(botToken, "sendMessage", {
+            chat_id: chatId,
+            text: msg,
+            parse_mode: "Markdown",
+            reply_markup: { inline_keyboard: inlineButtons },
+          });
+        }
+
+        keyboardHandled = true;
+        suppressActivityForward = true;
+        console.log("[TG Shop] Admin ship command handled");
+      }
+
+      // 管理员回复发货提示消息 - 处理快递单号
+      if (!keyboardHandled && message.reply_to_message) {
+        const replyText = message.reply_to_message.text || "";
+        const shipMatch = replyText.match(/📝 订单号: `([^`]+)`/);
+        
+        if (shipMatch && replyText.includes("准备发货")) {
+          const shipOrderNo = shipMatch[1];
+          const trackingInfo = text.trim();
+
+          // 获取订单
+          const { data: shipOrd } = await supabase
+            .from("shop_orders")
+            .select("*")
+            .eq("order_no", shipOrderNo)
+            .eq("bot_token", botToken)
+            .maybeSingle();
+
+          if (shipOrd && shipOrd.status !== "shipped") {
+            // 更新订单状态
+            await supabase
+              .from("shop_orders")
+              .update({ status: "shipped", delivered_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+              .eq("order_no", shipOrderNo);
+
+            // 构建买家通知
+            let buyerMsg = `📦 **您的订单已发货！**\n\n`;
+            buyerMsg += `📝 订单号: \`${shipOrd.order_no}\`\n`;
+            buyerMsg += `🛍️ 商品: ${shipOrd.product_name}\n`;
+            if (trackingInfo && trackingInfo !== "确认") {
+              buyerMsg += `🚚 快递信息: \`${trackingInfo}\`\n`;
+            }
+            buyerMsg += `\n如有疑问请联系客服 🙏`;
+
+            // 通知买家
+            if (shipOrd.telegram_chat_id) {
+              await sendTelegramMessage(botToken, "sendMessage", {
+                chat_id: shipOrd.telegram_chat_id,
+                text: buyerMsg,
+                parse_mode: "Markdown",
+              });
+            }
+
+            // 通知管理员成功
+            await sendTelegramMessage(botToken, "sendMessage", {
+              chat_id: chatId,
+              text: `✅ 订单 \`${shipOrderNo}\` 已发货，买家已收到通知`,
+              parse_mode: "Markdown",
+            });
+
+            keyboardHandled = true;
+            suppressActivityForward = true;
+            console.log(`[TG Shop] Order ${shipOrderNo} shipped by admin`);
+          }
+        }
+      }
+    }
+
     // ========== 实物商品收货地址捕获（优先于关键词匹配） ==========
     if (!keyboardHandled && shopEnabled && shopConfig && !text.startsWith("/")) {
       try {
