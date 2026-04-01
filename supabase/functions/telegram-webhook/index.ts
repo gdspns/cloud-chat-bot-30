@@ -2916,7 +2916,7 @@ ${t("recharge_select", shopUserLanguage)}`;
       // 管理员回复发货提示消息 - 处理快递单号
       if (!keyboardHandled && message.reply_to_message) {
         const replyText = message.reply_to_message.text || "";
-        const shipMatch = replyText.match(/📝 订单号: `([^`]+)`/);
+        const shipMatch = replyText.match(/📝 订单号:\s*`?([A-Z0-9]+)`?/);
         
         if (shipMatch && replyText.includes("准备发货")) {
           const shipOrderNo = shipMatch[1];
