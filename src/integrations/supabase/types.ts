@@ -760,6 +760,7 @@ export type Database = {
           currency: string
           description: string | null
           id: string
+          image_url: string | null
           is_active: boolean | null
           keywords: string[] | null
           name: string
@@ -776,6 +777,7 @@ export type Database = {
           currency?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           keywords?: string[] | null
           name: string
@@ -792,6 +794,7 @@ export type Database = {
           currency?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           keywords?: string[] | null
           name?: string

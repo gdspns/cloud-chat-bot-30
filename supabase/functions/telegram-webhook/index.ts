@@ -19,6 +19,7 @@ interface ShopProduct {
   keywords: string[] | null;
   category: string | null;
   type?: string; // 'goods' | 'recharge' | 'physical'
+  image_url?: string | null;
 }
 
 interface ShopConfig {
@@ -710,6 +711,7 @@ ${t("order_timeout_warning", lang)}`;
     message,
     inlineKeyboard: { inline_keyboard: paymentButtons },
     orderId: newOrder.id,
+    photoUrl: product.image_url || undefined,
   };
 }
 
@@ -2748,13 +2750,21 @@ ${t("recharge_select", shopUserLanguage)}`;
           shopUserLanguage,
         );
         if (buyResult.handled && buyResult.message) {
-          // 发送订单详情，带支付方式选择按钮
-          const msgResult = await sendTelegramMessage(botToken, "sendMessage", {
-            chat_id: chatId,
-            text: buyResult.message,
-            parse_mode: "Markdown",
-            reply_markup: buyResult.inlineKeyboard,
-          });
+          // 发送订单详情，带支付方式选择按钮（如有商品图片则发送图片）
+          const msgResult = buyResult.photoUrl
+            ? await sendTelegramMessage(botToken, "sendPhoto", {
+                chat_id: chatId,
+                photo: buyResult.photoUrl,
+                caption: buyResult.message,
+                parse_mode: "Markdown",
+                reply_markup: buyResult.inlineKeyboard,
+              })
+            : await sendTelegramMessage(botToken, "sendMessage", {
+                chat_id: chatId,
+                text: buyResult.message,
+                parse_mode: "Markdown",
+                reply_markup: buyResult.inlineKeyboard,
+              });
 
           // 保存消息ID以便超时后删除
           if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
@@ -2840,12 +2850,20 @@ ${t("recharge_select", shopUserLanguage)}`;
               shopUserLanguage,
             );
             if (buyResult.handled && buyResult.message) {
-              const msgResult = await sendTelegramMessage(botToken, "sendMessage", {
-                chat_id: chatId,
-                text: buyResult.message,
-                parse_mode: "Markdown",
-                reply_markup: buyResult.inlineKeyboard,
-              });
+              const msgResult = buyResult.photoUrl
+                ? await sendTelegramMessage(botToken, "sendPhoto", {
+                    chat_id: chatId,
+                    photo: buyResult.photoUrl,
+                    caption: buyResult.message,
+                    parse_mode: "Markdown",
+                    reply_markup: buyResult.inlineKeyboard,
+                  })
+                : await sendTelegramMessage(botToken, "sendMessage", {
+                    chat_id: chatId,
+                    text: buyResult.message,
+                    parse_mode: "Markdown",
+                    reply_markup: buyResult.inlineKeyboard,
+                  });
               if (msgResult.ok && msgResult.result?.message_id && buyResult.orderId) {
                 await supabase
                   .from("shop_orders")

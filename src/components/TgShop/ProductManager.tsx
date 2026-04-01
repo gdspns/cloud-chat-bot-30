@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen, ChevronDown, ShoppingBag, Wallet, Package } from "lucide-react";
+import { Plus, Trash2, Search, Cloud, Loader2, Tag, FolderOpen, ChevronDown, ShoppingBag, Wallet, Package, ImagePlus, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Product } from "./types";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -43,8 +44,10 @@ export function ProductManager({
   const [formData, setFormData] = useState<Omit<Product, 'id' | 'keywordsList'>>(getDefaultFormData());
   const [isSaving, setIsSaving] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const categoryInputRef = useRef<HTMLInputElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingId) {
@@ -126,6 +129,51 @@ export function ProductManager({
       type: 'auto',
       category: defaultCategory
     });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      showToast("error", language === 'zh' ? '请选择图片文件' : 'Please select an image file');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("error", language === 'zh' ? '图片大小不能超过5MB' : 'Image must be under 5MB');
+      return;
+    }
+    
+    setIsUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+      
+      setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
+      showToast("success", language === 'zh' ? '图片上传成功' : 'Image uploaded');
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      showToast("error", language === 'zh' ? '图片上传失败' : 'Image upload failed');
+    } finally {
+      setIsUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, imageUrl: undefined }));
   };
 
   // 获取所有分类（包含自定义分类）
@@ -360,6 +408,55 @@ export function ProductManager({
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 className="w-full p-2 border rounded bg-background text-foreground focus:ring-2 focus:ring-primary outline-none font-mono text-sm"
               />
+            </div>
+
+            {/* 商品图片上传 */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                {language === 'zh' ? '商品图片' : 'Product Image'}
+                <span className="text-xs text-muted-foreground font-normal ml-1">
+                  {language === 'zh' ? '(可选，将在Telegram中展示)' : '(optional, shown in Telegram)'}
+                </span>
+              </label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              {formData.imageUrl ? (
+                <div className="relative inline-block">
+                  <img
+                    src={formData.imageUrl}
+                    alt="Product"
+                    className="w-32 h-32 object-cover rounded-lg border"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-md hover:bg-destructive/90"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={isUploadingImage}
+                  className="flex items-center gap-2 px-4 py-3 border-2 border-dashed rounded-lg text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                >
+                  {isUploadingImage ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <ImagePlus size={16} />
+                  )}
+                  {isUploadingImage
+                    ? (language === 'zh' ? '上传中...' : 'Uploading...')
+                    : (language === 'zh' ? '点击上传商品图片' : 'Click to upload image')}
+                </button>
+              )}
             </div>
 
             {formData.type === 'auto' ? (

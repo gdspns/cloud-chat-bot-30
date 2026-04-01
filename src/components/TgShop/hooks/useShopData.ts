@@ -15,6 +15,7 @@ interface DbProduct {
   category: string | null;
   type: string;
   stock_quantity: number | null;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -178,6 +179,7 @@ function dbProductToProduct(dbProduct: DbProduct): Product {
     type: dbProduct.type === 'recharge' ? 'recharge' : dbProduct.type === 'physical' ? 'physical' : 'auto',
     category: dbProduct.category || "默认分类",
     stockQuantity: dbProduct.stock_quantity ?? undefined,
+    imageUrl: dbProduct.image_url ?? undefined,
     createdAt: dbProduct.created_at,
     updatedAt: dbProduct.updated_at,
   };
@@ -197,6 +199,7 @@ function productToDbProduct(product: Partial<Product>, botToken: string): Partia
     type: product.type === 'recharge' ? 'recharge' : product.type === 'physical' ? 'physical' : 'goods',
     is_active: true,
     stock_quantity: product.type === 'physical' ? (product.stockQuantity ?? 0) : null,
+    image_url: product.imageUrl || null,
   };
 }
 
