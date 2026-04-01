@@ -2125,7 +2125,7 @@ serve(async (req) => {
             await new Promise(r => setTimeout(r, 100));
           }
 
-          return new Response(JSON.stringify({ ok: true, successCount, total: dbUsers.length, message: `群发完成：${successCount}/${dbUsers.length} 成功` }), {
+          return new Response(JSON.stringify({ ok: true, successCount, total: filteredUsers.length, skippedBlocked: blockedSet.size, message: `群发完成：${successCount}/${filteredUsers.length} 成功（跳过${blockedSet.size}个黑名单用户）` }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } catch (err) {
