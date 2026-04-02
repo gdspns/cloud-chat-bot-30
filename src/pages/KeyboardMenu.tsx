@@ -4174,7 +4174,13 @@ function UsersPanel({
           <div className="flex items-center gap-3">
             <h4 className="font-bold flex items-center gap-2">
               <Users size={18} /> {t('km.users.userList')}
-              <span className="text-xs text-muted-foreground font-normal ml-2">({filteredNormalUsers.length}{userSearchQuery ? ` / ${normalUsers.length}` : ''})</span>
+              <span className="text-xs font-normal ml-2 flex items-center gap-1.5">
+                <span className="text-green-600">({filteredNormalUsers.length}{userSearchQuery ? ` / ${normalUsers.length}` : ''})</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">黑名单 {blacklistedUsers.length}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">总计 {dbUsers.length}</span>
+              </span>
             </h4>
             {selectedNormalUsers.size > 0 && (
               <button
@@ -4241,7 +4247,13 @@ function UsersPanel({
           <div className="flex items-center gap-3">
             <h4 className="font-bold flex items-center gap-2 text-red-600">
               <Shield size={18} /> 黑名单用户
-              <span className="text-xs text-muted-foreground font-normal ml-2">({filteredBlacklistUsers.length}{blacklistSearchQuery ? ` / ${blacklistedUsers.length}` : ''})</span>
+              <span className="text-xs font-normal ml-2 flex items-center gap-1.5">
+                <span className="text-red-600">({filteredBlacklistUsers.length}{blacklistSearchQuery ? ` / ${blacklistedUsers.length}` : ''})</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">正常 {normalUsers.length}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">总计 {dbUsers.length}</span>
+              </span>
             </h4>
             {selectedBlacklistUsers.size > 0 && (
               <button
