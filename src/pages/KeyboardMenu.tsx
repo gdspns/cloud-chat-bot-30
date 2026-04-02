@@ -3737,6 +3737,7 @@ function UsersPanel({
         .select("telegram_user_id")
         .eq("bot_token", botToken)
         .eq("is_blocked", true)
+        .order("telegram_user_id", { ascending: true })
         .range(from, from + FETCH_BATCH_SIZE - 1);
 
       if (error) throw error;
