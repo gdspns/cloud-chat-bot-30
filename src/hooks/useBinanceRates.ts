@@ -28,45 +28,38 @@ export function useBinanceRates(): UseBinanceRatesReturn {
       // 并行获取 USDT/CNY 和 TRX/USDT 价格
       const [usdtRes, trxRes] = await Promise.all([
         fetch('https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY').catch(() => null),
-        fetch('https://api.binance.com/api/v3/ticker/price?symbol=TRXUSDT')
+        fetch('https://api.binance.com/api/v3/ticker/price?symbol=TRXUSDT').catch(() => null)
       ]);
 
-      // USDT/CNY 可能不可用，使用备用接口或固定汇率
-      let usdtCny = 7.25; // 默认值
+      // USDT/CNY 默认回退值
+      let usdtCny = 7.25;
       if (usdtRes && usdtRes.ok) {
-        const usdtData = await usdtRes.json();
-        usdtCny = parseFloat(usdtData.price);
-      } else {
-        // 尝试使用 P2P 汇率估算 - 使用 USDC 作为参考或固定值
-        // 币安现货没有直接 USDT/CNY，通常通过 P2P 交易
-        // 这里使用一个相对稳定的估算值，或者可以接入其他汇率API
         try {
-          // 尝试获取 BUSD/USDT 来验证 USDT 稳定性
-          const busdRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BUSDUSDT');
-          if (busdRes.ok) {
-            // USDT 稳定，使用当前市场估算汇率
-            usdtCny = 7.25;
-          }
-        } catch {
-          usdtCny = 7.25;
-        }
+          const usdtData = await usdtRes.json();
+          usdtCny = parseFloat(usdtData.price) || 7.25;
+        } catch { /* use default */ }
       }
 
-      // TRX/USDT
-      if (!trxRes.ok) {
-        throw new Error('无法获取TRX价格');
+      // TRX/USDT 默认回退值
+      let trxUsdt = 0.25;
+      if (trxRes && trxRes.ok) {
+        try {
+          const trxData = await trxRes.json();
+          trxUsdt = parseFloat(trxData.price) || 0.25;
+        } catch { /* use default */ }
       }
-      const trxData = await trxRes.json();
-      const trxUsdt = parseFloat(trxData.price);
 
       const newRates: BinanceRates = { usdtCny, trxUsdt };
       setRates(newRates);
+      setError((!usdtRes?.ok || !trxRes?.ok) ? '使用回退汇率' : null);
       return newRates;
     } catch (err: any) {
-      const msg = err.message || '获取汇率失败';
-      setError(msg);
-      console.error('获取币安汇率失败:', err);
-      return null;
+      // 即使完全失败也返回回退值
+      const fallback: BinanceRates = { usdtCny: 7.25, trxUsdt: 0.25 };
+      setRates(fallback);
+      setError('使用回退汇率');
+      console.warn('币安API不可用，使用回退汇率:', err);
+      return fallback;
     } finally {
       setLoading(false);
     }
