@@ -843,6 +843,9 @@ function Workspace({
     targetChatId,
     rateLimitEnabled,
     rateLimitPerMinute,
+    botDescriptionEnabled,
+    botDescriptionText,
+    botShortDescriptionText,
     botProfile?.token,
   ]);
 
