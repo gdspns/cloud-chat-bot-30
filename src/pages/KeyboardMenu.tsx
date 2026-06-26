@@ -993,6 +993,12 @@ function Workspace({
           setRateLimitEnabled((data as any).rate_limit_enabled);
         if ((data as any).rate_limit_per_minute !== null && (data as any).rate_limit_per_minute !== undefined)
           setRateLimitPerMinute((data as any).rate_limit_per_minute);
+        if ((data as any).bot_description_enabled !== null && (data as any).bot_description_enabled !== undefined)
+          setBotDescriptionEnabled((data as any).bot_description_enabled);
+        if ((data as any).bot_description_text !== null && (data as any).bot_description_text !== undefined)
+          setBotDescriptionText((data as any).bot_description_text);
+        if ((data as any).bot_short_description_text !== null && (data as any).bot_short_description_text !== undefined)
+          setBotShortDescriptionText((data as any).bot_short_description_text);
         setCloudSyncStatus("synced");
         showToast("success", t('km.settings.configLoaded'));
       } else {
