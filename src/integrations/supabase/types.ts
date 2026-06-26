@@ -323,7 +323,10 @@ export type Database = {
           auto_cleanup_enabled: boolean | null
           auto_reply_rules: Json | null
           bilingual_button_enabled: boolean | null
+          bot_description_enabled: boolean | null
+          bot_description_text: string | null
           bot_first_name: string | null
+          bot_short_description_text: string | null
           bot_token: string
           bot_username: string | null
           chat_start_enabled: boolean | null
@@ -350,7 +353,10 @@ export type Database = {
           auto_cleanup_enabled?: boolean | null
           auto_reply_rules?: Json | null
           bilingual_button_enabled?: boolean | null
+          bot_description_enabled?: boolean | null
+          bot_description_text?: string | null
           bot_first_name?: string | null
+          bot_short_description_text?: string | null
           bot_token: string
           bot_username?: string | null
           chat_start_enabled?: boolean | null
@@ -377,7 +383,10 @@ export type Database = {
           auto_cleanup_enabled?: boolean | null
           auto_reply_rules?: Json | null
           bilingual_button_enabled?: boolean | null
+          bot_description_enabled?: boolean | null
+          bot_description_text?: string | null
           bot_first_name?: string | null
+          bot_short_description_text?: string | null
           bot_token?: string
           bot_username?: string | null
           chat_start_enabled?: boolean | null
