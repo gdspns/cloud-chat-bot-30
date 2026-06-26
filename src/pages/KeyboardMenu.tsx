@@ -1731,6 +1731,16 @@ function Workspace({
               setRateLimitEnabled={setRateLimitEnabled}
               rateLimitPerMinute={rateLimitPerMinute}
               setRateLimitPerMinute={setRateLimitPerMinute}
+            />
+          )}
+          {activeTab === "botDescription" && (
+            <BotDescriptionPanel
+              isConnected={isConnected}
+              callApi={callApi}
+              showToast={showToast}
+              syncConfigToCloud={syncConfigToCloud}
+              keyboardTrialExpired={keyboardTrialExpired}
+              showTrialExpiredToast={showTrialExpiredToast}
               botDescriptionEnabled={botDescriptionEnabled}
               setBotDescriptionEnabled={setBotDescriptionEnabled}
               botDescriptionText={botDescriptionText}
