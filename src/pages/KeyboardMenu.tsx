@@ -600,6 +600,10 @@ function Workspace({
   const [autoCleanupDays, setAutoCleanupDays] = useState(0);
   const [rateLimitEnabled, setRateLimitEnabled] = useState(true);
   const [rateLimitPerMinute, setRateLimitPerMinute] = useState(10);
+  // 机器人介绍（搜索/未点开始前显示）
+  const [botDescriptionEnabled, setBotDescriptionEnabled] = useState(false);
+  const [botDescriptionText, setBotDescriptionText] = useState("");
+  const [botShortDescriptionText, setBotShortDescriptionText] = useState("");
 
   // Keyboard menu trial status
   const [keyboardTrialExpired, setKeyboardTrialExpired] = useState(false);
