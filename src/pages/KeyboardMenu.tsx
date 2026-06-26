@@ -1591,6 +1591,12 @@ function Workspace({
             notification={!isConnected}
           />
           <SidebarItem
+            icon={<MessageCircleQuestion size={18} />}
+            label="机器人介绍"
+            active={activeTab === "botDescription"}
+            onClick={() => { setActiveTab("botDescription"); setMobileSidebarOpen(false); }}
+          />
+          <SidebarItem
             icon={<List size={18} />}
             label={t('km.sidebar.commandMgmt')}
             active={activeTab === "commands"}
