@@ -880,6 +880,9 @@ function Workspace({
         keyboard_start_enabled: keyboardStartEnabled,
         rate_limit_enabled: rateLimitEnabled,
         rate_limit_per_minute: rateLimitPerMinute,
+        bot_description_enabled: botDescriptionEnabled,
+        bot_description_text: botDescriptionText,
+        bot_short_description_text: botShortDescriptionText,
         updated_at: new Date().toISOString(),
       };
 
