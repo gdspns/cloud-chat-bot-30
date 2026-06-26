@@ -1725,6 +1725,12 @@ function Workspace({
               setRateLimitEnabled={setRateLimitEnabled}
               rateLimitPerMinute={rateLimitPerMinute}
               setRateLimitPerMinute={setRateLimitPerMinute}
+              botDescriptionEnabled={botDescriptionEnabled}
+              setBotDescriptionEnabled={setBotDescriptionEnabled}
+              botDescriptionText={botDescriptionText}
+              setBotDescriptionText={setBotDescriptionText}
+              botShortDescriptionText={botShortDescriptionText}
+              setBotShortDescriptionText={setBotShortDescriptionText}
             />
           )}
           {activeTab === "keyboard" && (
