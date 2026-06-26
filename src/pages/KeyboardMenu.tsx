@@ -600,6 +600,10 @@ function Workspace({
   const [autoCleanupDays, setAutoCleanupDays] = useState(0);
   const [rateLimitEnabled, setRateLimitEnabled] = useState(true);
   const [rateLimitPerMinute, setRateLimitPerMinute] = useState(10);
+  // 机器人介绍（搜索/未点开始前显示）
+  const [botDescriptionEnabled, setBotDescriptionEnabled] = useState(false);
+  const [botDescriptionText, setBotDescriptionText] = useState("");
+  const [botShortDescriptionText, setBotShortDescriptionText] = useState("");
 
   // Keyboard menu trial status
   const [keyboardTrialExpired, setKeyboardTrialExpired] = useState(false);
@@ -768,6 +772,9 @@ function Workspace({
         keyboard_start_enabled: keyboardStartEnabled,
         rate_limit_enabled: rateLimitEnabled,
         rate_limit_per_minute: rateLimitPerMinute,
+        bot_description_enabled: botDescriptionEnabled,
+        bot_description_text: botDescriptionText,
+        bot_short_description_text: botShortDescriptionText,
         updated_at: new Date().toISOString(),
       };
 
@@ -836,6 +843,9 @@ function Workspace({
     targetChatId,
     rateLimitEnabled,
     rateLimitPerMinute,
+    botDescriptionEnabled,
+    botDescriptionText,
+    botShortDescriptionText,
     botProfile?.token,
   ]);
 
@@ -873,6 +883,9 @@ function Workspace({
         keyboard_start_enabled: keyboardStartEnabled,
         rate_limit_enabled: rateLimitEnabled,
         rate_limit_per_minute: rateLimitPerMinute,
+        bot_description_enabled: botDescriptionEnabled,
+        bot_description_text: botDescriptionText,
+        bot_short_description_text: botShortDescriptionText,
         updated_at: new Date().toISOString(),
       };
 
@@ -945,6 +958,9 @@ function Workspace({
     setKeyboardStartEnabled(true);
     setRateLimitEnabled(true);
     setRateLimitPerMinute(10);
+    setBotDescriptionEnabled(false);
+    setBotDescriptionText("");
+    setBotShortDescriptionText("");
     setCloudSyncStatus("idle");
 
     try {
@@ -977,6 +993,12 @@ function Workspace({
           setRateLimitEnabled((data as any).rate_limit_enabled);
         if ((data as any).rate_limit_per_minute !== null && (data as any).rate_limit_per_minute !== undefined)
           setRateLimitPerMinute((data as any).rate_limit_per_minute);
+        if ((data as any).bot_description_enabled !== null && (data as any).bot_description_enabled !== undefined)
+          setBotDescriptionEnabled((data as any).bot_description_enabled);
+        if ((data as any).bot_description_text !== null && (data as any).bot_description_text !== undefined)
+          setBotDescriptionText((data as any).bot_description_text);
+        if ((data as any).bot_short_description_text !== null && (data as any).bot_short_description_text !== undefined)
+          setBotShortDescriptionText((data as any).bot_short_description_text);
         setCloudSyncStatus("synced");
         showToast("success", t('km.settings.configLoaded'));
       } else {
@@ -1703,6 +1725,12 @@ function Workspace({
               setRateLimitEnabled={setRateLimitEnabled}
               rateLimitPerMinute={rateLimitPerMinute}
               setRateLimitPerMinute={setRateLimitPerMinute}
+              botDescriptionEnabled={botDescriptionEnabled}
+              setBotDescriptionEnabled={setBotDescriptionEnabled}
+              botDescriptionText={botDescriptionText}
+              setBotDescriptionText={setBotDescriptionText}
+              botShortDescriptionText={botShortDescriptionText}
+              setBotShortDescriptionText={setBotShortDescriptionText}
             />
           )}
           {activeTab === "keyboard" && (
@@ -2086,11 +2114,84 @@ function SettingsPanel({
   setRateLimitEnabled,
   rateLimitPerMinute,
   setRateLimitPerMinute,
+  botDescriptionEnabled,
+  setBotDescriptionEnabled,
+  botDescriptionText,
+  setBotDescriptionText,
+  botShortDescriptionText,
+  setBotShortDescriptionText,
 }: any) {
   const { t } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [customCleanupDays, setCustomCleanupDays] = useState("");
+  const [isLoadingDescription, setIsLoadingDescription] = useState(false);
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
+  const descLoadedRef = useRef(false);
+
+  // 连接后自动从 Telegram 拉取已设置的介绍语，便于修改
+  useEffect(() => {
+    if (!isConnected || !callApi || descLoadedRef.current) return;
+    descLoadedRef.current = true;
+    (async () => {
+      try {
+        const [desc, shortDesc] = await Promise.all([
+          callApi("getMyDescription", {}).catch(() => null),
+          callApi("getMyShortDescription", {}).catch(() => null),
+        ]);
+        const tgDesc = (desc?.description ?? "").trim();
+        const tgShort = (shortDesc?.short_description ?? "").trim();
+        // 仅当本地为空时用 Telegram 现有内容填充，避免覆盖本地编辑
+        if (tgDesc && !botDescriptionText) setBotDescriptionText(tgDesc);
+        if (tgShort && !botShortDescriptionText) setBotShortDescriptionText(tgShort);
+      } catch (e) {
+        console.warn("[BotDescription] load from Telegram failed:", e);
+      }
+    })();
+  }, [isConnected]);
+
+  const handleLoadDescriptionFromTelegram = async () => {
+    setIsLoadingDescription(true);
+    try {
+      const [desc, shortDesc] = await Promise.all([
+        callApi("getMyDescription", {}),
+        callApi("getMyShortDescription", {}),
+      ]);
+      setBotDescriptionText((desc?.description ?? "").trim());
+      setBotShortDescriptionText((shortDesc?.short_description ?? "").trim());
+      showToast("success", "已从 Telegram 加载机器人介绍");
+    } catch (e: any) {
+      showToast("error", `加载失败: ${e.message}`);
+    } finally {
+      setIsLoadingDescription(false);
+    }
+  };
+
+  const handleSaveDescriptionToTelegram = async () => {
+    if (keyboardTrialExpired) {
+      showTrialExpiredToast();
+      return;
+    }
+    setIsSavingDescription(true);
+    try {
+      if (botDescriptionEnabled) {
+        await callApi("setMyDescription", { description: botDescriptionText || "" });
+        await callApi("setMyShortDescription", { short_description: botShortDescriptionText || "" });
+        showToast("success", "机器人介绍已保存到 Telegram");
+      } else {
+        // 关闭功能 → 清空 Telegram 上的介绍
+        await callApi("setMyDescription", { description: "" });
+        await callApi("setMyShortDescription", { short_description: "" });
+        showToast("success", "已关闭机器人介绍（Telegram 内容已清空）");
+      }
+      syncConfigToCloud?.();
+    } catch (e: any) {
+      showToast("error", `保存失败: ${e.message}`);
+    } finally {
+      setIsSavingDescription(false);
+    }
+  };
+
 
   const handleSyncToCloud = () => {
     if (keyboardTrialExpired) {
@@ -2425,6 +2526,96 @@ function SettingsPanel({
             </div>
           )}
         </div>
+
+        {/* 机器人介绍（搜索/未点开始前显示） */}
+        {isConnected && (
+          <div className="bg-card p-6 rounded-xl border shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold flex items-center gap-2">
+                <MessageCircleQuestion className="text-primary" size={18} /> 机器人介绍
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  （用户搜到机器人、未点 /start 前显示）
+                </span>
+              </h3>
+              <button
+                onClick={() => {
+                  setBotDescriptionEnabled(!botDescriptionEnabled);
+                  setTimeout(() => syncConfigToCloud?.(), 100);
+                }}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${botDescriptionEnabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+                aria-label="启用机器人介绍"
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${botDescriptionEnabled ? "translate-x-4" : "translate-x-1"}`}
+                />
+              </button>
+            </div>
+
+            <div className={`space-y-4 ${botDescriptionEnabled ? "" : "opacity-50 pointer-events-none"}`}>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium">
+                    介绍语 <span className="text-xs text-muted-foreground">（对话为空时显示，最多 512 字，支持 emoji 😀）</span>
+                  </label>
+                  <span className={`text-[10px] ${botDescriptionText.length > 512 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {botDescriptionText.length}/512
+                  </span>
+                </div>
+                <textarea
+                  value={botDescriptionText}
+                  onChange={(e) => setBotDescriptionText(e.target.value.slice(0, 512))}
+                  rows={5}
+                  placeholder="例如：👋 欢迎使用本机器人！这里提供 24h 自助下单、卡密发货、在线客服等服务。点击 /start 开始体验～"
+                  className="w-full bg-muted border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-y"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium">
+                    简介 <span className="text-xs text-muted-foreground">（搜索结果/资料页显示，最多 120 字）</span>
+                  </label>
+                  <span className={`text-[10px] ${botShortDescriptionText.length > 120 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {botShortDescriptionText.length}/120
+                  </span>
+                </div>
+                <textarea
+                  value={botShortDescriptionText}
+                  onChange={(e) => setBotShortDescriptionText(e.target.value.slice(0, 120))}
+                  rows={2}
+                  placeholder="例如：🛒 24h 自助商城，卡密秒发货 ⚡"
+                  className="w-full bg-muted border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none resize-y"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleLoadDescriptionFromTelegram}
+                  disabled={isLoadingDescription}
+                  className="flex-1 border bg-muted hover:bg-muted/70 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                >
+                  {isLoadingDescription ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}
+                  从 Telegram 加载
+                </button>
+                <button
+                  onClick={handleSaveDescriptionToTelegram}
+                  disabled={isSavingDescription || botDescriptionText.length > 512 || botShortDescriptionText.length > 120}
+                  className="flex-1 bg-primary hover:bg-primary/90 disabled:bg-muted text-primary-foreground py-2 rounded-lg font-bold transition flex items-center justify-center gap-2 text-sm"
+                >
+                  {isSavingDescription ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                  保存到 Telegram
+                </button>
+              </div>
+
+              <p className="text-[11px] text-muted-foreground leading-relaxed bg-muted/50 p-2 rounded border">
+                提示：Telegram 官方 Bot API 的「机器人介绍」目前仅支持<strong>纯文本+emoji</strong>。
+                机器人<strong>头像、介绍图片、介绍视频</strong>无法通过本网站设置，需在 Telegram 中打开
+                <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-primary underline mx-1">@BotFather</a>
+                ，依次选择 <em>/mybots → 你的机器人 → Edit Bot → Edit Botpic / Edit Description Picture</em> 进行设置。
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
