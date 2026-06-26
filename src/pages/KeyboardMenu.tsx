@@ -578,7 +578,7 @@ function Workspace({
   setCommands,
 }: any) {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<"message" | "keyboard" | "commands" | "settings" | "users" | "shop" | "guide">("settings");
+  const [activeTab, setActiveTab] = useState<"message" | "keyboard" | "commands" | "settings" | "users" | "shop" | "guide" | "botDescription">("settings");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [simulatorVisible, setSimulatorVisible] = useState(false);
