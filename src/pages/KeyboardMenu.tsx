@@ -2114,11 +2114,84 @@ function SettingsPanel({
   setRateLimitEnabled,
   rateLimitPerMinute,
   setRateLimitPerMinute,
+  botDescriptionEnabled,
+  setBotDescriptionEnabled,
+  botDescriptionText,
+  setBotDescriptionText,
+  botShortDescriptionText,
+  setBotShortDescriptionText,
 }: any) {
   const { t } = useLanguage();
   const [isResetting, setIsResetting] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [customCleanupDays, setCustomCleanupDays] = useState("");
+  const [isLoadingDescription, setIsLoadingDescription] = useState(false);
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
+  const descLoadedRef = useRef(false);
+
+  // 连接后自动从 Telegram 拉取已设置的介绍语，便于修改
+  useEffect(() => {
+    if (!isConnected || !callApi || descLoadedRef.current) return;
+    descLoadedRef.current = true;
+    (async () => {
+      try {
+        const [desc, shortDesc] = await Promise.all([
+          callApi("getMyDescription", {}).catch(() => null),
+          callApi("getMyShortDescription", {}).catch(() => null),
+        ]);
+        const tgDesc = (desc?.description ?? "").trim();
+        const tgShort = (shortDesc?.short_description ?? "").trim();
+        // 仅当本地为空时用 Telegram 现有内容填充，避免覆盖本地编辑
+        if (tgDesc && !botDescriptionText) setBotDescriptionText(tgDesc);
+        if (tgShort && !botShortDescriptionText) setBotShortDescriptionText(tgShort);
+      } catch (e) {
+        console.warn("[BotDescription] load from Telegram failed:", e);
+      }
+    })();
+  }, [isConnected]);
+
+  const handleLoadDescriptionFromTelegram = async () => {
+    setIsLoadingDescription(true);
+    try {
+      const [desc, shortDesc] = await Promise.all([
+        callApi("getMyDescription", {}),
+        callApi("getMyShortDescription", {}),
+      ]);
+      setBotDescriptionText((desc?.description ?? "").trim());
+      setBotShortDescriptionText((shortDesc?.short_description ?? "").trim());
+      showToast("success", "已从 Telegram 加载机器人介绍");
+    } catch (e: any) {
+      showToast("error", `加载失败: ${e.message}`);
+    } finally {
+      setIsLoadingDescription(false);
+    }
+  };
+
+  const handleSaveDescriptionToTelegram = async () => {
+    if (keyboardTrialExpired) {
+      showTrialExpiredToast();
+      return;
+    }
+    setIsSavingDescription(true);
+    try {
+      if (botDescriptionEnabled) {
+        await callApi("setMyDescription", { description: botDescriptionText || "" });
+        await callApi("setMyShortDescription", { short_description: botShortDescriptionText || "" });
+        showToast("success", "机器人介绍已保存到 Telegram");
+      } else {
+        // 关闭功能 → 清空 Telegram 上的介绍
+        await callApi("setMyDescription", { description: "" });
+        await callApi("setMyShortDescription", { short_description: "" });
+        showToast("success", "已关闭机器人介绍（Telegram 内容已清空）");
+      }
+      syncConfigToCloud?.();
+    } catch (e: any) {
+      showToast("error", `保存失败: ${e.message}`);
+    } finally {
+      setIsSavingDescription(false);
+    }
+  };
+
 
   const handleSyncToCloud = () => {
     if (keyboardTrialExpired) {
