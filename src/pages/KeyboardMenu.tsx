@@ -958,6 +958,9 @@ function Workspace({
     setKeyboardStartEnabled(true);
     setRateLimitEnabled(true);
     setRateLimitPerMinute(10);
+    setBotDescriptionEnabled(false);
+    setBotDescriptionText("");
+    setBotShortDescriptionText("");
     setCloudSyncStatus("idle");
 
     try {
