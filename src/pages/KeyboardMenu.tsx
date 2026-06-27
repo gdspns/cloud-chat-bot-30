@@ -2994,6 +2994,29 @@ function CommandsEditor({
   const [menuBtnType, setMenuBtnType] = useState<"commands" | "web_app">("commands");
   const [webAppUrl, setWebAppUrl] = useState("");
   const [webAppText, setWebAppText] = useState("Open App");
+  const loadedMenuBtnRef = useRef<string | null>(null);
+
+  // 连接后自动从 Telegram 拉取当前菜单按钮配置（包括 Web App 的文字和 URL）
+  useEffect(() => {
+    if (!isConnected || !botToken) return;
+    if (loadedMenuBtnRef.current === botToken) return;
+    loadedMenuBtnRef.current = botToken;
+    (async () => {
+      try {
+        const res = await callApi("getChatMenuButton", {});
+        const btn = res?.result || res;
+        if (btn && btn.type === "web_app") {
+          setMenuBtnType("web_app");
+          if (typeof btn.text === "string") setWebAppText(btn.text);
+          if (btn.web_app?.url) setWebAppUrl(btn.web_app.url);
+        } else if (btn && btn.type === "commands") {
+          setMenuBtnType("commands");
+        }
+      } catch (e) {
+        console.warn("加载菜单按钮失败:", e);
+      }
+    })();
+  }, [isConnected, botToken, callApi]);
 
   const addCommand = () => {
     setCommands([...commands, newCmd]);
