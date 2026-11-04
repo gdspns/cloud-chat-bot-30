@@ -252,7 +252,7 @@ export default function KeyboardMenu() {
   const [targetChatId, setTargetChatId] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [useProxy, setUseProxy] = useState(false);
+  const [useProxy, setUseProxy] = useState(true);
   const [autoReplyRules, setAutoReplyRules] = useState<AutoReplyRule[]>([]);
 
   const [isMonitoring, setIsMonitoring] = useState(false);
@@ -2428,8 +2428,9 @@ function SettingsPanel({
                 <input
                   type="checkbox"
                   id="useProxy"
-                  checked={useProxy}
-                  onChange={(e) => setUseProxy(e.target.checked)}
+                  checked
+                  disabled
+                  onChange={() => setUseProxy(true)}
                   className="rounded text-primary focus:ring-primary"
                 />
                 <label htmlFor="useProxy" className="text-xs text-muted-foreground cursor-pointer">
