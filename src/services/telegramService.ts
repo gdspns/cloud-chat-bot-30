@@ -1,6 +1,6 @@
 import { telegramConfig } from "@/config/telegram";
 
-const TELEGRAM_API = "https://api.telegram.org/bot";
+const TELEGRAM_API = `${window.location.origin}/telegram/bot`;
 
 export interface TelegramMessage {
   id: number;

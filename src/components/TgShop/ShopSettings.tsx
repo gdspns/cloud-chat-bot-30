@@ -96,7 +96,7 @@ export function ShopSettings({ config, onSave, showToast, botToken }: ShopSettin
     setIsVerifying(true);
     
     try {
-      const response = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+      const response = await fetch(`${window.location.origin}/telegram/bot${token}/getMe`);
       const data = await response.json();
       
       if (data.ok && data.result) {

@@ -301,8 +301,10 @@ export default function KeyboardMenu() {
     signal?: AbortSignal,
     proxy: boolean = true,
   ) => {
-    const baseUrl = `https://api.telegram.org/bot${token}/${method}?t=${Date.now()}`;
-    const url = proxy ? `https://corsproxy.io/?${encodeURIComponent(baseUrl)}` : baseUrl;
+    // Always use the application's fixed same-origin Telegram gateway. Direct
+    // browser access to api.telegram.org is unavailable on some networks and
+    // public CORS proxies are unreliable and expose bot tokens to third parties.
+    const url = `${window.location.origin}/telegram/bot${token}/${method}?t=${Date.now()}`;
 
     try {
       const response = await fetch(url, {
