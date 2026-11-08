@@ -51,9 +51,9 @@ async function verifyWechatSignature(content: string, signature: string, publicK
   }
 }
 
-function alipaySignContent(params: Record<string, any>): string {
+function alipaySignContent(params: Record<string, any>, excludeSignType = false): string {
   return Object.keys(params)
-    .filter(key => key !== 'sign' && key !== 'sign_type' && params[key] !== '')
+    .filter(key => key !== 'sign' && (!excludeSignType || key !== 'sign_type') && params[key] !== '')
     .sort()
     .map(key => `${key}=${params[key]}`)
     .join('&')
@@ -62,11 +62,47 @@ function alipaySignContent(params: Record<string, any>): string {
 async function verifyAlipaySignature(params: Record<string, any>, publicKeyPem: string): Promise<boolean> {
   try {
     const key = await crypto.subtle.importKey('spki', pemBytes(publicKeyPem), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'])
-    return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, Uint8Array.from(atob(params.sign || ''), c => c.charCodeAt(0)), new TextEncoder().encode(alipaySignContent(params)))
+    const signature = String(params.sign || '').replace(/ /g, '+')
+    return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, Uint8Array.from(atob(signature), c => c.charCodeAt(0)), new TextEncoder().encode(alipaySignContent(params, true)))
   } catch (error) {
     console.error('[Shop Webhook] Alipay signature verify error:', String(error))
     return false
   }
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let value = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) value += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(value)
+}
+
+async function rsaSign(content: string, privateKeyPem: string): Promise<string> {
+  const key = await crypto.subtle.importKey('pkcs8', pemBytes(privateKeyPem), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(content))
+  return toBase64(new Uint8Array(signature))
+}
+
+function alipayTimestamp(): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date()).replace('T', ' ')
+}
+
+async function queryOfficialAlipay(config: any, orderNo: string): Promise<PaymentCallback> {
+  const params: Record<string, string> = {
+    app_id: config.official_alipay_app_id,
+    method: 'alipay.trade.query',
+    format: 'JSON',
+    charset: 'utf-8',
+    sign_type: 'RSA2',
+    timestamp: alipayTimestamp(),
+    version: '1.0',
+    biz_content: JSON.stringify({ out_trade_no: orderNo }),
+  }
+  params.sign = await rsaSign(alipaySignContent(params), config.official_alipay_private_key || '')
+  const response = await fetch('https://openapi.alipay.com/gateway.do', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' }, body: new URLSearchParams(params).toString() })
+  const payload = await response.json().catch(() => ({}))
+  const result = payload.alipay_trade_query_response || {}
+  if (!response.ok || result.code !== '10000') throw new Error(result.sub_msg || result.msg || '支付宝主动查单失败')
+  return { out_trade_no: result.out_trade_no, total_amount: result.total_amount, trade_status: result.trade_status, app_id: config.official_alipay_app_id }
 }
 
 async function decryptWechatResource(resource: any, apiV3Key: string): Promise<any> {
@@ -102,7 +138,12 @@ Deno.serve(async (req) => {
     let callbackData: PaymentCallback
     const contentType = req.headers.get('content-type') || ''
 
-    if (paymentType === 'alipay_official') {
+    if (paymentType === 'alipay_query') {
+      const orderNo = url.searchParams.get('order_no') || ''
+      const { data: paymentConfig } = await supabase.from('shop_configs').select('*').eq('bot_token', botToken).maybeSingle()
+      if (!orderNo || !paymentConfig?.official_alipay_enabled) return new Response(JSON.stringify({ success: false, error: '支付宝主动查单参数无效' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      callbackData = await queryOfficialAlipay(paymentConfig, orderNo)
+    } else if (paymentType === 'alipay_official') {
       const { data: paymentConfig } = await supabase.from('shop_configs').select('*').eq('bot_token', botToken).maybeSingle()
       const formData = await req.formData()
       callbackData = Object.fromEntries(formData.entries()) as unknown as PaymentCallback
@@ -144,6 +185,7 @@ Deno.serve(async (req) => {
     let paymentStatus: string
 
     switch (paymentType) {
+      case 'alipay_query':
       case 'alipay_official':
         orderNo = callbackData.out_trade_no || ''
         amount = Number(callbackData.total_amount || 0)
@@ -217,7 +259,7 @@ Deno.serve(async (req) => {
 
     // 验证金额 (允许小数误差)
     const expectedAmount = parseFloat(order.amount)
-    if (['wechat_official', 'alipay_official'].includes(paymentType) && Math.abs(amount - expectedAmount) > 0.001) {
+    if (['wechat_official', 'alipay_official', 'alipay_query'].includes(paymentType) && Math.abs(amount - expectedAmount) > 0.001) {
       return new Response(JSON.stringify({ code: 'FAIL', message: '订单金额不匹配' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
     if (Math.abs(amount - expectedAmount) > 0.1) {
