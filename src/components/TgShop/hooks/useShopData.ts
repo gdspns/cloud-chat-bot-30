@@ -68,6 +68,13 @@ interface DbConfig {
   alipay_provider: string;
   enable_wechat: boolean;
   wechat_provider: string;
+  official_wechat_enabled: boolean | null;
+  official_wechat_app_id: string | null;
+  official_wechat_mch_id: string | null;
+  official_wechat_serial_no: string | null;
+  official_wechat_private_key: string | null;
+  official_wechat_api_v3_key: string | null;
+  official_wechat_platform_public_key: string | null;
   custom_commands: { shop: string[]; buy: string[]; order: string[] } | null;
   payment_notice: string | null;
   shop_expire_at: string | null;
@@ -138,6 +145,13 @@ const defaultConfig: ShopConfig = {
   alipayProvider: "xunhu",
   enableWechat: false,
   wechatProvider: "xunhu",
+  officialWechatEnabled: false,
+  officialWechatAppId: "",
+  officialWechatMchId: "",
+  officialWechatSerialNo: "",
+  officialWechatPrivateKey: "",
+  officialWechatApiV3Key: "",
+  officialWechatPlatformPublicKey: "",
   customCommands: { shop: [], buy: [], order: [], balance: [], recharge: [] },
   paymentNotice: defaultPaymentNotice,
   // 新增默认值
@@ -254,7 +268,14 @@ function dbConfigToConfig(dbConfig: DbConfig): ShopConfig {
     enableAlipay: dbConfig.enable_alipay,
     alipayProvider: dbConfig.alipay_provider as "yungou" | "xunhu",
     enableWechat: dbConfig.enable_wechat,
-    wechatProvider: dbConfig.wechat_provider as "yungou" | "xunhu",
+    wechatProvider: dbConfig.wechat_provider as "yungou" | "xunhu" | "wechat_official",
+    officialWechatEnabled: dbConfig.official_wechat_enabled || false,
+    officialWechatAppId: dbConfig.official_wechat_app_id || "",
+    officialWechatMchId: dbConfig.official_wechat_mch_id || "",
+    officialWechatSerialNo: dbConfig.official_wechat_serial_no || "",
+    officialWechatPrivateKey: dbConfig.official_wechat_private_key || "",
+    officialWechatApiV3Key: dbConfig.official_wechat_api_v3_key || "",
+    officialWechatPlatformPublicKey: dbConfig.official_wechat_platform_public_key || "",
     customCommands: { shop: [], buy: [], order: [], balance: [], recharge: [], ...(dbConfig.custom_commands || {}) },
     paymentNotice: dbConfig.payment_notice || defaultPaymentNotice,
     shopExpireAt: dbConfig.shop_expire_at,
@@ -314,6 +335,13 @@ function configToDbConfig(config: Partial<ShopConfig>, botToken: string): Partia
     alipay_provider: config.alipayProvider,
     enable_wechat: config.enableWechat,
     wechat_provider: config.wechatProvider,
+    official_wechat_enabled: config.officialWechatEnabled,
+    official_wechat_app_id: config.officialWechatAppId || null,
+    official_wechat_mch_id: config.officialWechatMchId || null,
+    official_wechat_serial_no: config.officialWechatSerialNo || null,
+    official_wechat_private_key: config.officialWechatPrivateKey || null,
+    official_wechat_api_v3_key: config.officialWechatApiV3Key || null,
+    official_wechat_platform_public_key: config.officialWechatPlatformPublicKey || null,
     custom_commands: config.customCommands || null,
     payment_notice: config.paymentNotice || null,
     // 新增字段

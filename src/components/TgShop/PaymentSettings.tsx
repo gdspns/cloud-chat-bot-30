@@ -281,6 +281,27 @@ export function PaymentSettings({ config, onSave, showToast, readOnly }: Payment
               </div>
             </div>
 
+            {/* 微信支付官方商户 */}
+            <div className="p-4 bg-green-500/5 rounded-lg border border-green-500/30">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">微信支付官方商户（Native）</h4>
+                  <p className="text-xs text-muted-foreground mt-1">密钥按当前 Telegram 商城独立保存；回调会自动验签并发货。</p>
+                </div>
+                <button type="button" onClick={() => handleChange('officialWechatEnabled', !localConfig.officialWechatEnabled)} className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${localConfig.officialWechatEnabled ? 'bg-green-600' : 'bg-muted'}`}>
+                  <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform ${localConfig.officialWechatEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              {localConfig.officialWechatEnabled && <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                <input value={localConfig.officialWechatAppId} onChange={e => handleChange('officialWechatAppId', e.target.value)} placeholder="公众号/应用 AppID" className="p-2 bg-background border rounded text-sm" />
+                <input value={localConfig.officialWechatMchId} onChange={e => handleChange('officialWechatMchId', e.target.value)} placeholder="微信支付商户号 mchid" className="p-2 bg-background border rounded text-sm" />
+                <input value={localConfig.officialWechatSerialNo} onChange={e => handleChange('officialWechatSerialNo', e.target.value)} placeholder="商户 API 证书序列号" className="p-2 bg-background border rounded text-sm" />
+                <input type="password" value={localConfig.officialWechatApiV3Key} onChange={e => handleChange('officialWechatApiV3Key', e.target.value)} placeholder="API v3 密钥（32位）" className="p-2 bg-background border rounded text-sm" />
+                <textarea rows={4} value={localConfig.officialWechatPrivateKey} onChange={e => handleChange('officialWechatPrivateKey', e.target.value)} placeholder="商户私钥 PEM" className="p-2 bg-background border rounded text-xs font-mono" />
+                <textarea rows={4} value={localConfig.officialWechatPlatformPublicKey} onChange={e => handleChange('officialWechatPlatformPublicKey', e.target.value)} placeholder="微信支付公钥/平台证书公钥 PEM" className="p-2 bg-background border rounded text-xs font-mono" />
+              </div>}
+            </div>
+
             {/* 支付渠道开关 */}
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3">{t('tgshop.settings.enableChannels')}</h4>
@@ -336,11 +357,12 @@ export function PaymentSettings({ config, onSave, showToast, readOnly }: Payment
                   {localConfig.enableWechat && (
                     <select 
                       value={localConfig.wechatProvider || 'xunhu'} 
-                      onChange={(e) => handleChange('wechatProvider', e.target.value as 'yungou' | 'xunhu')}
+                      onChange={(e) => handleChange('wechatProvider', e.target.value as 'yungou' | 'xunhu' | 'wechat_official')}
                       className="w-full text-xs p-1 border rounded bg-background"
                     >
                       <option value="xunhu">{t('tgshop.settings.useXunhu')}</option>
                       <option value="yungou">{t('tgshop.settings.useYungou')}</option>
+                      <option value="wechat_official">微信支付官方商户</option>
                     </select>
                   )}
                 </div>

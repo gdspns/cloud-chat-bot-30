@@ -7,10 +7,10 @@ const corsHeaders = {
 
 interface PaymentCallback {
   // 通用字段
-  order_no: string
-  amount: string
-  currency: string
-  status: string
+  order_no?: string
+  amount?: any
+  currency?: string
+  status?: string
   tx_hash?: string
   
   // USDT/TRX 链上支付
@@ -25,6 +25,32 @@ interface PaymentCallback {
   // XunHuPay 回调  
   trade_order_id?: string
   total_fee?: string
+  out_trade_no?: string
+  trade_state?: string
+  mchid?: string
+  appid?: string
+}
+
+function pemBytes(pem: string): Uint8Array {
+  const raw = atob(String(pem || '').replace(/-----BEGIN [^-]+-----|-----END [^-]+-----|\s+/g, ''))
+  return Uint8Array.from(raw, c => c.charCodeAt(0))
+}
+
+async function verifyWechatSignature(content: string, signature: string, publicKeyPem: string): Promise<boolean> {
+  try {
+    const key = await crypto.subtle.importKey('spki', pemBytes(publicKeyPem), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'])
+    return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, Uint8Array.from(atob(signature), c => c.charCodeAt(0)), new TextEncoder().encode(content))
+  } catch (error) {
+    console.error('[Shop Webhook] WeChat signature verify error:', String(error))
+    return false
+  }
+}
+
+async function decryptWechatResource(resource: any, apiV3Key: string): Promise<any> {
+  if (new TextEncoder().encode(apiV3Key).length !== 32) throw new Error('微信 API v3 密钥必须为32字节')
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(apiV3Key), 'AES-GCM', false, ['decrypt'])
+  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new TextEncoder().encode(resource.nonce), additionalData: new TextEncoder().encode(resource.associated_data || ''), tagLength: 128 }, key, Uint8Array.from(atob(resource.ciphertext), c => c.charCodeAt(0)))
+  return JSON.parse(new TextDecoder().decode(plaintext))
 }
 
 Deno.serve(async (req) => {
@@ -52,8 +78,24 @@ Deno.serve(async (req) => {
     // 解析回调数据
     let callbackData: PaymentCallback
     const contentType = req.headers.get('content-type') || ''
-    
-    if (contentType.includes('application/json')) {
+
+    if (paymentType === 'wechat_official') {
+      const { data: paymentConfig } = await supabase.from('shop_configs').select('*').eq('bot_token', botToken).maybeSingle()
+      if (!paymentConfig?.official_wechat_enabled) return new Response(JSON.stringify({ code: 'FAIL', message: '微信官方支付未启用' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      const rawBody = await req.text()
+      const timestamp = req.headers.get('Wechatpay-Timestamp') || ''
+      const nonce = req.headers.get('Wechatpay-Nonce') || ''
+      const signature = req.headers.get('Wechatpay-Signature') || ''
+      if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300 || !(await verifyWechatSignature(`${timestamp}\n${nonce}\n${rawBody}\n`, signature, paymentConfig.official_wechat_platform_public_key || ''))) {
+        return new Response(JSON.stringify({ code: 'FAIL', message: '微信回调验签失败' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      const notification = JSON.parse(rawBody)
+      const transaction = await decryptWechatResource(notification.resource, paymentConfig.official_wechat_api_v3_key || '')
+      if (transaction.mchid !== paymentConfig.official_wechat_mch_id || transaction.appid !== paymentConfig.official_wechat_app_id) {
+        return new Response(JSON.stringify({ code: 'FAIL', message: '微信商户信息不匹配' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      callbackData = transaction as PaymentCallback
+    } else if (contentType.includes('application/json')) {
       callbackData = await req.json()
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
       const formData = await req.formData()
@@ -72,6 +114,11 @@ Deno.serve(async (req) => {
     let paymentStatus: string
 
     switch (paymentType) {
+      case 'wechat_official':
+        orderNo = callbackData.out_trade_no || ''
+        amount = Number(callbackData.amount?.total || 0) / 100
+        paymentStatus = callbackData.trade_state === 'SUCCESS' ? 'paid' : 'pending'
+        break
       case 'yungou':
         // YunGouOS 格式
         orderNo = callbackData.outTradeNo || callbackData.order_no || ''
@@ -103,6 +150,10 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    if (paymentStatus !== 'paid') {
+      console.log(`[Shop Webhook] Ignore unpaid callback: ${orderNo}`)
+      return new Response(JSON.stringify({ success: true, message: 'Payment not completed' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
 
     // 查找订单
     const { data: order, error: orderError } = await supabase
@@ -131,6 +182,9 @@ Deno.serve(async (req) => {
 
     // 验证金额 (允许小数误差)
     const expectedAmount = parseFloat(order.amount)
+    if (paymentType === 'wechat_official' && Math.abs(amount - expectedAmount) > 0.001) {
+      return new Response(JSON.stringify({ code: 'FAIL', message: '订单金额不匹配' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
     if (Math.abs(amount - expectedAmount) > 0.1) {
       console.warn(`[Shop Webhook] Amount mismatch: expected ${expectedAmount}, got ${amount}`)
     }

@@ -11,7 +11,7 @@ interface PaymentRequest {
   product_name: string
   amount: number
   payment_method: 'alipay' | 'wechat'
-  provider: 'yungou' | 'xunhu'
+  provider: 'yungou' | 'xunhu' | 'wechat_official'
   notify_url: string
   return_url?: string
   use_h5?: boolean
@@ -157,6 +157,30 @@ async function signXunHu(params: Record<string, string>, secret: string): Promis
   return await md5Hex(signStr)
 }
 
+function pemBytes(pem: string): Uint8Array {
+  const raw = atob(String(pem || '').replace(/-----BEGIN [^-]+-----|-----END [^-]+-----|\s+/g, ''))
+  return Uint8Array.from(raw, c => c.charCodeAt(0))
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let value = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) value += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(value)
+}
+
+async function rsaSign(content: string, privateKeyPem: string): Promise<string> {
+  const key = await crypto.subtle.importKey('pkcs8', pemBytes(privateKeyPem), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(content))
+  return toBase64(new Uint8Array(signature))
+}
+
+async function wechatAuthorization(path: string, body: string, mchId: string, serialNo: string, privateKey: string): Promise<string> {
+  const timestamp = String(Math.floor(Date.now() / 1000))
+  const nonce = crypto.randomUUID().replace(/-/g, '')
+  const signature = await rsaSign(`POST\n${path}\n${timestamp}\n${nonce}\n${body}\n`, privateKey)
+  return `WECHATPAY2-SHA256-RSA2048 mchid="${mchId}",nonce_str="${nonce}",timestamp="${timestamp}",serial_no="${serialNo}",signature="${signature}"`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -195,7 +219,28 @@ Deno.serve(async (req) => {
     let qrCode = ''
     let h5Url = ''
 
-    if (provider === 'yungou') {
+    if (provider === 'wechat_official') {
+      if (payment_method !== 'wechat' || !config.official_wechat_enabled || !config.official_wechat_app_id || !config.official_wechat_mch_id || !config.official_wechat_serial_no || !config.official_wechat_private_key || !config.official_wechat_api_v3_key || !config.official_wechat_platform_public_key) {
+        return new Response(JSON.stringify({ success: false, error: '微信官方商户配置未完成或未启用' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      const path = '/v3/pay/transactions/native'
+      const requestBody = JSON.stringify({
+        appid: config.official_wechat_app_id,
+        mchid: config.official_wechat_mch_id,
+        description: String(product_name || '商城订单').slice(0, 127),
+        out_trade_no: order_no,
+        notify_url,
+        amount: { total: Math.round(Number(amount) * 100), currency: 'CNY' },
+      })
+      const authorization = await wechatAuthorization(path, requestBody, config.official_wechat_mch_id, config.official_wechat_serial_no, config.official_wechat_private_key)
+      const res = await fetch(`https://api.mch.weixin.qq.com${path}`, { method: 'POST', headers: { Authorization: authorization, Accept: 'application/json', 'Content-Type': 'application/json' }, body: requestBody })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.code_url) {
+        return new Response(JSON.stringify({ success: false, error: data.message || `微信官方下单失败 (${res.status})` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      payUrl = data.code_url
+      qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payUrl)}`
+    } else if (provider === 'yungou') {
       // YunGouOS 支付
       if (!config.yungou_id || !config.yungou_key) {
         return new Response(
