@@ -123,10 +123,15 @@ export const StorePage = () => {
     return cnyPrice / rates.usdtCny / rates.trxUsdt;
   };
 
-  const [config] = useState<Config>(() => {
+  const [config, setConfig] = useState<Config>(() => {
     const saved = localStorage.getItem('app_config_v41');
     return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
   });
+  useEffect(() => {
+    supabase.from('shop_configs').select('enable_alipay,enable_wechat,accept_usdt,accept_trx').eq('official_alipay_enabled', true).limit(1).maybeSingle().then(({ data }) => {
+      if (data) setConfig(current => ({ ...current, enableAlipay: data.enable_alipay !== false, enableWechat: data.enable_wechat === true, enableUsdt: data.accept_usdt === true, enableTrx: data.accept_trx === true }));
+    });
+  }, []);
   const [orders, setOrders] = useState<Order[]>(() => {
     const saved = localStorage.getItem('app_orders_v41');
     return saved ? JSON.parse(saved) : [];

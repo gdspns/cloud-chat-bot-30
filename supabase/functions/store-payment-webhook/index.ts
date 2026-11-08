@@ -5,6 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function pemBytes(pem: string): Uint8Array {
+  const raw = atob(String(pem || '').replace(/-----BEGIN [^-]+-----|-----END [^-]+-----|\s+/g, ''))
+  return Uint8Array.from(raw, c => c.charCodeAt(0))
+}
+
+function alipaySignContent(params: Record<string, string>): string {
+  return Object.keys(params).filter(key => key !== 'sign' && key !== 'sign_type' && params[key] !== '').sort().map(key => `${key}=${params[key]}`).join('&')
+}
+
+async function verifyAlipay(params: Record<string, string>, publicKey: string): Promise<boolean> {
+  try {
+    const key = await crypto.subtle.importKey('spki', pemBytes(publicKey), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'])
+    const signature = String(params.sign || '').replace(/ /g, '+')
+    return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, Uint8Array.from(atob(signature), c => c.charCodeAt(0)), new TextEncoder().encode(alipaySignContent(params)))
+  } catch { return false }
+}
+
 /**
  * 自助商城支付回调处理
  * 支持虎皮椒 XunHuPay 异步通知
@@ -22,6 +39,8 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
+    const url = new URL(req.url)
+    const paymentType = url.searchParams.get('type') || 'xunhu'
 
     // 解析回调数据 - 虎皮椒使用 form-urlencoded
     let callbackData: Record<string, string> = {}
@@ -42,13 +61,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (paymentType === 'alipay_official') {
+      const botToken = url.searchParams.get('bot_token') || ''
+      const { data: config } = await supabase.from('shop_configs').select('official_alipay_enabled,official_alipay_app_id,official_alipay_public_key').eq('bot_token', botToken).maybeSingle()
+      if (!config?.official_alipay_enabled || callbackData.app_id !== config.official_alipay_app_id || !(await verifyAlipay(callbackData, config.official_alipay_public_key || ''))) return new Response('failure', { status: 401, headers: corsHeaders })
+    }
+
     console.log('[Store Webhook] 收到回调:', JSON.stringify(callbackData))
 
     // 虎皮椒回调字段
-    const orderNo = callbackData.trade_order_id || callbackData.order_no || ''
-    const totalFee = parseFloat(callbackData.total_fee || callbackData.amount || '0')
-    const status = callbackData.status
-    const transactionId = callbackData.transaction_id || callbackData.openid || ''
+    const orderNo = paymentType === 'alipay_official' ? (callbackData.out_trade_no || '') : (callbackData.trade_order_id || callbackData.order_no || '')
+    const totalFee = parseFloat(paymentType === 'alipay_official' ? (callbackData.total_amount || '0') : (callbackData.total_fee || callbackData.amount || '0'))
+    const status = paymentType === 'alipay_official' ? callbackData.trade_status : callbackData.status
+    const transactionId = paymentType === 'alipay_official' ? (callbackData.trade_no || '') : (callbackData.transaction_id || callbackData.openid || '')
 
     if (!orderNo) {
       console.error('[Store Webhook] 缺少订单号')
@@ -56,7 +81,7 @@ Deno.serve(async (req) => {
     }
 
     // 虎皮椒支付成功状态是 'OD'
-    if (status !== 'OD') {
+    if (paymentType === 'alipay_official' ? !['TRADE_SUCCESS', 'TRADE_FINISHED'].includes(status || '') : status !== 'OD') {
       console.log(`[Store Webhook] 订单 ${orderNo} 状态非支付成功: ${status}`)
       return new Response('success', { headers: corsHeaders })
     }

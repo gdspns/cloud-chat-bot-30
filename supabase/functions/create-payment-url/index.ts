@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -152,6 +153,23 @@ serve(async (req) => {
       );
     }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+    if (paymentMethod === 'alipay') {
+      const { data: official } = await supabase.from('shop_configs').select('bot_token').eq('official_alipay_enabled', true).eq('enable_alipay', true).eq('alipay_provider', 'alipay_official').limit(1).maybeSingle();
+      if (official?.bot_token) {
+        const notifyUrl = `${supabaseUrl}/functions/v1/store-payment-webhook?type=alipay_official&bot_token=${encodeURIComponent(official.bot_token)}`;
+        const paymentResponse = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ bot_token: official.bot_token, order_no: orderId, product_name: '在线支付', amount, payment_method: 'alipay', provider: 'alipay_official', notify_url: notifyUrl })
+        });
+        const payment = await paymentResponse.json();
+        if (!paymentResponse.ok || !payment.success) return new Response(JSON.stringify({ error: payment.error || '支付宝官方下单失败' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ success: true, payUrl: payment.pay_url, qrCodeUrl: payment.qr_code, orderId, amount, paymentMethod }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
     const appId = paymentMethod === 'wechat' 
       ? Deno.env.get('HUPI_WECHAT_APPID') || ''
       : Deno.env.get('HUPI_ALIPAY_APPID') || '';
@@ -166,7 +184,6 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     // 使用自助商城专用回调
     const notifyUrl = `${supabaseUrl}/functions/v1/store-payment-webhook`;
 
