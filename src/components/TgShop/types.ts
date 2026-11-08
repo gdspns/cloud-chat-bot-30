@@ -60,7 +60,7 @@ export interface ShopConfig {
   xunhuAlipaySecret: string;
   xunhuAlipayH5: boolean;
   enableAlipay: boolean;
-  alipayProvider: 'yungou' | 'xunhu';
+  alipayProvider: 'yungou' | 'xunhu' | 'alipay_official';
   enableWechat: boolean;
   wechatProvider: 'yungou' | 'xunhu' | 'wechat_official';
   officialWechatEnabled: boolean;
@@ -70,6 +70,10 @@ export interface ShopConfig {
   officialWechatPrivateKey: string;
   officialWechatApiV3Key: string;
   officialWechatPlatformPublicKey: string;
+  officialAlipayEnabled: boolean;
+  officialAlipayAppId: string;
+  officialAlipayPrivateKey: string;
+  officialAlipayPublicKey: string;
   customCommands: {
     shop: string[];
     buy: string[];

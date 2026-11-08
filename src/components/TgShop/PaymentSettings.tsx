@@ -302,6 +302,24 @@ export function PaymentSettings({ config, onSave, showToast, readOnly }: Payment
               </div>}
             </div>
 
+            {/* 支付宝官方商户 */}
+            <div className="p-4 bg-blue-500/5 rounded-lg border border-blue-500/30">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">支付宝官方商户（当面付）</h4>
+                  <p className="text-xs text-muted-foreground mt-1">使用支付宝开放平台 RSA2 应用私钥签名，回调自动验签并发货。</p>
+                </div>
+                <button type="button" onClick={() => handleChange('officialAlipayEnabled', !localConfig.officialAlipayEnabled)} className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${localConfig.officialAlipayEnabled ? 'bg-blue-600' : 'bg-muted'}`}>
+                  <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform ${localConfig.officialAlipayEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              {localConfig.officialAlipayEnabled && <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                <input value={localConfig.officialAlipayAppId} onChange={e => handleChange('officialAlipayAppId', e.target.value)} placeholder="支付宝开放平台 AppID" className="p-2 bg-background border rounded text-sm xl:col-span-2" />
+                <textarea rows={4} value={localConfig.officialAlipayPrivateKey} onChange={e => handleChange('officialAlipayPrivateKey', e.target.value)} placeholder="应用私钥 PEM（不是应用公钥）" className="p-2 bg-background border rounded text-xs font-mono" />
+                <textarea rows={4} value={localConfig.officialAlipayPublicKey} onChange={e => handleChange('officialAlipayPublicKey', e.target.value)} placeholder="支付宝公钥 PEM（不是应用公钥）" className="p-2 bg-background border rounded text-xs font-mono" />
+              </div>}
+            </div>
+
             {/* 支付渠道开关 */}
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-bold text-sm text-foreground mb-3">{t('tgshop.settings.enableChannels')}</h4>
@@ -327,11 +345,12 @@ export function PaymentSettings({ config, onSave, showToast, readOnly }: Payment
                   {localConfig.enableAlipay && (
                     <select 
                       value={localConfig.alipayProvider || 'xunhu'} 
-                      onChange={(e) => handleChange('alipayProvider', e.target.value as 'yungou' | 'xunhu')}
+                      onChange={(e) => handleChange('alipayProvider', e.target.value as 'yungou' | 'xunhu' | 'alipay_official')}
                       className="w-full text-xs p-1 border rounded bg-background"
                     >
                       <option value="xunhu">{t('tgshop.settings.useXunhu')}</option>
                       <option value="yungou">{t('tgshop.settings.useYungou')}</option>
+                      <option value="alipay_official">支付宝官方商户</option>
                     </select>
                   )}
                 </div>

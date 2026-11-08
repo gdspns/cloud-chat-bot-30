@@ -11,7 +11,7 @@ interface PaymentRequest {
   product_name: string
   amount: number
   payment_method: 'alipay' | 'wechat'
-  provider: 'yungou' | 'xunhu' | 'wechat_official'
+  provider: 'yungou' | 'xunhu' | 'wechat_official' | 'alipay_official'
   notify_url: string
   return_url?: string
   use_h5?: boolean
@@ -181,6 +181,18 @@ async function wechatAuthorization(path: string, body: string, mchId: string, se
   return `WECHATPAY2-SHA256-RSA2048 mchid="${mchId}",nonce_str="${nonce}",timestamp="${timestamp}",serial_no="${serialNo}",signature="${signature}"`
 }
 
+function alipaySignContent(params: Record<string, string>, excludeSignType = false): string {
+  return Object.keys(params)
+    .filter(key => key !== 'sign' && (!excludeSignType || key !== 'sign_type') && params[key] !== '')
+    .sort()
+    .map(key => `${key}=${params[key]}`)
+    .join('&')
+}
+
+function alipayTimestamp(): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date()).replace('T', ' ')
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -219,7 +231,31 @@ Deno.serve(async (req) => {
     let qrCode = ''
     let h5Url = ''
 
-    if (provider === 'wechat_official') {
+    if (provider === 'alipay_official') {
+      if (payment_method !== 'alipay' || !config.official_alipay_enabled || !config.official_alipay_app_id || !config.official_alipay_private_key || !config.official_alipay_public_key) {
+        return new Response(JSON.stringify({ success: false, error: '支付宝官方商户配置未完成或未启用' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      const params: Record<string, string> = {
+        app_id: config.official_alipay_app_id,
+        method: 'alipay.trade.precreate',
+        format: 'JSON',
+        charset: 'utf-8',
+        sign_type: 'RSA2',
+        timestamp: alipayTimestamp(),
+        version: '1.0',
+        notify_url,
+        biz_content: JSON.stringify({ out_trade_no: order_no, total_amount: Number(amount).toFixed(2), subject: String(product_name || '商城订单').slice(0, 256), timeout_express: '20m' }),
+      }
+      params.sign = await rsaSign(alipaySignContent(params), config.official_alipay_private_key)
+      const res = await fetch('https://openapi.alipay.com/gateway.do', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' }, body: new URLSearchParams(params).toString() })
+      const data = await res.json().catch(() => ({}))
+      const result = data.alipay_trade_precreate_response || {}
+      if (!res.ok || result.code !== '10000' || !result.qr_code) {
+        return new Response(JSON.stringify({ success: false, error: result.sub_msg || result.msg || `支付宝官方下单失败 (${res.status})` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      payUrl = result.qr_code
+      qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payUrl)}`
+    } else if (provider === 'wechat_official') {
       if (payment_method !== 'wechat' || !config.official_wechat_enabled || !config.official_wechat_app_id || !config.official_wechat_mch_id || !config.official_wechat_serial_no || !config.official_wechat_private_key || !config.official_wechat_api_v3_key || !config.official_wechat_platform_public_key) {
         return new Response(JSON.stringify({ success: false, error: '微信官方商户配置未完成或未启用' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }

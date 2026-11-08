@@ -29,6 +29,11 @@ interface PaymentCallback {
   trade_state?: string
   mchid?: string
   appid?: string
+  app_id?: string
+  trade_status?: string
+  total_amount?: string
+  sign?: string
+  sign_type?: string
 }
 
 function pemBytes(pem: string): Uint8Array {
@@ -42,6 +47,24 @@ async function verifyWechatSignature(content: string, signature: string, publicK
     return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, Uint8Array.from(atob(signature), c => c.charCodeAt(0)), new TextEncoder().encode(content))
   } catch (error) {
     console.error('[Shop Webhook] WeChat signature verify error:', String(error))
+    return false
+  }
+}
+
+function alipaySignContent(params: Record<string, any>): string {
+  return Object.keys(params)
+    .filter(key => key !== 'sign' && key !== 'sign_type' && params[key] !== '')
+    .sort()
+    .map(key => `${key}=${params[key]}`)
+    .join('&')
+}
+
+async function verifyAlipaySignature(params: Record<string, any>, publicKeyPem: string): Promise<boolean> {
+  try {
+    const key = await crypto.subtle.importKey('spki', pemBytes(publicKeyPem), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'])
+    return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, Uint8Array.from(atob(params.sign || ''), c => c.charCodeAt(0)), new TextEncoder().encode(alipaySignContent(params)))
+  } catch (error) {
+    console.error('[Shop Webhook] Alipay signature verify error:', String(error))
     return false
   }
 }
@@ -79,7 +102,14 @@ Deno.serve(async (req) => {
     let callbackData: PaymentCallback
     const contentType = req.headers.get('content-type') || ''
 
-    if (paymentType === 'wechat_official') {
+    if (paymentType === 'alipay_official') {
+      const { data: paymentConfig } = await supabase.from('shop_configs').select('*').eq('bot_token', botToken).maybeSingle()
+      const formData = await req.formData()
+      callbackData = Object.fromEntries(formData.entries()) as unknown as PaymentCallback
+      if (!paymentConfig?.official_alipay_enabled || callbackData.app_id !== paymentConfig.official_alipay_app_id || !(await verifyAlipaySignature(callbackData as any, paymentConfig.official_alipay_public_key || ''))) {
+        return new Response('failure', { status: 401, headers: corsHeaders })
+      }
+    } else if (paymentType === 'wechat_official') {
       const { data: paymentConfig } = await supabase.from('shop_configs').select('*').eq('bot_token', botToken).maybeSingle()
       if (!paymentConfig?.official_wechat_enabled) return new Response(JSON.stringify({ code: 'FAIL', message: '微信官方支付未启用' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       const rawBody = await req.text()
@@ -114,6 +144,11 @@ Deno.serve(async (req) => {
     let paymentStatus: string
 
     switch (paymentType) {
+      case 'alipay_official':
+        orderNo = callbackData.out_trade_no || ''
+        amount = Number(callbackData.total_amount || 0)
+        paymentStatus = ['TRADE_SUCCESS', 'TRADE_FINISHED'].includes(callbackData.trade_status || '') ? 'paid' : 'pending'
+        break
       case 'wechat_official':
         orderNo = callbackData.out_trade_no || ''
         amount = Number(callbackData.amount?.total || 0) / 100
@@ -182,7 +217,7 @@ Deno.serve(async (req) => {
 
     // 验证金额 (允许小数误差)
     const expectedAmount = parseFloat(order.amount)
-    if (paymentType === 'wechat_official' && Math.abs(amount - expectedAmount) > 0.001) {
+    if (['wechat_official', 'alipay_official'].includes(paymentType) && Math.abs(amount - expectedAmount) > 0.001) {
       return new Response(JSON.stringify({ code: 'FAIL', message: '订单金额不匹配' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
     if (Math.abs(amount - expectedAmount) > 0.1) {
@@ -451,7 +486,9 @@ ${txHash ? `TxHash: \`${txHash}\`\n` : ''}
     }
 
     // 返回不同支付平台期望的响应格式
-    if (paymentType === 'yungou') {
+    if (paymentType === 'alipay_official') {
+      return new Response('success', { headers: corsHeaders })
+    } else if (paymentType === 'yungou') {
       return new Response('SUCCESS', { headers: corsHeaders })
     } else if (paymentType === 'xunhu') {
       return new Response('success', { headers: corsHeaders })

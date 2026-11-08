@@ -505,6 +505,10 @@ export type Database = {
           custom_commands: Json | null
           enable_alipay: boolean | null
           enable_wechat: boolean | null
+          official_alipay_app_id: string | null
+          official_alipay_enabled: boolean | null
+          official_alipay_private_key: string | null
+          official_alipay_public_key: string | null
           official_wechat_api_v3_key: string | null
           official_wechat_app_id: string | null
           official_wechat_enabled: boolean | null
@@ -570,6 +574,10 @@ export type Database = {
           custom_commands?: Json | null
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
+          official_alipay_app_id?: string | null
+          official_alipay_enabled?: boolean | null
+          official_alipay_private_key?: string | null
+          official_alipay_public_key?: string | null
           official_wechat_api_v3_key?: string | null
           official_wechat_app_id?: string | null
           official_wechat_enabled?: boolean | null
@@ -635,6 +643,10 @@ export type Database = {
           custom_commands?: Json | null
           enable_alipay?: boolean | null
           enable_wechat?: boolean | null
+          official_alipay_app_id?: string | null
+          official_alipay_enabled?: boolean | null
+          official_alipay_private_key?: string | null
+          official_alipay_public_key?: string | null
           official_wechat_api_v3_key?: string | null
           official_wechat_app_id?: string | null
           official_wechat_enabled?: boolean | null

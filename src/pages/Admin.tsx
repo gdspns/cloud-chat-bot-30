@@ -21,6 +21,7 @@ import { OrderCenter } from "@/components/OrderCenter";
 import { GatewayConfig } from "@/components/GatewayConfig";
 import { BotShopProducts } from "@/components/BotShopProducts";
 import { BotShopOrders } from "@/components/BotShopOrders";
+import { AdminOfficialPaymentSettings } from "@/components/AdminOfficialPaymentSettings";
 
 interface BotActivation {
   id: string;
@@ -1364,6 +1365,10 @@ export const Admin = () => {
                 <CreditCard className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">网关配置</span>
               </TabsTrigger>
+              <TabsTrigger value="official-payment">
+                <CreditCard className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">官方支付</span>
+              </TabsTrigger>
               <TabsTrigger value="botproducts">
                 <ClipboardList className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">机器人商品</span>
@@ -1995,6 +2000,10 @@ export const Admin = () => {
             <Card className="p-6">
               <GatewayConfig />
             </Card>
+          </TabsContent>
+
+          <TabsContent value="official-payment" className="space-y-4">
+            <Card className="p-6"><AdminOfficialPaymentSettings /></Card>
           </TabsContent>
 
           {/* 机器人商品 */}
