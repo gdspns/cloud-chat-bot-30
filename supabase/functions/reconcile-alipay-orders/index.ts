@@ -37,7 +37,23 @@ Deno.serve(async (req) => {
       const result = await response.json().catch(() => ({}))
       if (response.ok && result?.delivered) recovered++
     }
-    return new Response(JSON.stringify({ success: true, checked: orders?.length || 0, recovered }), { headers })
+    const { data: storeOrders, error: storeError } = await supabase
+      .from('store_orders')
+      .select('order_no')
+      .eq('status', 'pending')
+      .eq('payment_method', 'alipay')
+      .gte('created_at', since)
+      .order('created_at', { ascending: true })
+      .limit(100)
+    if (storeError) throw storeError
+    const storeBotToken = tokens[0]
+    for (const order of storeOrders || []) {
+      const url = `${supabaseUrl}/functions/v1/store-payment-webhook?bot_token=${encodeURIComponent(storeBotToken)}&type=alipay_query&order_no=${encodeURIComponent(order.order_no)}`
+      const response = await fetch(url, { method: 'POST', headers, body: '{}' })
+      const result = await response.text()
+      if (response.ok && result === 'success') recovered++
+    }
+    return new Response(JSON.stringify({ success: true, checked: (orders?.length || 0) + (storeOrders?.length || 0), recovered }), { headers })
   } catch (error) {
     console.error('[Reconcile Alipay] Error:', error)
     return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }), { status: 500, headers })

@@ -22,6 +22,28 @@ async function verifyAlipay(params: Record<string, string>, publicKey: string): 
   } catch { return false }
 }
 
+function toBase64(bytes: Uint8Array): string {
+  let value = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) value += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(value)
+}
+
+async function queryAlipay(config: any, orderNo: string): Promise<Record<string, string>> {
+  const params: Record<string, string> = {
+    app_id: config.official_alipay_app_id, method: 'alipay.trade.query', format: 'JSON', charset: 'utf-8', sign_type: 'RSA2',
+    timestamp: new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date()).replace('T', ' '),
+    version: '1.0', biz_content: JSON.stringify({ out_trade_no: orderNo })
+  }
+  const privateKey = await crypto.subtle.importKey('pkcs8', pemBytes(config.official_alipay_private_key || ''), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
+  const signContent = Object.keys(params).sort().map(key => `${key}=${params[key]}`).join('&')
+  params.sign = toBase64(new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', privateKey, new TextEncoder().encode(signContent))))
+  const response = await fetch('https://openapi.alipay.com/gateway.do', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' }, body: new URLSearchParams(params).toString() })
+  const payload = await response.json().catch(() => ({}))
+  const result = payload.alipay_trade_query_response || {}
+  if (!response.ok || result.code !== '10000') throw new Error(result.sub_msg || result.msg || '支付宝主动查单失败')
+  return { out_trade_no: result.out_trade_no, total_amount: result.total_amount, trade_status: result.trade_status, trade_no: result.trade_no || '' }
+}
+
 /**
  * 自助商城支付回调处理
  * 支持虎皮椒 XunHuPay 异步通知
@@ -61,6 +83,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (paymentType === 'alipay_query') {
+      const botToken = url.searchParams.get('bot_token') || ''
+      const orderNo = url.searchParams.get('order_no') || ''
+      const { data: config } = await supabase.from('shop_configs').select('official_alipay_enabled,official_alipay_app_id,official_alipay_private_key').eq('bot_token', botToken).maybeSingle()
+      if (!orderNo || !config?.official_alipay_enabled) return new Response(JSON.stringify({ success: false, error: '主动查单参数无效' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      callbackData = await queryAlipay(config, orderNo)
+    }
+
     if (paymentType === 'alipay_official') {
       const botToken = url.searchParams.get('bot_token') || ''
       const { data: config } = await supabase.from('shop_configs').select('official_alipay_enabled,official_alipay_app_id,official_alipay_public_key').eq('bot_token', botToken).maybeSingle()
@@ -70,10 +100,11 @@ Deno.serve(async (req) => {
     console.log('[Store Webhook] 收到回调:', JSON.stringify(callbackData))
 
     // 虎皮椒回调字段
-    const orderNo = paymentType === 'alipay_official' ? (callbackData.out_trade_no || '') : (callbackData.trade_order_id || callbackData.order_no || '')
-    const totalFee = parseFloat(paymentType === 'alipay_official' ? (callbackData.total_amount || '0') : (callbackData.total_fee || callbackData.amount || '0'))
-    const status = paymentType === 'alipay_official' ? callbackData.trade_status : callbackData.status
-    const transactionId = paymentType === 'alipay_official' ? (callbackData.trade_no || '') : (callbackData.transaction_id || callbackData.openid || '')
+    const isOfficialAlipay = ['alipay_official', 'alipay_query'].includes(paymentType)
+    const orderNo = isOfficialAlipay ? (callbackData.out_trade_no || '') : (callbackData.trade_order_id || callbackData.order_no || '')
+    const totalFee = parseFloat(isOfficialAlipay ? (callbackData.total_amount || '0') : (callbackData.total_fee || callbackData.amount || '0'))
+    const status = isOfficialAlipay ? callbackData.trade_status : callbackData.status
+    const transactionId = isOfficialAlipay ? (callbackData.trade_no || '') : (callbackData.transaction_id || callbackData.openid || '')
 
     if (!orderNo) {
       console.error('[Store Webhook] 缺少订单号')
@@ -81,7 +112,7 @@ Deno.serve(async (req) => {
     }
 
     // 虎皮椒支付成功状态是 'OD'
-    if (paymentType === 'alipay_official' ? !['TRADE_SUCCESS', 'TRADE_FINISHED'].includes(status || '') : status !== 'OD') {
+    if (isOfficialAlipay ? !['TRADE_SUCCESS', 'TRADE_FINISHED'].includes(status || '') : status !== 'OD') {
       console.log(`[Store Webhook] 订单 ${orderNo} 状态非支付成功: ${status}`)
       return new Response('success', { headers: corsHeaders })
     }
